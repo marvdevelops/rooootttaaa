@@ -1,0 +1,370 @@
+import { supabase } from '../lib/supabase';
+import { GroupRun, GroupRunParticipant, GroupRunStatus, RsvpStatus } from '../types/route';
+
+interface GroupRunRow {
+  id: string;
+  route_id: string;
+  host_id: string;
+  title: string;
+  description: string;
+  scheduled_at: string;
+  created_at: string;
+  status: GroupRunStatus;
+  city: string | null;
+  max_participants: number | null;
+  approved_count: number;
+  start_lat: number | null;
+  start_lng: number | null;
+  routes: { name: string; distance_km: number } | { name: string; distance_km: number }[] | null;
+  profiles: { username: string } | { username: string }[] | null;
+}
+
+const GROUP_RUN_SELECT = '*, routes(name, distance_km), profiles!host_id(username)';
+
+const UPCOMING_STATUSES: GroupRunStatus[] = ['scheduled', 'active'];
+
+async function currentUserId(): Promise<string | null> {
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
+
+function unwrapRoute(routes: GroupRunRow['routes']) {
+  return Array.isArray(routes) ? routes[0] : routes;
+}
+
+async function toGroupRun(
+  row: GroupRunRow,
+  viewerId: string | null,
+  myRole?: 'host' | 'participant',
+  myStatusOverride?: RsvpStatus | null,
+): Promise<GroupRun> {
+  let myRsvpStatus: RsvpStatus | null = myStatusOverride ?? null;
+  if (myRole === 'host') {
+    myRsvpStatus = 'approved';
+  } else if (viewerId && myStatusOverride === undefined && !myRole) {
+    const { data } = await supabase
+      .from('group_run_rsvps')
+      .select('status')
+      .eq('group_run_id', row.id)
+      .eq('user_id', viewerId)
+      .maybeSingle();
+    myRsvpStatus = (data?.status as RsvpStatus | undefined) ?? null;
+  }
+
+  const route = unwrapRoute(row.routes);
+  const host = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+
+  return {
+    id: row.id,
+    routeId: row.route_id,
+    routeName: route?.name ?? 'Untitled route',
+    routeDistanceKm: route?.distance_km ?? 0,
+    hostId: row.host_id,
+    hostUsername: host?.username ?? 'unknown',
+    title: row.title,
+    description: row.description,
+    scheduledAt: new Date(row.scheduled_at).getTime(),
+    createdAt: new Date(row.created_at).getTime(),
+    status: row.status,
+    city: row.city,
+    maxParticipants: row.max_participants,
+    rsvpCount: row.approved_count ?? 0,
+    isHostedByMe: row.host_id === viewerId,
+    isRsvpedByMe: myRsvpStatus === 'approved',
+    myRsvpStatus,
+    myRole,
+    startLat: row.start_lat,
+    startLng: row.start_lng,
+  };
+}
+
+export interface CreateGroupRunInput {
+  routeId: string;
+  title: string;
+  description: string;
+  scheduledAt: Date;
+  /** null = open to all (paid hosts only — free hosts are still capped at 10 server-side regardless of what's stored here). */
+  maxParticipants: number | null;
+}
+
+export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupRun> {
+  const hostId = await currentUserId();
+  if (!hostId) throw new Error('You must be signed in to schedule a group run.');
+
+  const { data, error } = await supabase
+    .from('group_runs')
+    .insert({
+      route_id: input.routeId,
+      host_id: hostId,
+      title: input.title,
+      description: input.description,
+      scheduled_at: input.scheduledAt.toISOString(),
+      max_participants: input.maxParticipants,
+    })
+    .select(GROUP_RUN_SELECT)
+    .single();
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to schedule group run.');
+  return toGroupRun(data as unknown as GroupRunRow, hostId, 'host');
+}
+
+/** All upcoming (scheduled/active) group runs, soonest first — never includes archived runs. */
+export async function listUpcomingGroupRuns(limit = 40): Promise<GroupRun[]> {
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase
+    .from('group_runs')
+    .select(GROUP_RUN_SELECT)
+    .in('status', UPCOMING_STATUSES)
+    .order('scheduled_at', { ascending: true })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as GroupRunRow[];
+  return Promise.all(rows.map((row) => toGroupRun(row, viewerId)));
+}
+
+/**
+ * Upcoming runs within `radiusKm` of the given point, closest first — a real
+ * geographic search (Haversine, via the nearby_group_runs RPC) rather than
+ * an exact city-string match, so a run just across a city boundary still
+ * shows up. Falls back to all upcoming runs nationwide when location is
+ * null (permission denied / not yet resolved).
+ */
+export async function listRunsNearLocation(
+  location: { latitude: number; longitude: number } | null,
+  radiusKm = 50,
+  limit = 20,
+): Promise<GroupRun[]> {
+  if (!location) return listUpcomingGroupRuns(limit);
+
+  const viewerId = await currentUserId();
+
+  const { data: nearby, error: rpcError } = await supabase.rpc('nearby_group_runs', {
+    user_lat: location.latitude,
+    user_lng: location.longitude,
+    radius_km: radiusKm,
+    result_limit: limit,
+  });
+  if (rpcError) throw new Error(rpcError.message);
+  if (!nearby || nearby.length === 0) return [];
+
+  // Order from the RPC (distance from the search point) — the app displays
+  // distance from the user's actual GPS location separately, computed
+  // client-side, since the search point here may just be the map's current
+  // viewport center rather than where the user actually is.
+  const order = new Map<string, number>((nearby as { id: string }[]).map((r, i) => [r.id, i]));
+  const { data, error } = await supabase
+    .from('group_runs')
+    .select(GROUP_RUN_SELECT)
+    .in('id', Array.from(order.keys()));
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []) as unknown as GroupRunRow[];
+  const runs = await Promise.all(rows.map((row) => toGroupRun(row, viewerId)));
+  // The .in() query above doesn't preserve the RPC's distance ordering.
+  return runs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+}
+
+export async function getGroupRun(id: string): Promise<GroupRun> {
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase.from('group_runs').select(GROUP_RUN_SELECT).eq('id', id).single();
+
+  if (error || !data) throw new Error(error?.message ?? 'Group run not found.');
+  return toGroupRun(data as unknown as GroupRunRow, viewerId);
+}
+
+/** Upcoming (scheduled/active) group runs for a specific route — never includes archived runs. */
+export async function listGroupRunsForRoute(routeId: string): Promise<GroupRun[]> {
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase
+    .from('group_runs')
+    .select(GROUP_RUN_SELECT)
+    .eq('route_id', routeId)
+    .in('status', UPCOMING_STATUSES)
+    .order('scheduled_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as GroupRunRow[];
+  return Promise.all(rows.map((row) => toGroupRun(row, viewerId)));
+}
+
+/** Thrown when a free-tier user tries to RSVP to a second event — callers should open the paywall rather than show a plain error. */
+export class FreeJoinLimitError extends Error {}
+
+/**
+ * Requests to join (rsvped=true) create a 'pending' row — the host has to
+ * approve it before it counts as attending. Un-RSVPing (false) withdraws the
+ * request/attendance outright, whatever its current status.
+ */
+export async function setGroupRunRsvp(groupRunId: string, rsvped: boolean): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error('You must be signed in to RSVP.');
+
+  if (rsvped) {
+    const { error } = await supabase
+      .from('group_run_rsvps')
+      .insert({ group_run_id: groupRunId, user_id: userId });
+    // The DB triggers raise plain messages for these two cases — pass them
+    // through as a typed/friendly error rather than Postgres's wrapped text.
+    if (error) {
+      if (error.message.includes('at capacity')) throw new Error('This run is at capacity.');
+      if (error.message.includes('one event at a time')) {
+        throw new FreeJoinLimitError('Free accounts can only join one event at a time.');
+      }
+      throw new Error(error.message);
+    }
+  } else {
+    const { error } = await supabase
+      .from('group_run_rsvps')
+      .delete()
+      .eq('group_run_id', groupRunId)
+      .eq('user_id', userId);
+    if (error) throw new Error(error.message);
+  }
+}
+
+/** Host-only: approve or decline a pending (or previously-decided) join request. */
+export async function respondToJoinRequest(
+  groupRunId: string,
+  userId: string,
+  approve: boolean,
+): Promise<void> {
+  const { error } = await supabase
+    .from('group_run_rsvps')
+    .update({ status: approve ? 'approved' : 'declined' })
+    .eq('group_run_id', groupRunId)
+    .eq('user_id', userId);
+  if (error) {
+    if (error.message.includes('at capacity')) throw new Error('This run is at capacity.');
+    throw new Error(error.message);
+  }
+}
+
+interface ParticipantRow {
+  user_id: string;
+  status: RsvpStatus;
+  created_at: string;
+  profiles: { username: string; avatar_url: string | null } | { username: string; avatar_url: string | null }[] | null;
+}
+
+/**
+ * Everyone who's requested/joined a run. RLS scopes what comes back: the
+ * host sees every status (for the approve/decline queue), a regular viewer
+ * only sees approved rows plus their own pending/declined request.
+ */
+export async function listGroupRunParticipants(groupRunId: string): Promise<GroupRunParticipant[]> {
+  const { data, error } = await supabase
+    .from('group_run_rsvps')
+    .select('user_id, status, created_at, profiles(username, avatar_url)')
+    .eq('group_run_id', groupRunId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as ParticipantRow[]).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return {
+      userId: row.user_id,
+      username: profile?.username ?? 'unknown',
+      avatarUrl: profile?.avatar_url ?? null,
+      status: row.status,
+      requestedAt: new Date(row.created_at).getTime(),
+    };
+  });
+}
+
+/** Cheap count for gate checks — how many upcoming (scheduled/active) runs the current user is hosting. */
+export async function countMyActiveGroupRuns(): Promise<number> {
+  const hostId = await currentUserId();
+  if (!hostId) return 0;
+
+  const { count, error } = await supabase
+    .from('group_runs')
+    .select('id', { count: 'exact', head: true })
+    .eq('host_id', hostId)
+    .in('status', UPCOMING_STATUSES);
+
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function cancelGroupRun(id: string): Promise<void> {
+  const { error } = await supabase.from('group_runs').delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+interface RsvpEmbedRow {
+  status: RsvpStatus;
+  group_runs: GroupRunRow | GroupRunRow[] | null;
+}
+
+async function fetchJoinedRuns(
+  profileUserId: string,
+  statuses: GroupRunStatus[],
+  rsvpStatuses: RsvpStatus[],
+  ascending: boolean,
+): Promise<GroupRun[]> {
+  const { data, error } = await supabase
+    .from('group_run_rsvps')
+    .select(`status, group_runs!inner(${GROUP_RUN_SELECT})`)
+    .eq('user_id', profileUserId)
+    .in('status', rsvpStatuses)
+    .in('group_runs.status', statuses)
+    .neq('group_runs.host_id', profileUserId)
+    .order('scheduled_at', { referencedTable: 'group_runs', ascending });
+
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as RsvpEmbedRow[];
+  return Promise.all(
+    rows
+      .filter((row): row is RsvpEmbedRow & { group_runs: GroupRunRow | GroupRunRow[] } => !!row.group_runs)
+      .map((row) => {
+        const run = Array.isArray(row.group_runs) ? row.group_runs[0] : row.group_runs;
+        return { run, status: row.status };
+      })
+      .filter((r): r is { run: GroupRunRow; status: RsvpStatus } => !!r.run)
+      .map(({ run, status }) => toGroupRun(run, profileUserId, 'participant', status)),
+  );
+}
+
+/** Runs shown on a profile: created by them + joined/requested (not created), scheduled/active only, soonest first. A run both hosted and RSVP'd to appears once, as host. */
+export async function fetchUpcomingEvents(profileUserId: string): Promise<GroupRun[]> {
+  const [hosted, joined] = await Promise.all([
+    supabase
+      .from('group_runs')
+      .select(GROUP_RUN_SELECT)
+      .eq('host_id', profileUserId)
+      .in('status', UPCOMING_STATUSES)
+      .order('scheduled_at', { ascending: true }),
+    fetchJoinedRuns(profileUserId, UPCOMING_STATUSES, ['pending', 'approved'], true),
+  ]);
+
+  if (hosted.error) throw new Error(hosted.error.message);
+  const hostedRuns = await Promise.all(
+    ((hosted.data ?? []) as unknown as GroupRunRow[]).map((row) => toGroupRun(row, profileUserId, 'host')),
+  );
+
+  return [...hostedRuns, ...joined].sort((a, b) => a.scheduledAt - b.scheduledAt);
+}
+
+/** Archived runs the user hosted or actually attended (approved), most recent first. Only ever call this for the signed-in user's own profile — it's meant to be private. */
+export async function fetchPastEvents(userId: string): Promise<GroupRun[]> {
+  const [hosted, joined] = await Promise.all([
+    supabase
+      .from('group_runs')
+      .select(GROUP_RUN_SELECT)
+      .eq('host_id', userId)
+      .eq('status', 'archived')
+      .order('scheduled_at', { ascending: false }),
+    fetchJoinedRuns(userId, ['archived'], ['approved'], false),
+  ]);
+
+  if (hosted.error) throw new Error(hosted.error.message);
+  const hostedRuns = await Promise.all(
+    ((hosted.data ?? []) as unknown as GroupRunRow[]).map((row) => toGroupRun(row, userId, 'host')),
+  );
+
+  return [...hostedRuns, ...joined].sort((a, b) => b.scheduledAt - a.scheduledAt);
+}

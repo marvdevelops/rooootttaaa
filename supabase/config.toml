@@ -1,0 +1,16 @@
+# RevenueCat sends its own Authorization header (our shared webhook secret,
+# checked manually inside the function) — not a Supabase JWT, so Supabase's
+# default gateway-level JWT check has to be disabled for this function.
+[functions.revenuecat-webhook]
+verify_jwt = false
+
+# Hit by an external scheduler (e.g. cron-job.org) with a shared secret
+# Authorization header, not a Supabase JWT — same reasoning as above.
+[functions.group-run-lifecycle]
+verify_jwt = false
+
+# Hit by Supabase Database Webhooks with a shared secret Authorization
+# header (configured as a custom HTTP header on each webhook), not a
+# Supabase JWT — same reasoning as above.
+[functions.send-push-notification]
+verify_jwt = false
