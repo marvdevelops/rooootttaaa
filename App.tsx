@@ -26,6 +26,7 @@ import ProfileEventsScreen from './src/screens/ProfileEventsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import PublicProfileScreen from './src/screens/PublicProfileScreen';
 import RouteDetailScreen from './src/screens/RouteDetailScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
 import UsernameSetupScreen from './src/screens/UsernameSetupScreen';
 import NotificationPermissionModal from './src/components/NotificationPermissionModal';
 import ScheduleGroupRunModal from './src/components/ScheduleGroupRunModal';
@@ -45,6 +46,7 @@ type Overlay =
   | 'myMaps'
   | 'detail'
   | 'profile'
+  | 'settings'
   | 'publicProfile'
   | 'activity'
   | 'groupRuns'
@@ -471,15 +473,23 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
             onClose={() => setOverlay(null)}
             onOpenActivity={() => setOverlay('activity')}
             onOpenMyMaps={() => setOverlay('myMaps')}
-            onOpenBlockedUsers={() => setOverlay('blockedUsers')}
             onOpenEvents={() => setOverlay('events')}
+            onOpenSettings={() => setOverlay('settings')}
+            onOpenClub={(clubId) => openClubProfile(clubId)}
+            onOpenCreateClub={() => navigateTo('createClub')}
           />
+        </View>
+      )}
+
+      {overlay === 'settings' && (
+        <View style={StyleSheet.absoluteFill}>
+          <SettingsScreen onClose={() => setOverlay('profile')} onOpenBlockedUsers={() => setOverlay('blockedUsers')} />
         </View>
       )}
 
       {overlay === 'blockedUsers' && (
         <View style={StyleSheet.absoluteFill}>
-          <BlockedUsersScreen onClose={() => setOverlay('profile')} />
+          <BlockedUsersScreen onClose={() => setOverlay('settings')} />
         </View>
       )}
 

@@ -1,133 +1,48 @@
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  KeyboardAvoidingView,
-  Linking,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { BackIcon, CalendarIcon, CameraIcon, ClockIcon, CompassIcon, UserIcon } from '../components/icons';
-import NotificationSettingsSection from '../components/NotificationSettingsSection';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BackIcon, CalendarIcon, ClockIcon, CompassIcon, GearIcon, PlusIcon } from '../components/icons';
 import { useAuth } from '../lib/AuthContext';
 import { brutalShadow, colors, fonts } from '../theme/theme';
-import { AvatarError, pickAndUploadAvatar } from '../utils/avatar';
+import { RunClub } from '../types/club';
+import { listMyClubs } from '../utils/clubsApi';
 
 interface Props {
   onClose: () => void;
   onOpenActivity: () => void;
   onOpenMyMaps: () => void;
-  onOpenBlockedUsers: () => void;
   onOpenEvents: () => void;
+  onOpenSettings: () => void;
+  onOpenClub: (clubId: string) => void;
+  onOpenCreateClub: () => void;
 }
 
-export default function ProfileScreen({ onClose, onOpenActivity, onOpenMyMaps, onOpenBlockedUsers, onOpenEvents }: Props) {
-  const { session, profile, signOut, updateProfile, deleteAccount } = useAuth();
-  const [username, setUsername] = useState(profile?.username ?? '');
-  const [bio, setBio] = useState(profile?.bio ?? '');
-  const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+export default function ProfileScreen({
+  onClose,
+  onOpenActivity,
+  onOpenMyMaps,
+  onOpenEvents,
+  onOpenSettings,
+  onOpenClub,
+  onOpenCreateClub,
+}: Props) {
+  const { profile } = useAuth();
+  const [clubs, setClubs] = useState<RunClub[]>([]);
+  const [loadingClubs, setLoadingClubs] = useState(true);
 
   useEffect(() => {
-    setUsername(profile?.username ?? '');
-    setBio(profile?.bio ?? '');
-  }, [profile]);
-
-  useEffect(() => {
-    if (!saved) return;
-    const t = setTimeout(() => setSaved(false), 2500);
-    return () => clearTimeout(t);
-  }, [saved]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    setError(null);
-    const result = await updateProfile({ username: username.trim(), bio: bio.trim() });
-    setSaving(false);
-    if (result.error) setError(result.error);
-    else setSaved(true);
-  };
-
-  const handlePickAvatar = async () => {
-    if (!session) return;
-    setUploadingAvatar(true);
-    setError(null);
-    try {
-      const url = await pickAndUploadAvatar(session.user.id);
-      if (url) {
-        const result = await updateProfile({ avatar_url: url });
-        if (result.error) setError(result.error);
-      }
-    } catch (e) {
-      setError(e instanceof AvatarError ? e.message : 'Failed to update profile picture.');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
-
-  const handleOpenTerms = () => {
-    const webBaseUrl = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? 'https://rootah-web-production.up.railway.app';
-    Linking.openURL(`${webBaseUrl}/terms`).catch(() => {
-      Alert.alert('Error', 'Could not open Terms & Conditions.');
-    });
-  };
-
-  const handleOpenPrivacy = () => {
-    const webBaseUrl = process.env.EXPO_PUBLIC_WEB_BASE_URL ?? 'https://rootah-web-production.up.railway.app';
-    Linking.openURL(`${webBaseUrl}/privacy`).catch(() => {
-      Alert.alert('Error', 'Could not open Privacy Policy.');
-    });
-  };
-
-  const handleSignOut = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: signOut },
-    ]);
-  };
-
-  const confirmDeleteAccount = () => {
-    Alert.alert(
-      'Delete account permanently?',
-      'This deletes your profile, routes, saves, likes, group runs, comments, and RSVPs. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: runDeleteAccount },
-      ],
-    );
-  };
-
-  const runDeleteAccount = async () => {
-    setDeleting(true);
-    setError(null);
-    const result = await deleteAccount();
-    setDeleting(false);
-    if (result.error) {
-      Alert.alert('Could not delete account', result.error);
-      setError(result.error);
-    }
-    // On success the session clears and the app's auth gate returns to AuthScreen automatically.
-  };
-
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Delete your account?',
-      "We'll remove your account and everything tied to it. You'll be asked to confirm once more.",
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue', style: 'destructive', onPress: confirmDeleteAccount },
-      ],
-    );
-  };
+    let cancelled = false;
+    listMyClubs()
+      .then((c) => {
+        if (!cancelled) setClubs(c);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingClubs(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -136,80 +51,34 @@ export default function ProfileScreen({ onClose, onOpenActivity, onOpenMyMaps, o
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>Profile</Text>
+        <Pressable style={styles.backButton} onPress={onOpenSettings}>
+          <GearIcon size={18} />
+        </Pressable>
       </View>
 
-      <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.contentInner} keyboardShouldPersistTaps="handled">
-        <View style={styles.avatarRow}>
-          <Pressable style={styles.avatarWrap} onPress={handlePickAvatar} disabled={uploadingAvatar}>
-            {profile?.avatar_url ? (
-              <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
-            ) : (
-              <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarPlaceholderText}>
-                  {(profile?.username ?? '?').slice(0, 1).toUpperCase()}
-                </Text>
-              </View>
-            )}
-            <View style={styles.avatarBadge}>
-              {uploadingAvatar ? (
-                <ActivityIndicator size="small" color={colors.ink} />
-              ) : (
-                <CameraIcon size={14} />
-              )}
+      <ScrollView contentContainerStyle={styles.contentInner}>
+        <View style={styles.identityRow}>
+          {profile?.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
+          ) : (
+            <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
+              <Text style={styles.avatarPlaceholderText}>
+                {(profile?.username ?? '?').slice(0, 1).toUpperCase()}
+              </Text>
             </View>
-          </Pressable>
-          <Text style={styles.email}>{session?.user.email}</Text>
-        </View>
-
-        <View>
-          <Text style={styles.label}>USERNAME</Text>
-          <TextInput
-            value={username}
-            onChangeText={setUsername}
-            style={styles.input}
-            placeholder="username"
-            placeholderTextColor={colors.mutedLight}
-            autoCapitalize="none"
-            maxLength={30}
-          />
-        </View>
-
-        <View>
-          <Text style={styles.label}>BIO</Text>
-          <TextInput
-            value={bio}
-            onChangeText={setBio}
-            style={[styles.input, styles.textArea]}
-            placeholder="Tell other runners about yourself"
-            placeholderTextColor={colors.mutedLight}
-            multiline
-            maxLength={200}
-          />
-        </View>
-
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
+          )}
+          <View style={styles.identityText}>
+            <Text style={styles.username}>@{profile?.username ?? 'runner'}</Text>
+            {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
           </View>
-        )}
-
-        {saved && (
-          <View style={styles.savedBanner}>
-            <Text style={styles.savedText}>Profile updated.</Text>
-          </View>
-        )}
-
-        <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving || !username.trim()}>
-          {saving ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.saveButtonText}>SAVE</Text>}
-        </Pressable>
+        </View>
 
         <View style={styles.navGrid}>
           <Pressable style={styles.navButton} onPress={onOpenMyMaps}>
             <View style={[styles.navIconBadge, styles.navIconBadgeAqua]}>
               <CompassIcon size={26} color={colors.ink} />
             </View>
-            <Text style={styles.navButtonText}>MY MAPS</Text>
+            <Text style={styles.navButtonText}>ROUTES</Text>
           </Pressable>
 
           <Pressable style={styles.navButton} onPress={onOpenActivity}>
@@ -223,41 +92,37 @@ export default function ProfileScreen({ onClose, onOpenActivity, onOpenMyMaps, o
             <View style={[styles.navIconBadge, styles.navIconBadgeRust]}>
               <CalendarIcon size={26} color={colors.sand} />
             </View>
-            <Text style={styles.navButtonText}>YOUR EVENTS</Text>
-          </Pressable>
-
-          <Pressable style={styles.navButton} onPress={onOpenBlockedUsers}>
-            <View style={[styles.navIconBadge, styles.navIconBadgeSand]}>
-              <UserIcon size={26} color={colors.ink} />
-            </View>
-            <Text style={styles.navButtonText}>BLOCKED USERS</Text>
+            <Text style={styles.navButtonText}>EVENTS</Text>
           </Pressable>
         </View>
 
-        {session && <NotificationSettingsSection userId={session.user.id} />}
+        <Text style={styles.sectionHeader}>MY CLUBS</Text>
 
-        <View style={styles.legalRow}>
-          <Pressable style={styles.termsButton} onPress={handleOpenTerms}>
-            <Text style={styles.termsButtonText}>Terms &amp; Conditions</Text>
-          </Pressable>
-          <Pressable style={styles.termsButton} onPress={handleOpenPrivacy}>
-            <Text style={styles.termsButtonText}>Privacy Policy</Text>
-          </Pressable>
-        </View>
-
-        <Pressable style={styles.signOutButton} onPress={handleSignOut}>
-          <Text style={styles.signOutButtonText}>Log out</Text>
-        </Pressable>
-
-        <Pressable style={styles.deleteButton} onPress={handleDeleteAccount} disabled={deleting}>
-          {deleting ? (
-            <ActivityIndicator size="small" color={colors.rustDark} />
-          ) : (
-            <Text style={styles.deleteButtonText}>Delete account</Text>
-          )}
-        </Pressable>
+        {loadingClubs ? (
+          <ActivityIndicator color={colors.ink} style={{ marginTop: 8 }} />
+        ) : (
+          <View style={styles.clubsRow}>
+            {clubs.map((club) => (
+              <Pressable key={club.id} style={styles.clubChip} onPress={() => onOpenClub(club.id)}>
+                {club.avatarUrl ? (
+                  <Image source={{ uri: club.avatarUrl }} style={styles.clubAvatar} />
+                ) : (
+                  <View style={[styles.clubAvatar, styles.clubAvatarPlaceholder]}>
+                    <Text style={styles.clubAvatarPlaceholderText}>{club.name.slice(0, 1).toUpperCase()}</Text>
+                  </View>
+                )}
+                <Text style={styles.clubChipText} numberOfLines={1}>
+                  {club.name}
+                </Text>
+              </Pressable>
+            ))}
+            <Pressable style={styles.createClubChip} onPress={onOpenCreateClub}>
+              <PlusIcon size={16} color={colors.ink} />
+              <Text style={styles.clubChipText}>Create a club</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
-      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -290,23 +155,15 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.ink,
   },
-  content: {
-    flex: 1,
-  },
   contentInner: {
     paddingHorizontal: 16,
     paddingBottom: 32,
-    gap: 14,
+    gap: 18,
   },
-  avatarRow: {
+  identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginBottom: 4,
-  },
-  avatarWrap: {
-    width: 72,
-    height: 72,
   },
   avatarImage: {
     width: 72,
@@ -325,100 +182,38 @@ const styles = StyleSheet.create({
     fontSize: 26,
     color: colors.ink,
   },
-  avatarBadge: {
-    position: 'absolute',
-    bottom: -6,
-    right: -6,
-    width: 26,
-    height: 26,
-    borderRadius: 9,
-    backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
+  identityText: {
+    flex: 1,
+    gap: 2,
   },
-  email: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    color: colors.muted,
-    flexShrink: 1,
-  },
-  label: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.muted,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 15,
+  username: {
+    fontFamily: fonts.display,
+    fontSize: 20,
     color: colors.ink,
   },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  errorBanner: {
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
-    padding: 10,
-  },
-  errorText: {
-    color: colors.cream,
+  bio: {
     fontFamily: fonts.bodyMedium,
     fontSize: 13,
-  },
-  savedBanner: {
-    backgroundColor: colors.green,
-    borderRadius: 8,
-    padding: 10,
-  },
-  savedText: {
-    color: colors.white,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-  },
-  saveButton: {
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 6,
-    ...brutalShadow(4),
-  },
-  saveButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.sand,
+    color: colors.muted,
   },
   navGrid: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 12,
   },
   navButton: {
-    width: '47%',
-    height: 120,
+    flex: 1,
+    height: 100,
     borderRadius: 16,
     backgroundColor: colors.white,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: 8,
     ...brutalShadow(4),
   },
   navIconBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 13,
     borderWidth: 2.5,
     borderColor: colors.ink,
     alignItems: 'center',
@@ -433,49 +228,67 @@ const styles = StyleSheet.create({
   navIconBadgeRust: {
     backgroundColor: colors.rust,
   },
-  navIconBadgeSand: {
-    backgroundColor: colors.sand,
-  },
   navButtonText: {
     fontFamily: fonts.display,
-    fontSize: 12,
+    fontSize: 11,
     color: colors.ink,
     textAlign: 'center',
   },
-  legalRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  termsButton: {
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-  },
-  termsButtonText: {
-    fontFamily: fonts.bodyMedium,
+  sectionHeader: {
+    fontFamily: fonts.display,
     fontSize: 13,
+    letterSpacing: 1,
     color: colors.muted,
-    textDecorationLine: 'underline',
+    marginBottom: -8,
   },
-  signOutButton: {
+  clubsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  clubChip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    gap: 8,
+    backgroundColor: colors.white,
+    borderWidth: 2.5,
+    borderColor: colors.ink,
+    borderRadius: 30,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    maxWidth: 180,
   },
-  signOutButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-    color: colors.rustDark,
+  clubAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
   },
-  deleteButton: {
+  clubAvatarPlaceholder: {
+    backgroundColor: colors.sand,
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingBottom: 24,
+    justifyContent: 'center',
   },
-  deleteButtonText: {
-    fontFamily: fonts.bodyMedium,
+  clubAvatarPlaceholderText: {
+    fontFamily: fonts.display,
     fontSize: 12,
-    color: colors.muted,
-    textDecorationLine: 'underline',
+    color: colors.ink,
+  },
+  clubChipText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: colors.ink,
+    flexShrink: 1,
+  },
+  createClubChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.sand,
+    borderWidth: 2.5,
+    borderColor: colors.ink,
+    borderRadius: 30,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderStyle: 'dashed',
   },
 });

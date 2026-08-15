@@ -134,6 +134,30 @@ export async function listNearbyClubs(city: string | null, limit = 10): Promise<
   return Promise.all(((data ?? []) as ClubRow[]).map((row) => toRunClub(row, viewerId)));
 }
 
+/** Clubs the current user actively belongs to — for the "My Clubs" section on Profile. */
+export async function listMyClubs(): Promise<RunClub[]> {
+  const userId = await currentUserId();
+  if (!userId) return [];
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from('club_memberships')
+    .select('club_id')
+    .eq('user_id', userId)
+    .eq('status', 'active');
+  if (membershipError) throw new Error(membershipError.message);
+
+  const clubIds = (memberships ?? []).map((m) => m.club_id as string);
+  if (clubIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from('run_clubs')
+    .select('*')
+    .in('id', clubIds)
+    .order('member_count', { ascending: false });
+  if (error) throw new Error(error.message);
+  return Promise.all(((data ?? []) as ClubRow[]).map((row) => toRunClub(row, userId)));
+}
+
 export async function joinClub(clubId: string, isPrivate: boolean): Promise<ClubMembershipStatus> {
   const userId = await currentUserId();
   if (!userId) throw new Error('You must be signed in to join a club.');
