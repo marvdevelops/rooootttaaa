@@ -7,7 +7,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import BuilderTutorial, { TutorialStep } from '../components/BuilderTutorial';
 import ExportSheet from '../components/ExportSheet';
-import { CloseIcon, ExportIcon, SaveIcon, UndoIcon } from '../components/icons';
+import { CloseIcon, ExportIcon, LoopIcon, SaveIcon, UndoIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import RouteMap, { MapStyleMode } from '../components/RouteMap';
 import RouteStatsBar from '../components/RouteStatsBar';
@@ -80,10 +80,23 @@ export default function MapScreen({
   const [showPointsModal, setShowPointsModal] = useState(false);
   const [editingRoute, setEditingRoute] = useState<CloudRoute | null>(null);
   const [tutorialStep, setTutorialStep] = useState<TutorialStep | null>(null);
+  // Snapshot-based undo: each entry is the full {waypoints, segments} state
+  // right before a mutation, so undo is a direct restore — no need to
+  // re-fetch routing or reverse individual operations (add/drag/delete all
+  // push the same way). Capped at 20 states.
+  const [history, setHistory] = useState<{ waypoints: Waypoint[]; segments: RouteSegment[] }[]>([]);
 
   const elevationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elevationRequestId = useRef(0);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
+  // Kept in sync every render so pushHistory() always snapshots the latest
+  // committed state, regardless of which callback's closure calls it.
+  const currentStateRef = useRef({ waypoints, segments });
+  currentStateRef.current = { waypoints, segments };
+
+  const pushHistory = useCallback(() => {
+    setHistory((h) => [...h.slice(-19), currentStateRef.current]);
+  }, []);
 
   const locateUser = useCallback(async (animate = true, silent = false) => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -163,6 +176,7 @@ export default function MapScreen({
     if (!routeToLoad) return;
     setWaypoints(routeToLoad.waypoints);
     setSegments(routeToLoad.segments);
+    setHistory([]);
     // Only treat this as an edit-in-place if it's the viewer's own route —
     // opening someone else's route on the map is for viewing/exporting, and
     // saving from there should never silently overwrite their route.
@@ -300,6 +314,7 @@ export default function MapScreen({
         }
       }
 
+      pushHistory();
       const newWaypoint: Waypoint = { id: makeId(), ...coord };
       setWaypoints((prev) => [...prev, newWaypoint]);
 
@@ -331,7 +346,7 @@ export default function MapScreen({
         }
       }
     },
-    [waypoints, routeSegment, snapWaypoint, validateLeg, distanceKm],
+    [waypoints, routeSegment, snapWaypoint, validateLeg, distanceKm, pushHistory],
   );
 
   const handleMarkerDragEnd = useCallback(
@@ -361,6 +376,7 @@ export default function MapScreen({
         return;
       }
 
+      pushHistory();
       setTutorialStep((prev) => (prev === 3 ? 4 : prev));
 
       const updatedWaypoints = waypoints.map((wp) => (wp.id === id ? { ...wp, ...coord } : wp));
@@ -408,12 +424,17 @@ export default function MapScreen({
         setIsRouting(false);
       }
     },
-    [waypoints, routeSegment, snapWaypoint, validateLeg, distanceKm, segmentDistanceKm],
+    [waypoints, routeSegment, snapWaypoint, validateLeg, distanceKm, segmentDistanceKm, pushHistory],
   );
 
   const handleUndo = useCallback(() => {
-    setWaypoints((prev) => prev.slice(0, -1));
-    setSegments((prev) => prev.slice(0, -1));
+    setHistory((h) => {
+      if (h.length === 0) return h;
+      const previous = h[h.length - 1];
+      setWaypoints(previous.waypoints);
+      setSegments(previous.segments);
+      return h.slice(0, -1);
+    });
   }, []);
 
   const handleDeleteWaypoint = useCallback(
@@ -427,6 +448,7 @@ export default function MapScreen({
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            pushHistory();
             const prevWp = waypoints[index - 1];
             const nextWp = waypoints[index + 1];
 
@@ -459,7 +481,7 @@ export default function MapScreen({
         },
       ]);
     },
-    [waypoints, routeSegment],
+    [waypoints, routeSegment, pushHistory],
   );
 
   const handleEditWaypointNote = useCallback((id: string, note: string) => {
@@ -483,7 +505,50 @@ export default function MapScreen({
     setElevationGainM(0);
     setPathWithElevation([]);
     setEditingRoute(null);
+    setHistory([]);
   }, []);
+
+  // Most running routes start and end in the same place — this saves
+  // manually retracing the whole route back to the start (double the taps,
+  // double the Mapbox calls). Hidden once the endpoints are already close,
+  // or once the route can't take another leg under the free-tier cap.
+  const canCloseLoop = useMemo(() => {
+    if (waypoints.length < 2) return false;
+    const start = waypoints[0];
+    const end = waypoints[waypoints.length - 1];
+    return haversineDistance(start, end) / 1000 >= 0.05;
+  }, [waypoints]);
+
+  const handleCloseLoop = useCallback(async () => {
+    if (waypoints.length < 2) return;
+    const start = waypoints[0];
+    const end = waypoints[waypoints.length - 1];
+
+    const capMessage = validateLeg(end, start, distanceKm);
+    if (capMessage) {
+      setError(capMessage);
+      return;
+    }
+
+    pushHistory();
+    const closingPoint: Waypoint = { id: makeId(), latitude: start.latitude, longitude: start.longitude };
+    setWaypoints((prev) => [...prev, closingPoint]);
+
+    const optimistic = straightLineFallback(end, closingPoint);
+    setSegments((prev) => [...prev, { fromId: end.id, toId: closingPoint.id, ...optimistic }]);
+
+    setIsRouting(true);
+    try {
+      const routed = await routeSegment(end, closingPoint);
+      setSegments((prev) =>
+        prev.map((s) =>
+          s.fromId === end.id && s.toId === closingPoint.id ? { fromId: end.id, toId: closingPoint.id, ...routed } : s,
+        ),
+      );
+    } finally {
+      setIsRouting(false);
+    }
+  }, [waypoints, validateLeg, distanceKm, routeSegment, pushHistory]);
 
   const fileName = useMemo(() => `rootah_route_${Date.now()}.gpx`, [showExportSheet]);
 
@@ -710,10 +775,15 @@ export default function MapScreen({
           <Pressable
             style={[styles.iconButton, styles.amberButton]}
             onPress={handleUndo}
-            disabled={waypoints.length === 0}
+            disabled={history.length === 0}
           >
             <UndoIcon />
           </Pressable>
+          {canCloseLoop && (
+            <Pressable style={[styles.iconButton, styles.aquaButton]} onPress={handleCloseLoop} disabled={isRouting}>
+              <LoopIcon />
+            </Pressable>
+          )}
           <Pressable
             style={[styles.iconButton, styles.sandButton]}
             onPress={handleClear}
