@@ -30,9 +30,11 @@ const ELEVATION_DEBOUNCE_MS = 1200;
 const CAMERA_ZOOM = 15;
 const TUTORIAL_STORAGE_KEY = 'rootah_seen_builder_tutorial_v1';
 
+// Rootah launches first in the Philippines — used before GPS location
+// resolves (or if permission is denied), same fallback as DiscoverMapScreen.
 const DEFAULT_CENTER: LatLng = {
-  latitude: 37.7749,
-  longitude: -122.4194,
+  latitude: 12.8797,
+  longitude: 121.774,
 };
 
 let nextId = 1;
