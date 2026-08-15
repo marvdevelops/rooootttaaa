@@ -257,6 +257,34 @@ export async function listPublicRoutes(filters: PublicRouteFilters = {}): Promis
   return Promise.all(rows.map((row) => toCloudRoute(row, viewerId)));
 }
 
+/**
+ * Keyword search over public route names/descriptions (Postgres full-text
+ * search, see 0030_route_search.sql). `websearch_to_tsquery` under the hood
+ * (via textSearch's 'websearch' type) tolerates arbitrary user input — no
+ * special-character query syntax to worry about, unlike raw to_tsquery.
+ * Ranked by match first (Postgres), then popularity (likes + saves).
+ */
+export async function searchRoutes(query: string, limit = 20): Promise<CloudRoute[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const [viewerId, blockedIds] = await Promise.all([currentUserId(), listBlockedIds()]);
+
+  let q = supabase
+    .from('routes')
+    .select(ROUTE_SELECT)
+    .eq('is_public', true)
+    .textSearch('search_vector', trimmed, { type: 'websearch', config: 'english' })
+    .limit(limit);
+  if (blockedIds.length > 0) q = q.not('owner_id', 'in', `(${blockedIds.join(',')})`);
+
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as RouteRow[];
+  const routes = await Promise.all(rows.map((row) => toCloudRoute(row, viewerId)));
+  return routes.sort((a, b) => b.likesCount + b.savesCount - (a.likesCount + a.savesCount));
+}
+
 /** A user's public routes, for their profile page. */
 export async function listRoutesByOwner(ownerId: string): Promise<CloudRoute[]> {
   const viewerId = await currentUserId();

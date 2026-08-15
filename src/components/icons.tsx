@@ -284,6 +284,20 @@ export function PlusIcon({ size = 24, color = colors.sand }: { size?: number; co
   );
 }
 
+export function SearchIcon({ size = 16, color = colors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.35-4.35"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function FilterIcon({ size = 18, color = colors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

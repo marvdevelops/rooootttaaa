@@ -14,7 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, UserIcon, UsersIcon } from '../components/icons';
+import { CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, SearchIcon, UserIcon, UsersIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import { useUserTier } from '../hooks/useUserTier';
 import { brutalShadow, colors, fonts } from '../theme/theme';
@@ -24,7 +24,7 @@ import { haversineDistance } from '../utils/distance';
 import { reverseGeocodeCountryBounds } from '../utils/geocoding';
 import { listRunsNearLocation } from '../utils/groupRunsApi';
 import '../utils/mapboxInit';
-import { listPublicRoutes, PublicRouteFilters } from '../utils/routesApi';
+import { listPublicRoutes, PublicRouteFilters, searchRoutes } from '../utils/routesApi';
 
 function formatDistanceAway(distanceKm: number): string {
   if (distanceKm < 1) return `${Math.round(distanceKm * 1000)}m away`;
@@ -206,6 +206,27 @@ export default function DiscoverMapScreen({
   const [maxElevation, setMaxElevation] = useState('');
   const [city, setCity] = useState('');
   const [appliedFilters, setAppliedFilters] = useState<PublicRouteFilters>({});
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<CloudRoute[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const timer = setTimeout(() => {
+      searchRoutes(query)
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const hasFitBounds = useRef(false);
@@ -476,6 +497,49 @@ export default function DiscoverMapScreen({
             </Pressable>
           </View>
         </View>
+
+        <View style={styles.searchRow}>
+          <View style={styles.searchInputWrap}>
+            <SearchIcon size={14} color={colors.muted} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search routes..."
+              placeholderTextColor={colors.mutedLight}
+              style={styles.searchInput}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                <CloseIcon size={14} color={colors.muted} />
+              </Pressable>
+            )}
+          </View>
+        </View>
+
+        {searchQuery.trim().length > 0 && (
+          <View style={styles.searchResultsWrap}>
+            {searchLoading ? (
+              <ActivityIndicator color={colors.rust} style={{ marginTop: 20 }} />
+            ) : searchResults.length === 0 ? (
+              <Text style={styles.searchEmptyText}>No routes match &quot;{searchQuery.trim()}&quot;</Text>
+            ) : (
+              <ScrollView keyboardShouldPersistTaps="handled" style={styles.searchResultsList}>
+                {searchResults.map((r) => (
+                  <Pressable key={r.id} style={styles.searchResultCard} onPress={() => onOpenDetail(r)}>
+                    <Text style={styles.searchResultName} numberOfLines={1}>
+                      {r.name}
+                    </Text>
+                    <Text style={styles.searchResultMeta} numberOfLines={1}>
+                      {r.distanceKm.toFixed(1)} km · +{Math.round(r.elevationGainM)} m
+                      {r.city ? ` · ${r.city}` : ''}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        )}
 
         <Pressable style={styles.filterButton} onPress={() => setShowFilters(true)}>
           <FilterIcon size={14} />
@@ -827,6 +891,60 @@ const styles = StyleSheet.create({
     borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  searchRow: {
+    marginBottom: 8,
+  },
+  searchInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.white,
+    ...brutalShadow(3),
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 42,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 14,
+    color: colors.ink,
+    height: '100%',
+  },
+  searchResultsWrap: {
+    backgroundColor: colors.white,
+    ...brutalShadow(3),
+    borderRadius: 14,
+    marginBottom: 8,
+    maxHeight: 280,
+  },
+  searchResultsList: {
+    paddingVertical: 4,
+  },
+  searchEmptyText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.muted,
+    padding: 16,
+    textAlign: 'center',
+  },
+  searchResultCard: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.sand,
+  },
+  searchResultName: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  searchResultMeta: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 1,
   },
   filterButton: {
     flexDirection: 'row',
