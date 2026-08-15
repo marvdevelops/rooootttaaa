@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BackIcon, BookmarkIcon, ExportIcon } from '../components/icons';
+import { BackIcon, CheckIcon, ClockIcon } from '../components/icons';
+import { useAuth } from '../lib/AuthContext';
 import { brutalShadow, colors, fonts } from '../theme/theme';
-import { CloudRoute } from '../types/route';
-import { ActivityItem, listActivity } from '../utils/routesApi';
+import { RouteCompletionActivityItem } from '../types/route';
+import { formatDuration, listCompletionActivity } from '../utils/completionsApi';
 
 interface Props {
   onClose: () => void;
-  onOpenDetail: (route: CloudRoute) => void;
+  onOpenDetail: (routeId: string) => void;
 }
 
 function timeAgo(ms: number): string {
@@ -23,21 +24,23 @@ function timeAgo(ms: number): string {
 }
 
 export default function ActivityFeedScreen({ onClose, onOpenDetail }: Props) {
-  const [items, setItems] = useState<ActivityItem[]>([]);
+  const { session } = useAuth();
+  const [items, setItems] = useState<RouteCompletionActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!session) return;
     setLoading(true);
     setError(null);
     try {
-      setItems(await listActivity());
+      setItems(await listCompletionActivity(session.user.id));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load activity.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     refresh();
@@ -61,28 +64,38 @@ export default function ActivityFeedScreen({ onClose, onOpenDetail }: Props) {
       {!loading && items.length === 0 && !error && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No activity yet</Text>
-          <Text style={styles.emptyBody}>Routes you create or save will show up here.</Text>
+          <Text style={styles.emptyBody}>Routes you've run will show up here.</Text>
+          <Pressable onPress={onClose} hitSlop={8}>
+            <Text style={styles.emptyLink}>Explore routes</Text>
+          </Pressable>
         </View>
       )}
 
       <FlatList
         data={items}
-        keyExtractor={(item, i) => `${item.kind}-${item.route.id}-${i}`}
+        keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         onRefresh={refresh}
         refreshing={loading}
         renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => onOpenDetail(item.route)}>
+          <Pressable style={styles.card} onPress={() => onOpenDetail(item.routeId)}>
             <View style={styles.iconBadge}>
-              {item.kind === 'created' ? <ExportIcon size={14} color={colors.ink} /> : <BookmarkIcon size={14} />}
+              <CheckIcon size={16} color={colors.ink} />
             </View>
             <View style={styles.cardBody}>
               <Text style={styles.cardText} numberOfLines={2}>
-                {item.kind === 'created' ? 'You created ' : 'You saved '}
-                <Text style={styles.cardTextBold}>{item.route.name}</Text>
-                {item.kind === 'saved' ? ` by ${item.route.ownerUsername}` : ''}
+                You ran <Text style={styles.cardTextBold}>{item.routeName}</Text>
               </Text>
-              <Text style={styles.cardTime}>{timeAgo(item.at)}</Text>
+              <View style={styles.cardMetaRow}>
+                <Text style={styles.cardMeta}>{item.routeDistanceKm.toFixed(1)} km</Text>
+                {item.durationSeconds != null && (
+                  <>
+                    <ClockIcon size={11} color={colors.mutedLight} />
+                    <Text style={styles.cardMeta}>{formatDuration(item.durationSeconds)}</Text>
+                  </>
+                )}
+              </View>
+              <Text style={styles.cardTime}>{timeAgo(item.completedAt)}</Text>
             </View>
           </Pressable>
         )}
@@ -150,6 +163,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  emptyLink: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+    color: colors.rust,
+    marginTop: 4,
+    textDecorationLine: 'underline',
+  },
   list: {
     paddingHorizontal: 16,
     paddingBottom: 40,
@@ -168,7 +188,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: colors.sand,
+    backgroundColor: colors.aqua,
     borderWidth: 2,
     borderColor: colors.ink,
     alignItems: 'center',
@@ -184,6 +204,18 @@ const styles = StyleSheet.create({
   },
   cardTextBold: {
     fontFamily: fonts.bodyBold,
+  },
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
+  cardMeta: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    color: colors.muted,
+    marginRight: 4,
   },
   cardTime: {
     fontFamily: fonts.bodyMedium,

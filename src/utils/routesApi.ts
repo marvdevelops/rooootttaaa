@@ -205,26 +205,6 @@ export async function listSavedRoutes(): Promise<CloudRoute[]> {
   return Promise.all(routes.map(({ route, savedAt }) => toCloudRoute(route, viewerId, savedAt)));
 }
 
-export type ActivityKind = 'created' | 'saved';
-
-export interface ActivityItem {
-  kind: ActivityKind;
-  at: number;
-  route: CloudRoute;
-}
-
-/** Chronological feed of the viewer's own activity: routes created + routes saved. */
-export async function listActivity(): Promise<ActivityItem[]> {
-  const [created, saved] = await Promise.all([listMyRoutes(), listSavedRoutes()]);
-
-  const items: ActivityItem[] = [
-    ...created.map((route) => ({ kind: 'created' as const, at: route.createdAt, route })),
-    ...saved.map((route) => ({ kind: 'saved' as const, at: route.savedAt ?? route.createdAt, route })),
-  ];
-
-  return items.sort((a, b) => b.at - a.at);
-}
-
 /** Public routes for discovery, most recent first, excluding the viewer's own. */
 export interface PublicRouteFilters {
   minDistanceKm?: number;

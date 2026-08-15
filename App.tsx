@@ -369,7 +369,7 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
         <View style={StyleSheet.absoluteFill}>
           <ActivityFeedScreen
             onClose={() => setOverlay('profile')}
-            onOpenDetail={(route) => openDetail(route)}
+            onOpenDetail={(routeId) => openDetailById(routeId)}
           />
         </View>
       )}
