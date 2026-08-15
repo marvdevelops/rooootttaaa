@@ -84,7 +84,7 @@ export interface RouteReview {
   isOwnedByMe: boolean;
 }
 
-export type GroupRunStatus = 'scheduled' | 'active' | 'archived';
+export type GroupRunStatus = 'scheduled' | 'active' | 'archived' | 'cancelled';
 
 export interface GroupRun {
   id: string;
@@ -117,6 +117,8 @@ export interface GroupRun {
   clubId: string | null;
   clubName: string | null;
   clubAvatarUrl: string | null;
+  /** Set when this occurrence belongs to a recurring series — null for one-off runs. */
+  seriesId: string | null;
 }
 
 export type RsvpStatus = 'pending' | 'approved' | 'declined';

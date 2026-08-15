@@ -98,6 +98,7 @@ function RunsNearYouStrip({ onOpenGroupRun, mapCenter, radiusKm, userLocation, r
             <View style={styles.runCardWhenRow}>
               <CalendarIcon size={12} />
               <Text style={styles.runCardWhen}>{formatRunWhen(run.scheduledAt)}</Text>
+              {run.seriesId && <Text style={styles.runCardWhen}> · 🔁</Text>}
             </View>
             <Text style={styles.runCardTitle} numberOfLines={1}>
               {run.title}

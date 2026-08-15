@@ -26,7 +26,8 @@ import ElevationProfileChart from '../components/ElevationProfileChart';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import ReportModal from '../components/ReportModal';
 import RouteMap, { MapStyleMode } from '../components/RouteMap';
-import ScheduleGroupRunModal from '../components/ScheduleGroupRunModal';
+import ScheduleGroupRunModal, { RecurrenceInput } from '../components/ScheduleGroupRunModal';
+import { createSeries } from '../utils/recurringSeriesApi';
 import { useNotificationPrePermission } from '../hooks/useNotificationPrePermission';
 import { useUserTier } from '../hooks/useUserTier';
 import { brutalShadow, colors, fonts } from '../theme/theme';
@@ -460,10 +461,27 @@ export default function RouteDetailScreen({
   }, [route]);
 
   const handleSchedule = useCallback(
-    async (title: string, description: string, scheduledAt: Date, maxParticipants: number | null) => {
+    async (
+      title: string,
+      description: string,
+      scheduledAt: Date,
+      maxParticipants: number | null,
+      recurrence: RecurrenceInput | null,
+    ) => {
       setIsScheduling(true);
       try {
-        await createGroupRun({ routeId: route.id, title, description, scheduledAt, maxParticipants });
+        if (recurrence) {
+          await createSeries({
+            routeId: route.id,
+            title,
+            description,
+            firstOccurrenceAt: scheduledAt,
+            frequency: recurrence.frequency,
+            endDate: recurrence.endDate,
+          });
+        } else {
+          await createGroupRun({ routeId: route.id, title, description, scheduledAt, maxParticipants });
+        }
         setShowScheduleModal(false);
         refreshGroupRuns();
         notificationPrePermission.maybePrompt('Get notified when people join your event or post updates.');

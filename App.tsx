@@ -35,7 +35,8 @@ import { colors, fonts } from './src/theme/theme';
 import { CloudRoute } from './src/types/route';
 import { countMyActiveGroupRuns, createGroupRun } from './src/utils/groupRunsApi';
 import { getRoute } from './src/utils/routesApi';
-import { getClub } from './src/utils/clubsApi';
+import { RecurrenceInput } from './src/components/ScheduleGroupRunModal';
+import { createSeries, getFirstUpcomingOccurrence } from './src/utils/recurringSeriesApi';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -220,22 +221,45 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
   }, []);
 
   const handleScheduleEvent = useCallback(
-    async (title: string, description: string, scheduledAt: Date, maxParticipants: number | null) => {
+    async (
+      title: string,
+      description: string,
+      scheduledAt: Date,
+      maxParticipants: number | null,
+      recurrence: RecurrenceInput | null,
+    ) => {
       if (!eventRouteId) return;
       setIsSchedulingEvent(true);
       try {
-        const created = await createGroupRun({
-          routeId: eventRouteId,
-          title,
-          description,
-          scheduledAt,
-          maxParticipants,
-          clubId: eventClubId,
-        });
-        setEventRouteId(null);
-        setEventClubId(null);
-        setToast('Event created.');
-        openGroupRunDetail(created.id);
+        if (recurrence) {
+          const series = await createSeries({
+            routeId: eventRouteId,
+            clubId: eventClubId,
+            title,
+            description,
+            firstOccurrenceAt: scheduledAt,
+            frequency: recurrence.frequency,
+            endDate: recurrence.endDate,
+          });
+          setEventRouteId(null);
+          setEventClubId(null);
+          setToast('Recurring event created.');
+          const firstRun = await getFirstUpcomingOccurrence(series.id);
+          if (firstRun) openGroupRunDetail(firstRun.id);
+        } else {
+          const created = await createGroupRun({
+            routeId: eventRouteId,
+            title,
+            description,
+            scheduledAt,
+            maxParticipants,
+            clubId: eventClubId,
+          });
+          setEventRouteId(null);
+          setEventClubId(null);
+          setToast('Event created.');
+          openGroupRunDetail(created.id);
+        }
         notificationPrePermission.maybePrompt('Get notified when people join your event or post updates.');
       } catch (e) {
         Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create event.');

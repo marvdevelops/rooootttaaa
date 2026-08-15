@@ -9,6 +9,10 @@ verify_jwt = false
 [functions.group-run-lifecycle]
 verify_jwt = false
 
+# Same as group-run-lifecycle — external scheduler, shared secret header.
+[functions.generate-occurrences]
+verify_jwt = false
+
 # Hit by Supabase Database Webhooks with a shared secret Authorization
 # header (configured as a custom HTTP header on each webhook), not a
 # Supabase JWT — same reasoning as above.

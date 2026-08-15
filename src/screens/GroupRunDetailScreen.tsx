@@ -30,6 +30,11 @@ import {
 import { addGroupRunToCalendar } from '../utils/calendar';
 import { getTodayCompletion, logRouteCompletion } from '../utils/completionsApi';
 import { getMyReview } from '../utils/reviewsApi';
+import {
+  isSubscribedToSeries as checkIsSubscribedToSeries,
+  subscribeToSeries,
+  unsubscribeFromSeries,
+} from '../utils/recurringSeriesApi';
 import ReviewModal from '../components/ReviewModal';
 import { navigateToStart } from '../utils/externalNav';
 import { deleteGroupRunComment, listGroupRunComments, postGroupRunComment } from '../utils/groupRunCommentsApi';
@@ -95,6 +100,8 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
   const [loggingCompletion, setLoggingCompletion] = useState(false);
   const [myReview, setMyReview] = useState<RouteReview | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [isSubscribedToSeries, setIsSubscribedToSeriesState] = useState(false);
+  const [subscribingToSeries, setSubscribingToSeries] = useState(false);
   const notificationPrePermission = useNotificationPrePermission();
 
   const refresh = useCallback(async () => {
@@ -165,6 +172,32 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!groupRun?.seriesId) return;
+    checkIsSubscribedToSeries(groupRun.seriesId)
+      .then(setIsSubscribedToSeriesState)
+      .catch(() => {});
+  }, [groupRun?.seriesId]);
+
+  const handleToggleSeriesSubscription = useCallback(async () => {
+    if (!groupRun?.seriesId) return;
+    setSubscribingToSeries(true);
+    try {
+      if (isSubscribedToSeries) {
+        await unsubscribeFromSeries(groupRun.seriesId);
+        setIsSubscribedToSeriesState(false);
+      } else {
+        await subscribeToSeries(groupRun.seriesId);
+        setIsSubscribedToSeriesState(true);
+      }
+      await refresh();
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to update your subscription.');
+    } finally {
+      setSubscribingToSeries(false);
+    }
+  }, [groupRun?.seriesId, isSubscribedToSeries, refresh]);
 
   const handleToggleRsvp = useCallback(async () => {
     if (!groupRun || groupRun.isHostedByMe) return;
@@ -465,6 +498,32 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               </Text>
             </Pressable>
             {!!groupRun.description && <Text style={styles.eventDescription}>{groupRun.description}</Text>}
+
+            {groupRun.seriesId && !groupRun.isHostedByMe && !isArchived && (
+              <View style={styles.seriesRow}>
+                <View style={styles.seriesBadge}>
+                  <Text style={styles.seriesBadgeText}>🔁 RECURRING</Text>
+                </View>
+                {isSubscribedToSeries ? (
+                  <Pressable onPress={handleToggleSeriesSubscription} disabled={subscribingToSeries}>
+                    <Text style={styles.seriesLink}>
+                      {subscribingToSeries ? 'Updating…' : "✓ Subscribed — leave series"}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Pressable onPress={handleToggleSeriesSubscription} disabled={subscribingToSeries}>
+                    <Text style={styles.seriesLink}>
+                      {subscribingToSeries ? 'Joining…' : 'Join every week →'}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+            {groupRun.seriesId && groupRun.isHostedByMe && (
+              <View style={styles.seriesBadge}>
+                <Text style={styles.seriesBadgeText}>🔁 RECURRING</Text>
+              </View>
+            )}
 
             <View style={styles.eventFooter}>
               <Text style={styles.rsvpCount}>
@@ -875,6 +934,33 @@ const styles = StyleSheet.create({
     color: colors.ink,
     lineHeight: 20,
     marginTop: 4,
+  },
+  seriesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+  },
+  seriesBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.aqua,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    marginTop: 10,
+  },
+  seriesBadgeText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 10,
+    color: colors.ink,
+  },
+  seriesLink: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    color: colors.rust,
+    textDecorationLine: 'underline',
   },
   eventFooter: {
     flexDirection: 'row',

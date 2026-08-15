@@ -16,6 +16,7 @@ interface GroupRunRow {
   start_lat: number | null;
   start_lng: number | null;
   club_id: string | null;
+  series_id: string | null;
   routes: { name: string; distance_km: number } | { name: string; distance_km: number }[] | null;
   profiles: { username: string } | { username: string }[] | null;
   run_clubs: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[] | null;
@@ -81,6 +82,7 @@ async function toGroupRun(
     clubId: row.club_id,
     clubName: club?.name ?? null,
     clubAvatarUrl: club?.avatar_url ?? null,
+    seriesId: row.series_id,
   };
 }
 
@@ -118,6 +120,17 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
 }
 
 /** All upcoming (scheduled/active) group runs, soonest first — never includes archived runs. */
+/** Keeps only the next occurrence per series (already sorted soonest-first) so a weekly run doesn't show 4+ near-duplicate cards — non-recurring runs are always kept. */
+function dedupeBySeries(runs: GroupRun[]): GroupRun[] {
+  const seenSeries = new Set<string>();
+  return runs.filter((run) => {
+    if (!run.seriesId) return true;
+    if (seenSeries.has(run.seriesId)) return false;
+    seenSeries.add(run.seriesId);
+    return true;
+  });
+}
+
 export async function listUpcomingGroupRuns(limit = 40): Promise<GroupRun[]> {
   const viewerId = await currentUserId();
 
@@ -130,7 +143,7 @@ export async function listUpcomingGroupRuns(limit = 40): Promise<GroupRun[]> {
 
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as unknown as GroupRunRow[];
-  return Promise.all(rows.map((row) => toGroupRun(row, viewerId)));
+  return dedupeBySeries(await Promise.all(rows.map((row) => toGroupRun(row, viewerId))));
 }
 
 /**
@@ -172,7 +185,8 @@ export async function listRunsNearLocation(
   const rows = (data ?? []) as unknown as GroupRunRow[];
   const runs = await Promise.all(rows.map((row) => toGroupRun(row, viewerId)));
   // The .in() query above doesn't preserve the RPC's distance ordering.
-  return runs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  const sorted = runs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+  return dedupeBySeries(sorted);
 }
 
 export async function getGroupRun(id: string): Promise<GroupRun> {

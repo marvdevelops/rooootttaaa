@@ -8,21 +8,48 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { brutalShadow, colors, fonts } from '../theme/theme';
+import { RecurrenceFrequency } from '../types/recurringSeries';
 import { CloseIcon, LockIcon } from './icons';
 import { UserTier } from '../hooks/useUserTier';
+
+export interface RecurrenceInput {
+  frequency: RecurrenceFrequency;
+  endDate: Date | null;
+}
 
 interface Props {
   visible: boolean;
   isSaving: boolean;
   tier: UserTier;
   onClose: () => void;
-  onSchedule: (title: string, description: string, scheduledAt: Date, maxParticipants: number | null) => void;
+  onSchedule: (
+    title: string,
+    description: string,
+    scheduledAt: Date,
+    maxParticipants: number | null,
+    recurrence: RecurrenceInput | null,
+  ) => void;
   onRequirePaywall: () => void;
+}
+
+const FREQUENCY_OPTIONS: { value: RecurrenceFrequency; label: string }[] = [
+  { value: 'weekly', label: 'WEEKLY' },
+  { value: 'biweekly', label: 'EVERY 2 WEEKS' },
+  { value: 'monthly', label: 'MONTHLY' },
+];
+
+function recurrencePreview(frequency: RecurrenceFrequency, date: Date): string {
+  const dayName = date.toLocaleDateString(undefined, { weekday: 'long' });
+  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (frequency === 'weekly') return `Every ${dayName} at ${time}`;
+  if (frequency === 'biweekly') return `Every other ${dayName} at ${time}`;
+  return `Monthly on day ${date.getDate()} at ${time}`;
 }
 
 const PARTICIPANT_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -39,6 +66,9 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
   const [description, setDescription] = useState('');
   const [scheduledAt, setScheduledAt] = useState<Date>(defaultTime());
   const [maxParticipants, setMaxParticipants] = useState<number | null>(10);
+  const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>('weekly');
+  const [endDate, setEndDate] = useState<Date | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -46,8 +76,19 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
       setDescription('');
       setScheduledAt(defaultTime());
       setMaxParticipants(10);
+      setRecurrenceEnabled(false);
+      setFrequency('weekly');
+      setEndDate(null);
     }
   }, [visible]);
+
+  const handleToggleRecurrence = (v: boolean) => {
+    if (v && tier === 'free') {
+      onRequirePaywall();
+      return;
+    }
+    setRecurrenceEnabled(v);
+  };
 
   const handleSelectOpen = () => {
     if (tier === 'free') {
@@ -144,9 +185,60 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
               </View>
             </View>
 
+            <View>
+              <Pressable style={styles.recurrenceRow} onPress={() => handleToggleRecurrence(!recurrenceEnabled)}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.recurrenceLabel}>Repeat this run</Text>
+                  {tier === 'free' && <Text style={styles.recurrenceSub}>Upgrade to Pro for recurring runs</Text>}
+                </View>
+                {tier === 'free' ? (
+                  <LockIcon size={16} color={colors.muted} />
+                ) : (
+                  <Switch
+                    value={recurrenceEnabled}
+                    onValueChange={handleToggleRecurrence}
+                    trackColor={{ true: colors.rust, false: colors.sand }}
+                    thumbColor={colors.white}
+                  />
+                )}
+              </Pressable>
+
+              {recurrenceEnabled && (
+                <View style={styles.recurrenceDetails}>
+                  <View style={styles.frequencyRow}>
+                    {FREQUENCY_OPTIONS.map((opt) => (
+                      <Pressable
+                        key={opt.value}
+                        style={[styles.frequencyChip, frequency === opt.value && styles.frequencyChipActive]}
+                        onPress={() => setFrequency(opt.value)}
+                      >
+                        <Text
+                          style={[
+                            styles.frequencyChipText,
+                            frequency === opt.value && styles.frequencyChipTextActive,
+                          ]}
+                        >
+                          {opt.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                  <Text style={styles.recurrencePreview}>{recurrencePreview(frequency, scheduledAt)}</Text>
+                </View>
+              )}
+            </View>
+
             <Pressable
               style={[styles.scheduleButton, !title.trim() && styles.scheduleButtonDisabled]}
-              onPress={() => onSchedule(title.trim(), description.trim(), scheduledAt, maxParticipants)}
+              onPress={() =>
+                onSchedule(
+                  title.trim(),
+                  description.trim(),
+                  scheduledAt,
+                  maxParticipants,
+                  recurrenceEnabled ? { frequency, endDate } : null,
+                )
+              }
               disabled={!title.trim() || isSaving}
             >
               {isSaving ? (
@@ -272,6 +364,61 @@ const styles = StyleSheet.create({
   },
   participantChipTextActive: {
     color: colors.sand,
+  },
+  recurrenceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colors.white,
+    borderWidth: 2.5,
+    borderColor: colors.ink,
+    borderRadius: 12,
+    padding: 14,
+  },
+  recurrenceLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  recurrenceSub: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    color: colors.muted,
+    marginTop: 2,
+  },
+  recurrenceDetails: {
+    marginTop: 10,
+    gap: 10,
+  },
+  frequencyRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  frequencyChip: {
+    flex: 1,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  frequencyChipActive: {
+    backgroundColor: colors.rust,
+  },
+  frequencyChipText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 10,
+    color: colors.ink,
+  },
+  frequencyChipTextActive: {
+    color: colors.sand,
+  },
+  recurrencePreview: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.muted,
   },
   scheduleButton: {
     height: 56,
