@@ -246,6 +246,7 @@ export interface UpdateClubInput {
   description?: string;
   city?: string;
   isPrivate?: boolean;
+  avatarUrl?: string;
 }
 
 export async function updateClub(clubId: string, input: UpdateClubInput): Promise<void> {
@@ -254,6 +255,7 @@ export async function updateClub(clubId: string, input: UpdateClubInput): Promis
   if (input.description !== undefined) updates.description = input.description.trim() || null;
   if (input.city !== undefined) updates.city = input.city.trim() || null;
   if (input.isPrivate !== undefined) updates.is_private = input.isPrivate;
+  if (input.avatarUrl !== undefined) updates.avatar_url = input.avatarUrl;
 
   const { error } = await supabase.from('run_clubs').update(updates).eq('id', clubId);
   if (error) throw new Error(error.message);

@@ -13,9 +13,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BackIcon, TrashIcon, UserIcon } from '../components/icons';
+import { BackIcon, CameraIcon, TrashIcon, UserIcon } from '../components/icons';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { ClubMember, RunClub } from '../types/club';
+import { AvatarError, pickAndUploadClubAvatar } from '../utils/avatar';
 import {
   ClubFullError,
   deleteClub,
@@ -43,6 +44,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
   const [pending, setPending] = useState<ClubMember[]>([]);
   const [members, setMembers] = useState<ClubMember[]>([]);
   const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const refresh = useCallback(async () => {
     const c = await getClub(clubId);
@@ -75,6 +77,21 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
       setSaving(false);
     }
   }, [clubId, name, description, city, isPrivate, refresh]);
+
+  const handlePickLogo = useCallback(async () => {
+    setUploadingLogo(true);
+    try {
+      const url = await pickAndUploadClubAvatar(clubId);
+      if (url) {
+        await updateClub(clubId, { avatarUrl: url });
+        await refresh();
+      }
+    } catch (e) {
+      Alert.alert('Error', e instanceof AvatarError ? e.message : 'Failed to update club logo.');
+    } finally {
+      setUploadingLogo(false);
+    }
+  }, [clubId, refresh]);
 
   const handleRespond = useCallback(
     async (userId: string, approve: boolean) => {
@@ -178,6 +195,21 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
         )}
 
         <Text style={styles.sectionTitle}>Club details</Text>
+
+        <Pressable style={styles.logoRow} onPress={handlePickLogo} disabled={uploadingLogo}>
+          {club.avatarUrl ? (
+            <Image source={{ uri: club.avatarUrl }} style={styles.logoImage} />
+          ) : (
+            <View style={[styles.logoImage, styles.logoPlaceholder]}>
+              <Text style={styles.logoPlaceholderText}>{club.name.slice(0, 1).toUpperCase()}</Text>
+            </View>
+          )}
+          <View style={styles.logoBadge}>
+            {uploadingLogo ? <ActivityIndicator size="small" color={colors.ink} /> : <CameraIcon size={14} />}
+          </View>
+          <Text style={styles.logoLabel}>Change club logo</Text>
+        </Pressable>
+
         <TextInput style={styles.input} value={name} onChangeText={setName} maxLength={50} placeholder="Club name" placeholderTextColor={colors.mutedLight} />
         <TextInput style={styles.input} value={city} onChangeText={setCity} maxLength={80} placeholder="City" placeholderTextColor={colors.mutedLight} />
         <TextInput
@@ -336,6 +368,47 @@ const styles = StyleSheet.create({
     color: colors.ink,
     marginTop: 20,
     marginBottom: 6,
+  },
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 6,
+  },
+  logoImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 3,
+    borderColor: colors.ink,
+  },
+  logoPlaceholder: {
+    backgroundColor: colors.sand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoPlaceholderText: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    color: colors.ink,
+  },
+  logoBadge: {
+    position: 'absolute',
+    bottom: -4,
+    left: 40,
+    width: 22,
+    height: 22,
+    borderRadius: 8,
+    backgroundColor: colors.amber,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: colors.ink,
   },
   input: {
     height: 48,
