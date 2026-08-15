@@ -563,8 +563,22 @@ export default function DiscoverMapScreen({
 
       {!loading && routes.length === 0 && !error && (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No routes found</Text>
-          <Text style={styles.emptyBody}>Try widening your filters, or be the first to create one here.</Text>
+          {activeFilterCount > 0 ? (
+            <>
+              <Text style={styles.emptyTitle}>No routes match these filters</Text>
+              <Pressable onPress={handleClearFilters} hitSlop={8}>
+                <Text style={styles.emptyLink}>Clear filters</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.emptyTitle}>No routes here yet</Text>
+              <Text style={styles.emptyBody}>Be the first to create one.</Text>
+              <Pressable onPress={onCreateRoute} hitSlop={8}>
+                <Text style={styles.emptyLink}>Create a route</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       )}
 
@@ -998,6 +1012,14 @@ const styles = StyleSheet.create({
     color: colors.muted,
     textAlign: 'center',
     lineHeight: 19,
+  },
+  emptyLink: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: colors.rust,
+    textAlign: 'center',
+    marginTop: 4,
+    textDecorationLine: 'underline',
   },
   runsStripWrap: {
     position: 'absolute',
