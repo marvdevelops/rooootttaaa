@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { ActivityType, PathPoint } from '../types/route';
+import { generateRouteName } from '../utils/routeName';
 import ElevationProfileChart from './ElevationProfileChart';
 import { CloseIcon } from './icons';
 
@@ -26,6 +27,10 @@ interface Props {
   initialName?: string;
   initialDescription?: string;
   initialActivityType?: ActivityType;
+  /** Reverse-geocoded city for the route's start point, if resolved yet — folded into the auto-generated name. */
+  suggestedCity?: string | null;
+  /** Last activity type the user picked, remembered across saves so it doesn't reset to Run every time. */
+  defaultActivityType?: ActivityType;
   onClose: () => void;
   onSave: (name: string, description: string, activityType: ActivityType) => void;
 }
@@ -47,12 +52,16 @@ export default function SaveRouteModal({
   initialName,
   initialDescription,
   initialActivityType,
+  suggestedCity,
+  defaultActivityType,
   onClose,
   onSave,
 }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [activityType, setActivityType] = useState<ActivityType>('run');
+  const [showDescription, setShowDescription] = useState(false);
+  const nameInputRef = useRef<TextInput>(null);
 
   const peakElevationM = useMemo(() => {
     const elevations = elevationPath.map((p) => p.elevation).filter((e): e is number => typeof e === 'number');
@@ -61,11 +70,16 @@ export default function SaveRouteModal({
 
   useEffect(() => {
     if (visible) {
-      setName(initialName ?? '');
+      const startingActivityType = initialActivityType ?? defaultActivityType ?? 'run';
+      setName(initialName ?? generateRouteName(suggestedCity ?? null, startingActivityType));
       setDescription(initialDescription ?? '');
-      setActivityType(initialActivityType ?? 'run');
+      setActivityType(startingActivityType);
+      setShowDescription(!!initialDescription);
+      // Text pre-selected so typing replaces the auto-generated name immediately.
+      setTimeout(() => nameInputRef.current?.setNativeProps({ selection: { start: 0, end: 999 } }), 50);
     }
-  }, [visible, initialName, initialDescription, initialActivityType]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -117,6 +131,7 @@ export default function SaveRouteModal({
             <View>
               <Text style={styles.label}>NAME</Text>
               <TextInput
+                ref={nameInputRef}
                 value={name}
                 onChangeText={setName}
                 placeholder="Sunday long run"
@@ -126,18 +141,25 @@ export default function SaveRouteModal({
               />
             </View>
 
-            <View>
-              <Text style={styles.label}>DESCRIPTION</Text>
-              <TextInput
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Optional notes — surface, effort, weather..."
-                placeholderTextColor={colors.mutedLight}
-                style={[styles.input, styles.textArea]}
-                multiline
-                maxLength={280}
-              />
-            </View>
+            {showDescription ? (
+              <View>
+                <Text style={styles.label}>DESCRIPTION</Text>
+                <TextInput
+                  value={description}
+                  onChangeText={setDescription}
+                  placeholder="Optional notes — surface, effort, weather..."
+                  placeholderTextColor={colors.mutedLight}
+                  style={[styles.input, styles.textArea]}
+                  multiline
+                  maxLength={280}
+                  autoFocus
+                />
+              </View>
+            ) : (
+              <Pressable onPress={() => setShowDescription(true)} hitSlop={8}>
+                <Text style={styles.addDetailsLink}>+ Add details</Text>
+              </Pressable>
+            )}
 
             <Pressable
               style={[styles.saveButton, !name.trim() && styles.saveButtonDisabled]}
@@ -249,6 +271,11 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
+  },
+  addDetailsLink: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: colors.muted,
   },
   saveButton: {
     height: 56,

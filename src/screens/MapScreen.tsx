@@ -29,6 +29,7 @@ import { countMyRoutes, createRoute, updateRoute } from '../utils/routesApi';
 const ELEVATION_DEBOUNCE_MS = 1200;
 const CAMERA_ZOOM = 15;
 const TUTORIAL_STORAGE_KEY = 'rootah_seen_builder_tutorial_v1';
+const LAST_ACTIVITY_TYPE_KEY = 'rootah_last_activity_type';
 
 // Rootah launches first in the Philippines — used before GPS location
 // resolves (or if permission is denied), same fallback as DiscoverMapScreen.
@@ -85,6 +86,35 @@ export default function MapScreen({
   // re-fetch routing or reverse individual operations (add/drag/delete all
   // push the same way). Capped at 20 states.
   const [history, setHistory] = useState<{ waypoints: Waypoint[]; segments: RouteSegment[] }[]>([]);
+  // Reverse-geocoded ahead of time (debounced off the start point) so it's
+  // usually already resolved by the time the save modal opens, for the
+  // auto-generated route name.
+  const [saveCity, setSaveCity] = useState<string | null>(null);
+  const [lastActivityType, setLastActivityType] = useState<ActivityType | null>(null);
+  const cityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(LAST_ACTIVITY_TYPE_KEY).then((v) => {
+      if (v === 'run' || v === 'bike' || v === 'walk' || v === 'other') setLastActivityType(v);
+    });
+  }, []);
+
+  useEffect(() => {
+    const start = waypoints[0];
+    if (!start) {
+      setSaveCity(null);
+      return;
+    }
+    if (cityTimer.current) clearTimeout(cityTimer.current);
+    cityTimer.current = setTimeout(() => {
+      reverseGeocodeCity(start).then(setSaveCity).catch(() => {});
+    }, ELEVATION_DEBOUNCE_MS);
+    return () => {
+      if (cityTimer.current) clearTimeout(cityTimer.current);
+    };
+    // Only the origin point matters for city detection, not every drag of later waypoints.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waypoints[0]?.latitude, waypoints[0]?.longitude]);
 
   const elevationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const elevationRequestId = useRef(0);
@@ -616,7 +646,8 @@ export default function MapScreen({
     async (name: string, description: string, activityType: ActivityType) => {
       setIsSavingRoute(true);
       try {
-        const city = waypoints[0] ? await reverseGeocodeCity(waypoints[0]) : null;
+        const city = saveCity ?? (waypoints[0] ? await reverseGeocodeCity(waypoints[0]) : null);
+        AsyncStorage.setItem(LAST_ACTIVITY_TYPE_KEY, activityType).catch(() => {});
         const payload = {
           name,
           description,
@@ -660,6 +691,7 @@ export default function MapScreen({
       editingRoute,
       tutorialStep,
       finishTutorial,
+      saveCity,
     ],
   );
 
@@ -830,6 +862,8 @@ export default function MapScreen({
         initialName={editingRoute?.name}
         initialDescription={editingRoute?.description}
         initialActivityType={editingRoute?.activityType}
+        suggestedCity={saveCity}
+        defaultActivityType={lastActivityType ?? undefined}
         onClose={() => setShowSaveModal(false)}
         onSave={handleSaveRoute}
       />
