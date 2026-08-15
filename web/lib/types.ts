@@ -35,3 +35,27 @@ export interface PublicRoute {
   likesCount: number;
   createdAt: string;
 }
+
+export interface PublicGroupRunParticipant {
+  username: string;
+  avatarUrl: string | null;
+}
+
+export interface PublicGroupRun {
+  id: string;
+  title: string;
+  description: string;
+  scheduledAt: string;
+  city: string | null;
+  status: 'scheduled' | 'active' | 'archived';
+  hostUsername: string;
+  routeId: string;
+  /** All null when the underlying route isn't public — the page still renders without route details or a map. */
+  routeName: string | null;
+  routeDistanceKm: number | null;
+  routeElevationGainM: number | null;
+  routeWaypoints: Waypoint[] | null;
+  routeSegments: RouteSegment[] | null;
+  rsvpCount: number;
+  participants: PublicGroupRunParticipant[];
+}

@@ -7,12 +7,13 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { CalendarIcon, CloseIcon, CompassIcon, ReplyIcon, SendIcon, TrashIcon, UserIcon } from '../components/icons';
+import { CalendarIcon, CloseIcon, CompassIcon, ReplyIcon, SendIcon, ShareIcon, TrashIcon, UserIcon } from '../components/icons';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import ReportModal from '../components/ReportModal';
 import { useNotificationPrePermission } from '../hooks/useNotificationPrePermission';
@@ -236,6 +237,28 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       notes: groupRun.description,
       startDate: new Date(groupRun.scheduledAt),
     });
+  }, [groupRun]);
+
+  const handleShare = useCallback(async () => {
+    if (!groupRun) return;
+    const webBaseUrl = process.env.EXPO_PUBLIC_WEB_BASE_URL;
+    const url = webBaseUrl ? `${webBaseUrl}/runs/${groupRun.id}` : undefined;
+    const when = formatWhen(groupRun.scheduledAt);
+    const lines = [
+      `Join us for a group run! 🏃`,
+      '',
+      `📅 ${when}`,
+      groupRun.city ? `📍 ${groupRun.city} — ${groupRun.routeName} (${groupRun.routeDistanceKm.toFixed(1)}km)` : `${groupRun.routeName} (${groupRun.routeDistanceKm.toFixed(1)}km)`,
+      `👥 ${groupRun.rsvpCount} people joining`,
+    ];
+    if (url) {
+      lines.push('', 'RSVP and see the route here:', url);
+    }
+    try {
+      await Share.share({ message: lines.join('\n'), url, title: groupRun.title });
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to share this run.');
+    }
   }, [groupRun]);
 
   const isArchived = groupRun?.status === 'archived';
@@ -551,6 +574,10 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               <Pressable style={styles.secondaryActionButton} onPress={handleNavigateToStart}>
                 <CompassIcon size={15} color={colors.ink} />
                 <Text style={styles.secondaryActionText}>NAVIGATE</Text>
+              </Pressable>
+              <Pressable style={styles.secondaryActionButton} onPress={handleShare}>
+                <ShareIcon size={15} color={colors.ink} />
+                <Text style={styles.secondaryActionText}>SHARE</Text>
               </Pressable>
             </View>
           </View>

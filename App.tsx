@@ -443,6 +443,11 @@ function Root() {
   useEffect(() => {
     const handleUrl = (url: string | null) => {
       if (!url) return;
+      const runMatch = url.match(/runs\/([^/?#]+)/);
+      if (runMatch) {
+        setPendingGroupRunId(runMatch[1]);
+        return;
+      }
       const routeMatch = url.match(/routes\/([^/?#]+)/);
       if (routeMatch) setPendingRouteId(routeMatch[1]);
       // Sent by rootah.com/reset-password after a successful password
