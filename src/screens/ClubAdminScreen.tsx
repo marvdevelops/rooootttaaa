@@ -1,5 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { BackIcon, TrashIcon, UserIcon } from '../components/icons';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { ClubMember, RunClub } from '../types/club';
@@ -154,7 +167,8 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
         <Text style={styles.title}>Manage Club</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {club.memberCount >= 20 && club.memberCount < 25 && (
           <View style={styles.almostFullBanner}>
             <Text style={styles.almostFullText}>
@@ -260,6 +274,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

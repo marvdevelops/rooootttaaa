@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { RouteReview } from '../types/route';
 import { upsertReview } from '../utils/reviewsApi';
@@ -39,7 +39,7 @@ export default function ReviewModal({ visible, routeId, groupRunId, existing, so
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
           <View style={styles.headerRow}>
@@ -70,7 +70,7 @@ export default function ReviewModal({ visible, routeId, groupRunId, existing, so
             )}
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

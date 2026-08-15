@@ -1,5 +1,17 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { BackIcon } from '../components/icons';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { createClub } from '../utils/clubsApi';
@@ -40,7 +52,8 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
         <Text style={styles.title}>Create a Club</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.form}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
         <Text style={styles.label}>Club name</Text>
         <TextInput
           style={styles.input}
@@ -89,6 +102,7 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
           {saving ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.createButtonText}>CREATE CLUB</Text>}
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

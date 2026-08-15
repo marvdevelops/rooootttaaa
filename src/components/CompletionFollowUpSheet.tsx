@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { RouteCompletion } from '../types/route';
 import { updateCompletion } from '../utils/completionsApi';
@@ -81,7 +81,7 @@ export default function CompletionFollowUpSheet({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <View style={styles.backdrop}>
+      <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose} />
         <View style={styles.sheet}>
           <View style={styles.headerRow}>
@@ -143,7 +143,7 @@ export default function CompletionFollowUpSheet({
             <Text style={styles.skipText}>Skip</Text>
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

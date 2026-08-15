@@ -1,5 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Linking,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { BackIcon, CalendarIcon, CameraIcon, ClockIcon, CompassIcon, UserIcon } from '../components/icons';
 import NotificationSettingsSection from '../components/NotificationSettingsSection';
 import { useAuth } from '../lib/AuthContext';
@@ -125,7 +138,8 @@ export default function ProfileScreen({ onClose, onOpenActivity, onOpenMyMaps, o
         <Text style={styles.title}>Profile</Text>
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={styles.content} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.contentInner} keyboardShouldPersistTaps="handled">
         <View style={styles.avatarRow}>
           <Pressable style={styles.avatarWrap} onPress={handlePickAvatar} disabled={uploadingAvatar}>
             {profile?.avatar_url ? (
@@ -243,6 +257,7 @@ export default function ProfileScreen({ onClose, onOpenActivity, onOpenMyMaps, o
           )}
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
