@@ -17,8 +17,19 @@ import NotificationPermissionModal from '../components/NotificationPermissionMod
 import ReportModal from '../components/ReportModal';
 import { useNotificationPrePermission } from '../hooks/useNotificationPrePermission';
 import { brutalShadow, colors, fonts } from '../theme/theme';
-import { CloudRoute, GroupRun, GroupRunComment, GroupRunParticipant, PathPoint } from '../types/route';
+import {
+  CloudRoute,
+  GroupRun,
+  GroupRunComment,
+  GroupRunParticipant,
+  PathPoint,
+  RouteCompletion,
+  RouteReview,
+} from '../types/route';
 import { addGroupRunToCalendar } from '../utils/calendar';
+import { getTodayCompletion, logRouteCompletion } from '../utils/completionsApi';
+import { getMyReview } from '../utils/reviewsApi';
+import ReviewModal from '../components/ReviewModal';
 import { navigateToStart } from '../utils/externalNav';
 import { deleteGroupRunComment, listGroupRunComments, postGroupRunComment } from '../utils/groupRunCommentsApi';
 import {
@@ -79,6 +90,10 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
   const [isReporting, setIsReporting] = useState(false);
   const [participants, setParticipants] = useState<GroupRunParticipant[]>([]);
   const [respondingUserId, setRespondingUserId] = useState<string | null>(null);
+  const [todayCompletion, setTodayCompletion] = useState<RouteCompletion | null>(null);
+  const [loggingCompletion, setLoggingCompletion] = useState(false);
+  const [myReview, setMyReview] = useState<RouteReview | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const notificationPrePermission = useNotificationPrePermission();
 
   const refresh = useCallback(async () => {
@@ -101,12 +116,36 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       getRoute(run.routeId)
         .then(setRoute)
         .catch(() => {});
+      if (run.status === 'archived' && (run.isRsvpedByMe || run.isHostedByMe)) {
+        getTodayCompletion(run.routeId)
+          .then(setTodayCompletion)
+          .catch(() => {});
+        getMyReview(run.routeId)
+          .then(setMyReview)
+          .catch(() => {});
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load this group run.');
     } finally {
       setLoading(false);
     }
   }, [groupRunId]);
+
+  const handleLogRun = useCallback(async () => {
+    if (!groupRun || todayCompletion) return;
+    setLoggingCompletion(true);
+    try {
+      const completion = await logRouteCompletion(groupRun.routeId, {
+        groupRunId: groupRun.id,
+        source: 'group_run',
+      });
+      setTodayCompletion(completion);
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Could not log your run. Try again.');
+    } finally {
+      setLoggingCompletion(false);
+    }
+  }, [groupRun, todayCompletion]);
 
   const routeFullPath = useMemo<PathPoint[]>(() => {
     if (!route || route.waypoints.length === 0) return [];
@@ -351,6 +390,29 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
             </View>
           )}
 
+          {isArchived && (groupRun.isRsvpedByMe || groupRun.isHostedByMe) && (
+            <View style={styles.postEventCard}>
+              <Pressable
+                style={[styles.postEventButton, todayCompletion && styles.postEventButtonDone]}
+                onPress={handleLogRun}
+                disabled={loggingCompletion}
+              >
+                {loggingCompletion ? (
+                  <ActivityIndicator color={colors.sand} size="small" />
+                ) : (
+                  <Text style={[styles.postEventButtonText, todayCompletion && styles.postEventButtonTextDone]}>
+                    {todayCompletion ? '✓ Logged' : 'I ran it ✓'}
+                  </Text>
+                )}
+              </Pressable>
+              <Pressable style={styles.postEventReviewLink} onPress={() => setShowReviewModal(true)}>
+                <Text style={styles.postEventReviewLinkText}>
+                  {myReview ? 'Edit your review of this route' : 'How was the route? Leave a review'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
           <View style={styles.eventCard}>
             {routeMapUrl && (
               <Pressable style={styles.routePreviewWrap} onPress={() => onOpenRoute(groupRun.routeId)}>
@@ -575,6 +637,21 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
         onAllow={notificationPrePermission.handleAllow}
         onDismiss={notificationPrePermission.handleDismiss}
       />
+
+      {groupRun && (
+        <ReviewModal
+          visible={showReviewModal}
+          routeId={groupRun.routeId}
+          groupRunId={groupRun.id}
+          existing={myReview}
+          source="group_run"
+          onClose={() => setShowReviewModal(false)}
+          onSaved={(review) => {
+            setMyReview(review);
+            setShowReviewModal(false);
+          }}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -661,6 +738,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.muted,
     textAlign: 'center',
+  },
+  postEventCard: {
+    gap: 8,
+    marginBottom: 4,
+  },
+  postEventButton: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...brutalShadow(3),
+  },
+  postEventButtonDone: {
+    backgroundColor: colors.sand,
+  },
+  postEventButtonText: {
+    fontFamily: fonts.display,
+    fontSize: 14,
+    color: colors.white,
+  },
+  postEventButtonTextDone: {
+    color: colors.ink,
+  },
+  postEventReviewLink: {
+    alignItems: 'center',
+  },
+  postEventReviewLinkText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.rust,
+    textDecorationLine: 'underline',
   },
   eventCard: {
     backgroundColor: colors.white,

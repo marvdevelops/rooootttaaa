@@ -21,6 +21,9 @@ interface RouteRow {
   city: string | null;
   is_public: boolean;
   created_at: string;
+  completion_count: number;
+  review_count: number;
+  rating_sum: number;
   profiles: OwnerProfile | OwnerProfile[] | null;
   saves: { count: number }[] | null;
   likes: { count: number }[] | null;
@@ -81,6 +84,9 @@ async function toCloudRoute(row: RouteRow, viewerId: string | null, savedAt?: st
     isPublic: row.is_public,
     savesCount: row.saves?.[0]?.count ?? 0,
     likesCount: row.likes?.[0]?.count ?? 0,
+    completionCount: row.completion_count ?? 0,
+    reviewCount: row.review_count ?? 0,
+    ratingSum: row.rating_sum ?? 0,
     isOwnedByMe: row.owner_id === viewerId,
     isSavedByMe,
     isLikedByMe,

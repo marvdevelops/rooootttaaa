@@ -32,6 +32,19 @@ import { useUserTier } from '../hooks/useUserTier';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { ActivityType, CloudRoute, GroupRun, PathPoint } from '../types/route';
 import { blockUser } from '../utils/blocksApi';
+import CompletionFollowUpSheet from '../components/CompletionFollowUpSheet';
+import { StarRating } from '../components/StarRating';
+import {
+  CompletionParticipant,
+  formatDuration,
+  getPersonalBest,
+  getTodayCompletion,
+  listRouteCompletions,
+  logRouteCompletion,
+} from '../utils/completionsApi';
+import { canReviewRoute, getMyReview, listRouteReviews } from '../utils/reviewsApi';
+import { RouteCompletion, RouteReview } from '../types/route';
+import ReviewModal from '../components/ReviewModal';
 import { kilometerMarkers } from '../utils/distance';
 import { navigateToStart } from '../utils/externalNav';
 import { buildGpx } from '../utils/gpx';
@@ -96,6 +109,21 @@ export default function RouteDetailScreen({
   const [isReporting, setIsReporting] = useState(false);
   const [checkingScheduleLimit, setCheckingScheduleLimit] = useState(false);
 
+  const [completionCount, setCompletionCount] = useState(route.completionCount);
+  const [todayCompletion, setTodayCompletion] = useState<RouteCompletion | null>(null);
+  const [loggingCompletion, setLoggingCompletion] = useState(false);
+  const [showFollowUp, setShowFollowUp] = useState(false);
+  const [newPersonalBestSeconds, setNewPersonalBestSeconds] = useState<number | null>(null);
+  const [completionsExpanded, setCompletionsExpanded] = useState(false);
+  const [routeCompletions, setRouteCompletions] = useState<CompletionParticipant[]>([]);
+  const [personalBestSeconds, setPersonalBestSeconds] = useState<number | null>(null);
+  const [reviewCount, setReviewCount] = useState(route.reviewCount);
+  const [ratingSum, setRatingSum] = useState(route.ratingSum);
+  const [reviews, setReviews] = useState<RouteReview[]>([]);
+  const [myReview, setMyReview] = useState<RouteReview | null>(null);
+  const [canReview, setCanReview] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const hasFitBounds = useRef(false);
 
@@ -110,6 +138,97 @@ export default function RouteDetailScreen({
   useEffect(() => {
     refreshGroupRuns();
   }, [refreshGroupRuns]);
+
+  useEffect(() => {
+    getTodayCompletion(route.id)
+      .then(setTodayCompletion)
+      .catch(() => {});
+    getPersonalBest(route.id)
+      .then((pb) => setPersonalBestSeconds(pb?.durationSeconds ?? null))
+      .catch(() => {});
+    getMyReview(route.id)
+      .then(setMyReview)
+      .catch(() => {});
+    canReviewRoute(route.id)
+      .then(setCanReview)
+      .catch(() => {});
+    if (route.reviewCount > 0) {
+      listRouteReviews(route.id)
+        .then(setReviews)
+        .catch(() => {});
+    }
+  }, [route.id]);
+
+  const handleLogRun = useCallback(async () => {
+    if (todayCompletion) {
+      setShowFollowUp(true);
+      return;
+    }
+    setLoggingCompletion(true);
+    try {
+      const completion = await logRouteCompletion(route.id);
+      setTodayCompletion(completion);
+      setCompletionCount((c) => c + 1);
+      if (personalBestSeconds == null) {
+        // No prior timed completion — nothing to beat yet, handled after they add a time.
+      }
+      setShowFollowUp(true);
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Could not log your run. Try again.');
+    } finally {
+      setLoggingCompletion(false);
+    }
+  }, [route.id, todayCompletion, personalBestSeconds]);
+
+  const handleFollowUpSaved = useCallback(async () => {
+    setShowFollowUp(false);
+    try {
+      const [pb, review] = await Promise.all([getPersonalBest(route.id), getMyReview(route.id)]);
+      if (pb && (personalBestSeconds == null || pb.durationSeconds < personalBestSeconds)) {
+        setNewPersonalBestSeconds(pb.durationSeconds);
+      }
+      setPersonalBestSeconds(pb?.durationSeconds ?? null);
+      if (review) {
+        const hadReviewBefore = !!myReview;
+        setMyReview(review);
+        if (!hadReviewBefore) {
+          setReviewCount((c) => c + 1);
+          setRatingSum((s) => s + review.rating);
+        } else {
+          setRatingSum((s) => s - myReview!.rating + review.rating);
+        }
+        setReviews((prev) => [review, ...prev.filter((r) => r.id !== review.id)]);
+      }
+    } catch {
+      // Follow-up data is best-effort — the completion itself already saved.
+    }
+  }, [route.id, personalBestSeconds, myReview]);
+
+  const toggleCompletionsExpanded = useCallback(() => {
+    const next = !completionsExpanded;
+    setCompletionsExpanded(next);
+    if (next && routeCompletions.length === 0) {
+      listRouteCompletions(route.id)
+        .then(setRouteCompletions)
+        .catch(() => {});
+    }
+  }, [completionsExpanded, routeCompletions.length, route.id]);
+
+  const handleReviewSaved = useCallback(
+    (review: RouteReview) => {
+      const hadReviewBefore = !!myReview;
+      setMyReview(review);
+      setShowReviewModal(false);
+      if (!hadReviewBefore) {
+        setReviewCount((c) => c + 1);
+        setRatingSum((s) => s + review.rating);
+      } else {
+        setRatingSum((s) => s - myReview!.rating + review.rating);
+      }
+      setReviews((prev) => [review, ...prev.filter((r) => r.id !== review.id)]);
+    },
+    [myReview],
+  );
 
   const fullPath = useMemo<PathPoint[]>(() => {
     if (route.waypoints.length === 0) return [];
@@ -564,6 +683,26 @@ export default function RouteDetailScreen({
             )}
           </View>
 
+          <Pressable
+            style={[styles.runThisButton, todayCompletion && styles.runThisButtonLogged]}
+            onPress={handleLogRun}
+            disabled={loggingCompletion}
+          >
+            {loggingCompletion ? (
+              <ActivityIndicator color={colors.sand} />
+            ) : (
+              <Text style={[styles.runThisButtonText, todayCompletion && styles.runThisButtonTextLogged]}>
+                {todayCompletion ? '✓ Ran today' : '✓ I ran this'}
+              </Text>
+            )}
+          </Pressable>
+
+          {personalBestSeconds != null && (
+            <View style={styles.pbRow}>
+              <Text style={styles.pbRowText}>🏆 Your best: {formatDuration(personalBestSeconds)}</Text>
+            </View>
+          )}
+
           <View style={styles.actionsRow}>
             <Pressable style={[styles.actionButton, isLiked && styles.actionButtonLiked]} onPress={handleToggleLike}>
               <HeartIcon size={16} color={isLiked ? colors.sand : colors.ink} filled={isLiked} />
@@ -614,6 +753,80 @@ export default function RouteDetailScreen({
               <Text style={styles.openButtonText}>CUSTOMIZE THIS ROUTE</Text>
             </Pressable>
           )}
+
+          {completionCount > 0 && (
+            <View style={styles.completionsSection}>
+              <Pressable onPress={toggleCompletionsExpanded}>
+                <Text style={styles.completionsSummary}>
+                  🏃 Ran by {completionCount} {completionCount === 1 ? 'person' : 'people'}
+                </Text>
+              </Pressable>
+              {completionsExpanded &&
+                routeCompletions.map((c) => (
+                  <View key={c.id} style={styles.completionRow}>
+                    {c.avatarUrl ? (
+                      <Image source={{ uri: c.avatarUrl }} style={styles.completionAvatar} />
+                    ) : (
+                      <View style={[styles.completionAvatar, styles.completionAvatarPlaceholder]}>
+                        <Text style={styles.completionAvatarText}>{c.username.slice(0, 1).toUpperCase()}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.completionUsername} numberOfLines={1}>
+                      {c.username}
+                    </Text>
+                    {c.durationSeconds != null && (
+                      <Text style={styles.completionDuration}>{formatDuration(c.durationSeconds)}</Text>
+                    )}
+                  </View>
+                ))}
+            </View>
+          )}
+
+          <View style={styles.reviewsSection}>
+            {reviewCount >= 3 ? (
+              <View style={styles.ratingSummaryRow}>
+                <Text style={styles.ratingSummaryValue}>{(ratingSum / reviewCount).toFixed(1)}</Text>
+                <StarRating value={ratingSum / reviewCount} size={15} />
+                <Text style={styles.ratingSummaryCount}>({reviewCount})</Text>
+              </View>
+            ) : (
+              canReview &&
+              !myReview && <Text style={styles.reviewsTitle}>Be the first to review this route</Text>
+            )}
+
+            {reviews.length > 0 && (
+              <View style={styles.reviewList}>
+                {reviews.slice(0, 3).map((review) => (
+                  <View key={review.id} style={styles.reviewCard}>
+                    {review.avatarUrl ? (
+                      <Image source={{ uri: review.avatarUrl }} style={styles.completionAvatar} />
+                    ) : (
+                      <View style={[styles.completionAvatar, styles.completionAvatarPlaceholder]}>
+                        <Text style={styles.completionAvatarText}>{review.username.slice(0, 1).toUpperCase()}</Text>
+                      </View>
+                    )}
+                    <View style={styles.reviewCardBody}>
+                      <Text style={styles.reviewUsername}>{review.username}</Text>
+                      <StarRating value={review.rating} size={11} />
+                      {review.groupRunTitle && (
+                        <Text style={styles.reviewSourceLabel}>Via group run: {review.groupRunTitle}</Text>
+                      )}
+                      {!!review.body && <Text style={styles.reviewBody}>{review.body}</Text>}
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {canReview && (
+              <Pressable style={styles.writeReviewButton} onPress={() => setShowReviewModal(true)}>
+                <Text style={styles.writeReviewText}>
+                  {myReview ? 'Edit your review' : 'Write a review'}
+                </Text>
+                {myReview && <StarRating value={myReview.rating} size={12} />}
+              </Pressable>
+            )}
+          </View>
 
           <View style={styles.divider} />
 
@@ -703,6 +916,27 @@ export default function RouteDetailScreen({
         message={notificationPrePermission.message}
         onAllow={notificationPrePermission.handleAllow}
         onDismiss={notificationPrePermission.handleDismiss}
+      />
+
+      <CompletionFollowUpSheet
+        visible={showFollowUp}
+        completion={todayCompletion}
+        routeName={route.name}
+        newPersonalBestSeconds={newPersonalBestSeconds}
+        onClose={() => {
+          setShowFollowUp(false);
+          setNewPersonalBestSeconds(null);
+        }}
+        onSaved={handleFollowUpSaved}
+      />
+
+      <ReviewModal
+        visible={showReviewModal}
+        routeId={route.id}
+        existing={myReview}
+        source="solo"
+        onClose={() => setShowReviewModal(false)}
+        onSaved={handleReviewSaved}
       />
     </View>
   );
@@ -996,6 +1230,41 @@ const styles = StyleSheet.create({
   statCardSheetAmber: {
     backgroundColor: colors.amber,
   },
+  runThisButton: {
+    height: 54,
+    borderRadius: 14,
+    backgroundColor: colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    ...brutalShadow(4),
+  },
+  runThisButtonLogged: {
+    backgroundColor: colors.sand,
+  },
+  runThisButtonText: {
+    fontFamily: fonts.display,
+    fontSize: 15,
+    color: colors.white,
+  },
+  runThisButtonTextLogged: {
+    color: colors.ink,
+  },
+  pbRow: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.amber,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  pbRowText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    color: colors.ink,
+  },
   actionsRow: {
     flexDirection: 'row',
     gap: 10,
@@ -1047,6 +1316,110 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#c9bfa2',
     marginVertical: 2,
+  },
+  completionsSection: {
+    gap: 8,
+    marginTop: 4,
+  },
+  completionsSummary: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  completionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  completionAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  completionAvatarPlaceholder: {
+    backgroundColor: colors.sand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completionAvatarText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    color: colors.ink,
+  },
+  completionUsername: {
+    flex: 1,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  completionDuration: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    color: colors.muted,
+  },
+  reviewsSection: {
+    gap: 10,
+    marginTop: 4,
+  },
+  reviewsTitle: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.muted,
+  },
+  ratingSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ratingSummaryValue: {
+    fontFamily: fonts.display,
+    fontSize: 17,
+    color: colors.ink,
+  },
+  ratingSummaryCount: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.mutedLight,
+  },
+  reviewList: {
+    gap: 12,
+  },
+  reviewCard: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  reviewCardBody: {
+    flex: 1,
+    gap: 2,
+  },
+  reviewUsername: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  reviewSourceLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 11,
+    color: colors.mutedLight,
+  },
+  reviewBody: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    color: colors.ink,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  writeReviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    alignSelf: 'flex-start',
+  },
+  writeReviewText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: colors.rust,
+    textDecorationLine: 'underline',
   },
   groupRunsSection: {
     gap: 10,

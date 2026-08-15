@@ -39,11 +39,49 @@ export interface CloudRoute {
   isPublic: boolean;
   savesCount: number;
   likesCount: number;
+  completionCount: number;
+  reviewCount: number;
+  /** Sum of all review ratings — average = ratingSum / reviewCount. Only meaningful for display once reviewCount >= 3. */
+  ratingSum: number;
   isOwnedByMe: boolean;
   isSavedByMe: boolean;
   isLikedByMe: boolean;
   /** Only set when this route came from a saved-routes/activity query. */
   savedAt?: number;
+}
+
+export interface RouteCompletion {
+  id: string;
+  userId: string;
+  routeId: string;
+  groupRunId: string | null;
+  completedAt: number;
+  durationSeconds: number | null;
+  notes: string | null;
+  source: 'manual' | 'recording' | 'group_run' | 'notification';
+}
+
+export interface RouteCompletionActivityItem extends RouteCompletion {
+  routeName: string;
+  routeDistanceKm: number;
+  routeCity: string | null;
+  groupRunTitle: string | null;
+}
+
+export interface RouteReview {
+  id: string;
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  routeId: string;
+  completionId: string | null;
+  groupRunId: string | null;
+  groupRunTitle: string | null;
+  rating: number;
+  body: string | null;
+  source: 'solo' | 'group_run';
+  createdAt: number;
+  isOwnedByMe: boolean;
 }
 
 export type GroupRunStatus = 'scheduled' | 'active' | 'archived';
