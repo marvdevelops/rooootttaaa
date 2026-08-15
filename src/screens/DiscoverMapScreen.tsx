@@ -14,7 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, UserIcon } from '../components/icons';
+import { CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, UserIcon, UsersIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import { useUserTier } from '../hooks/useUserTier';
 import { brutalShadow, colors, fonts } from '../theme/theme';
@@ -138,6 +138,7 @@ interface Props {
   onOpenProfile: () => void;
   onOpenGroupRuns: () => void;
   onOpenGroupRun: (groupRunId: string) => void;
+  onOpenClubs: () => void;
   onCreateRoute: () => void;
   onImportGpx: () => void;
   onCreateEvent: () => void;
@@ -184,6 +185,7 @@ export default function DiscoverMapScreen({
   onOpenProfile,
   onOpenGroupRuns,
   onOpenGroupRun,
+  onOpenClubs,
   onCreateRoute,
   onImportGpx,
   onCreateEvent,
@@ -464,6 +466,9 @@ export default function DiscoverMapScreen({
           <View style={styles.topButtons}>
             <Pressable style={styles.groupRunsButton} onPress={onOpenGroupRuns}>
               <CalendarIcon size={16} />
+            </Pressable>
+            <Pressable style={styles.groupRunsButton} onPress={onOpenClubs}>
+              <UsersIcon size={16} />
             </Pressable>
             <Pressable style={styles.profileButton} onPress={onOpenProfile}>
               <UserIcon size={18} />

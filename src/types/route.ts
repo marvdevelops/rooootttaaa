@@ -113,6 +113,10 @@ export interface GroupRun {
   /** Copied from the route at creation time — null for runs created before 0015_runs_near_you_radius.sql. */
   startLat: number | null;
   startLng: number | null;
+  /** Set when this run is tagged to a run club — null for regular events. */
+  clubId: string | null;
+  clubName: string | null;
+  clubAvatarUrl: string | null;
 }
 
 export type RsvpStatus = 'pending' | 'approved' | 'declined';

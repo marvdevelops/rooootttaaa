@@ -1,14 +1,13 @@
-// Rootah: push notification sender for likes + RSVP requests/decisions (v1 —
-// see T3-push-notifications.md rollout order; comments/replies are a later pass).
-//
-// Triggered directly by pg_net-based Postgres triggers (see
-// supabase/migrations/0018_push_notification_webhooks.sql and
-// 0020_rsvp_approval_notifications.sql) — NOT Supabase Database Webhooks,
-// since this project's `supabase_functions` helper schema was never
-// provisioned. Fires on:
+// Rootah: push notification sender for likes, RSVP requests/decisions, and
+// club events/join requests. Triggered directly by pg_net-based Postgres
+// triggers (see supabase/migrations/0018, 0020, 0027) — NOT Supabase
+// Database Webhooks, since this project's `supabase_functions` helper
+// schema was never provisioned. Fires on:
 //   - route_likes INSERT
 //   - group_run_rsvps INSERT (new join request -> notifies the host)
 //   - group_run_rsvps UPDATE OF status (host decision -> notifies the requester)
+//   - group_runs INSERT with club_id set (new club run -> notifies all active club members)
+//   - club_memberships INSERT with status='pending' (private club join request -> notifies admins/owner)
 //
 // Deploy with:
 //   supabase functions deploy send-push-notification --no-verify-jwt
@@ -119,6 +118,72 @@ async function buildRsvpDecisionNotification(
   };
 }
 
+interface FanOutNotification {
+  recipientIds: string[];
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+  prefColumn: 'club_new_run_enabled' | 'club_join_request_enabled';
+}
+
+/** A new group run tagged to a club — notifies every active club member (except the host, who created it). */
+async function buildClubNewRunNotification(record: Record<string, unknown>): Promise<FanOutNotification | null> {
+  const clubId = record.club_id as string | null;
+  if (!clubId) return null;
+  const hostId = record.host_id as string;
+  const title = record.title as string;
+
+  const { data: club } = await supabase.from('run_clubs').select('name').eq('id', clubId).maybeSingle();
+  if (!club) return null;
+
+  const { data: members } = await supabase
+    .from('club_memberships')
+    .select('user_id')
+    .eq('club_id', clubId)
+    .eq('status', 'active')
+    .neq('user_id', hostId);
+  const recipientIds = (members ?? []).map((m) => m.user_id as string);
+  if (recipientIds.length === 0) return null;
+
+  return {
+    recipientIds,
+    title: 'New club run',
+    body: `${club.name} has a new run — ${title}`,
+    data: { type: 'club_new_run', run_id: record.id as string, club_id: clubId },
+    prefColumn: 'club_new_run_enabled',
+  };
+}
+
+/** A pending join request on a private club — notifies admins and the owner. */
+async function buildClubJoinRequestNotification(record: Record<string, unknown>): Promise<FanOutNotification | null> {
+  const clubId = record.club_id as string;
+  const requesterId = record.user_id as string;
+  const status = record.status as string;
+  if (status !== 'pending') return null;
+
+  const { data: club } = await supabase.from('run_clubs').select('name').eq('id', clubId).maybeSingle();
+  if (!club) return null;
+
+  const { data: admins } = await supabase
+    .from('club_memberships')
+    .select('user_id')
+    .eq('club_id', clubId)
+    .eq('status', 'active')
+    .in('role', ['admin', 'owner']);
+  const recipientIds = (admins ?? []).map((a) => a.user_id as string).filter((id) => id !== requesterId);
+  if (recipientIds.length === 0) return null;
+
+  const { data: requester } = await supabase.from('profiles').select('username').eq('id', requesterId).maybeSingle();
+
+  return {
+    recipientIds,
+    title: 'New join request',
+    body: `${requester?.username ?? 'Someone'} wants to join ${club.name}`,
+    data: { type: 'club_join_request', club_id: clubId },
+    prefColumn: 'club_join_request_enabled',
+  };
+}
+
 async function isBlocked(recipientId: string, actorId: string): Promise<boolean> {
   const { data } = await supabase
     .from('blocks')
@@ -129,7 +194,10 @@ async function isBlocked(recipientId: string, actorId: string): Promise<boolean>
   return !!data;
 }
 
-async function isPreferenceEnabled(userId: string, column: NotificationTarget['prefColumn']): Promise<boolean> {
+async function isPreferenceEnabled(
+  userId: string,
+  column: NotificationTarget['prefColumn'] | FanOutNotification['prefColumn'],
+): Promise<boolean> {
   const { data } = await supabase
     .from('notification_preferences')
     .select(column)
@@ -186,6 +254,30 @@ serve(async (req) => {
     payload = await req.json();
   } catch {
     return new Response('Invalid JSON', { status: 400 });
+  }
+
+  if (payload.type === 'INSERT' && payload.table === 'group_runs') {
+    const fanOut = await buildClubNewRunNotification(payload.record);
+    if (fanOut) {
+      for (const recipientId of fanOut.recipientIds) {
+        if (await isPreferenceEnabled(recipientId, fanOut.prefColumn)) {
+          await sendAndCleanup(recipientId, fanOut.title, fanOut.body, fanOut.data);
+        }
+      }
+    }
+    return new Response('OK', { status: 200 });
+  }
+
+  if (payload.type === 'INSERT' && payload.table === 'club_memberships') {
+    const fanOut = await buildClubJoinRequestNotification(payload.record);
+    if (fanOut) {
+      for (const recipientId of fanOut.recipientIds) {
+        if (await isPreferenceEnabled(recipientId, fanOut.prefColumn)) {
+          await sendAndCleanup(recipientId, fanOut.title, fanOut.body, fanOut.data);
+        }
+      }
+    }
+    return new Response('OK', { status: 200 });
   }
 
   let target: NotificationTarget | null = null;

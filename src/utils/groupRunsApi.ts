@@ -15,11 +15,13 @@ interface GroupRunRow {
   approved_count: number;
   start_lat: number | null;
   start_lng: number | null;
+  club_id: string | null;
   routes: { name: string; distance_km: number } | { name: string; distance_km: number }[] | null;
   profiles: { username: string } | { username: string }[] | null;
+  run_clubs: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[] | null;
 }
 
-const GROUP_RUN_SELECT = '*, routes(name, distance_km), profiles!host_id(username)';
+const GROUP_RUN_SELECT = '*, routes(name, distance_km), profiles!host_id(username), run_clubs(name, avatar_url)';
 
 const UPCOMING_STATUSES: GroupRunStatus[] = ['scheduled', 'active'];
 
@@ -53,6 +55,7 @@ async function toGroupRun(
 
   const route = unwrapRoute(row.routes);
   const host = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+  const club = Array.isArray(row.run_clubs) ? row.run_clubs[0] : row.run_clubs;
 
   return {
     id: row.id,
@@ -75,6 +78,9 @@ async function toGroupRun(
     myRole,
     startLat: row.start_lat,
     startLng: row.start_lng,
+    clubId: row.club_id,
+    clubName: club?.name ?? null,
+    clubAvatarUrl: club?.avatar_url ?? null,
   };
 }
 
@@ -85,6 +91,8 @@ export interface CreateGroupRunInput {
   scheduledAt: Date;
   /** null = open to all (paid hosts only — free hosts are still capped at 10 server-side regardless of what's stored here). */
   maxParticipants: number | null;
+  /** Tags this run as a club event — shows the club name/avatar on the card and notifies members. */
+  clubId?: string | null;
 }
 
 export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupRun> {
@@ -100,6 +108,7 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
       description: input.description,
       scheduled_at: input.scheduledAt.toISOString(),
       max_participants: input.maxParticipants,
+      club_id: input.clubId ?? null,
     })
     .select(GROUP_RUN_SELECT)
     .single();
@@ -183,6 +192,22 @@ export async function listGroupRunsForRoute(routeId: string): Promise<GroupRun[]
     .from('group_runs')
     .select(GROUP_RUN_SELECT)
     .eq('route_id', routeId)
+    .in('status', UPCOMING_STATUSES)
+    .order('scheduled_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as GroupRunRow[];
+  return Promise.all(rows.map((row) => toGroupRun(row, viewerId)));
+}
+
+/** Upcoming (scheduled/active) group runs tagged to a club — for the club profile's Events tab. */
+export async function listClubEvents(clubId: string): Promise<GroupRun[]> {
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase
+    .from('group_runs')
+    .select(GROUP_RUN_SELECT)
+    .eq('club_id', clubId)
     .in('status', UPCOMING_STATUSES)
     .order('scheduled_at', { ascending: true });
 

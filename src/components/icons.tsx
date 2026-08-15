@@ -184,6 +184,20 @@ export function UserIcon({ size = 18, color = colors.ink }: { size?: number; col
   );
 }
 
+export function UsersIcon({ size = 18, color = colors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM2.5 20c1.2-3.6 3.8-5.5 6.5-5.5s5.3 1.9 6.5 5.5M16.5 5.2a3.5 3.5 0 010 6.6M20 20c-.7-2.2-1.9-3.8-3.5-4.7"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function CompassIcon({ size = 18, color = colors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

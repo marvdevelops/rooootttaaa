@@ -10,6 +10,10 @@ import { AuthProvider, useAuth } from './src/lib/AuthContext';
 import ActivityFeedScreen from './src/screens/ActivityFeedScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import BlockedUsersScreen from './src/screens/BlockedUsersScreen';
+import ClubAdminScreen from './src/screens/ClubAdminScreen';
+import ClubProfileScreen from './src/screens/ClubProfileScreen';
+import ClubsListScreen from './src/screens/ClubsListScreen';
+import CreateClubScreen from './src/screens/CreateClubScreen';
 import CreateEventScreen from './src/screens/CreateEventScreen';
 import DiscoverMapScreen from './src/screens/DiscoverMapScreen';
 import GroupRunDetailScreen from './src/screens/GroupRunDetailScreen';
@@ -31,6 +35,7 @@ import { colors, fonts } from './src/theme/theme';
 import { CloudRoute } from './src/types/route';
 import { countMyActiveGroupRuns, createGroupRun } from './src/utils/groupRunsApi';
 import { getRoute } from './src/utils/routesApi';
+import { getClub } from './src/utils/clubsApi';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -47,6 +52,10 @@ type Overlay =
   | 'importGpx'
   | 'events'
   | 'createEvent'
+  | 'clubs'
+  | 'clubProfile'
+  | 'clubAdmin'
+  | 'createClub'
   | null;
 
 interface AuthedAppProps {
@@ -80,7 +89,11 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
   // "Create event" flow — a non-null value drives the top-level schedule
   // modal regardless of which overlay is currently showing underneath it.
   const [eventRouteId, setEventRouteId] = useState<string | null>(null);
+  // Set when the "Create event" flow was launched from a club's Events tab —
+  // tags the resulting group run to that club.
+  const [eventClubId, setEventClubId] = useState<string | null>(null);
   const [isSchedulingEvent, setIsSchedulingEvent] = useState(false);
+  const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   // True while the builder is open specifically because the user chose
   // "Create a new route" from the Create Event flow — on save, this reroutes
   // the normal "route created" handling into "now finish the event details"
@@ -162,6 +175,14 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
     [navigateTo],
   );
 
+  const openClubProfile = useCallback(
+    (clubId: string) => {
+      setSelectedClubId(clubId);
+      navigateTo('clubProfile');
+    },
+    [navigateTo],
+  );
+
   const openPaywall = useCallback((trigger: PaywallTrigger) => {
     setPaywallTrigger(trigger);
   }, []);
@@ -187,6 +208,11 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
     setOverlay(null);
   }, []);
 
+  const handleTapScheduleClubRun = useCallback((clubId: string) => {
+    setEventClubId(clubId);
+    setOverlay('createEvent');
+  }, []);
+
   const handleCreateNewRouteForEvent = useCallback(() => {
     setCreatingEventForNewRoute(true);
     setRouteToLoad(null);
@@ -198,8 +224,16 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
       if (!eventRouteId) return;
       setIsSchedulingEvent(true);
       try {
-        const created = await createGroupRun({ routeId: eventRouteId, title, description, scheduledAt, maxParticipants });
+        const created = await createGroupRun({
+          routeId: eventRouteId,
+          title,
+          description,
+          scheduledAt,
+          maxParticipants,
+          clubId: eventClubId,
+        });
         setEventRouteId(null);
+        setEventClubId(null);
         setToast('Event created.');
         openGroupRunDetail(created.id);
         notificationPrePermission.maybePrompt('Get notified when people join your event or post updates.');
@@ -209,7 +243,7 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
         setIsSchedulingEvent(false);
       }
     },
-    [eventRouteId, openGroupRunDetail, notificationPrePermission.maybePrompt],
+    [eventRouteId, eventClubId, openGroupRunDetail, notificationPrePermission.maybePrompt],
   );
 
   // Deep link from the shared web preview page (rootah://routes/{id}),
@@ -235,6 +269,7 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
         onOpenProfile={() => setOverlay('profile')}
         onOpenGroupRuns={() => setOverlay('groupRuns')}
         onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
+        onOpenClubs={() => setOverlay('clubs')}
         onCreateRoute={() => setOverlay('builder')}
         onImportGpx={() => (tier === 'paid' ? setOverlay('importGpx') : openPaywall('gpx_import'))}
         onCreateEvent={handleTapCreateEvent}
@@ -323,6 +358,61 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
         </View>
       )}
 
+      {overlay === 'clubs' && (
+        <View style={StyleSheet.absoluteFill}>
+          <ClubsListScreen
+            userCity={null}
+            onClose={() => setOverlay(null)}
+            onOpenClub={(clubId) => openClubProfile(clubId)}
+            onCreateClub={() => navigateTo('createClub')}
+          />
+        </View>
+      )}
+
+      {overlay === 'createClub' && (
+        <View style={StyleSheet.absoluteFill}>
+          <CreateClubScreen
+            onClose={() => navigateBack()}
+            onCreated={(club) => {
+              setToast('Club created.');
+              openClubProfile(club.id);
+            }}
+          />
+        </View>
+      )}
+
+      {overlay === 'clubProfile' && selectedClubId && (
+        <View style={StyleSheet.absoluteFill}>
+          <ClubProfileScreen
+            clubId={selectedClubId}
+            onClose={() => navigateBack()}
+            onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
+            onOpenClubAdmin={(clubId) => {
+              setSelectedClubId(clubId);
+              navigateTo('clubAdmin');
+            }}
+            onOpenProfile={openProfile}
+            onRequirePaywall={openPaywall}
+            onScheduleClubRun={handleTapScheduleClubRun}
+          />
+        </View>
+      )}
+
+      {overlay === 'clubAdmin' && selectedClubId && (
+        <View style={StyleSheet.absoluteFill}>
+          <ClubAdminScreen
+            clubId={selectedClubId}
+            onClose={() => navigateBack()}
+            onDeleted={() => {
+              setToast('Club deleted.');
+              setSelectedClubId(null);
+              setOverlay('clubs');
+              setNavStack([]);
+            }}
+          />
+        </View>
+      )}
+
       {overlay === 'detail' && selectedRoute && (
         <View style={StyleSheet.absoluteFill}>
           <RouteDetailScreen
@@ -393,7 +483,10 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
       {overlay === 'createEvent' && (
         <View style={StyleSheet.absoluteFill}>
           <CreateEventScreen
-            onClose={() => setOverlay(null)}
+            onClose={() => {
+              setEventClubId(null);
+              setOverlay(null);
+            }}
             onSelectRoute={handleSelectEventRoute}
             onCreateNewRoute={handleCreateNewRouteForEvent}
           />
@@ -474,7 +567,8 @@ function Root() {
           data.type === 'group_run_join_request' ||
           data.type === 'group_run_rsvp_decision' ||
           data.type === 'group_run_comment' ||
-          data.type === 'comment_reply') &&
+          data.type === 'comment_reply' ||
+          data.type === 'club_new_run') &&
         typeof data.run_id === 'string'
       ) {
         setPendingGroupRunId(data.run_id);
