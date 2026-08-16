@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import BadgeStrip from '../components/BadgeStrip';
 import { BackIcon, CalendarIcon, ClockIcon, CompassIcon, GearIcon, PlusIcon } from '../components/icons';
 import { useAuth } from '../lib/AuthContext';
 import { brutalShadow, colors, fonts } from '../theme/theme';
@@ -72,6 +73,8 @@ export default function ProfileScreen({
             {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
           </View>
         </View>
+
+        {profile && <BadgeStrip userId={profile.id} />}
 
         <View style={styles.navGrid}>
           <Pressable style={styles.navButton} onPress={onOpenMyMaps}>

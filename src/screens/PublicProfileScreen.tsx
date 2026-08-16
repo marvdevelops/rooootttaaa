@@ -4,6 +4,7 @@ import { BackIcon, CalendarIcon } from '../components/icons';
 import ReportModal from '../components/ReportModal';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { ActivityType, CloudRoute, GroupRun } from '../types/route';
+import BadgeStrip from '../components/BadgeStrip';
 import { blockUser } from '../utils/blocksApi';
 import { PublicProfile, getProfile } from '../utils/profilesApi';
 import { createReport, ReportReason } from '../utils/reportsApi';
@@ -146,6 +147,7 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
               )}
               <Text style={styles.username}>{profile.username}</Text>
               {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
+              <BadgeStrip userId={userId} />
               <Text style={styles.routeCount}>
                 {routes.length} public {routes.length === 1 ? 'route' : 'routes'}
               </Text>

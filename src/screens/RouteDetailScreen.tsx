@@ -25,6 +25,8 @@ import { BackIcon, CalendarIcon, ChevronUpIcon, CompassIcon, ExportIcon, HeartIc
 import ElevationProfileChart from '../components/ElevationProfileChart';
 import TrailInfoSection from '../components/TrailInfoSection';
 import RoutePhotoGallery from '../components/RoutePhotoGallery';
+import LocalLegendCallout from '../components/LocalLegendCallout';
+import { listRecentlyGrantedBadges, UserBadge } from '../utils/badgesApi';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import ReportModal from '../components/ReportModal';
 import RouteMap, { MapStyleMode } from '../components/RouteMap';
@@ -125,6 +127,7 @@ export default function RouteDetailScreen({
   const [loggingCompletion, setLoggingCompletion] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [newPersonalBestSeconds, setNewPersonalBestSeconds] = useState<number | null>(null);
+  const [newBadge, setNewBadge] = useState<UserBadge | null>(null);
   const [completionsExpanded, setCompletionsExpanded] = useState(false);
   const [routeCompletions, setRouteCompletions] = useState<CompletionParticipant[]>([]);
   const [personalBestSeconds, setPersonalBestSeconds] = useState<number | null>(null);
@@ -183,6 +186,9 @@ export default function RouteDetailScreen({
       if (personalBestSeconds == null) {
         // No prior timed completion — nothing to beat yet, handled after they add a time.
       }
+      listRecentlyGrantedBadges(completion.userId)
+        .then((badges) => setNewBadge(badges[0] ?? null))
+        .catch(() => {});
       setShowFollowUp(true);
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Could not log your run. Try again.');
@@ -806,6 +812,7 @@ export default function RouteDetailScreen({
                   🏃 Ran by {completionCount} {completionCount === 1 ? 'person' : 'people'}
                 </Text>
               </Pressable>
+              <LocalLegendCallout routeId={route.id} onOpenProfile={onOpenProfile} />
               {completionsExpanded &&
                 routeCompletions.map((c) => (
                   <View key={c.id} style={styles.completionRow}>
@@ -968,14 +975,17 @@ export default function RouteDetailScreen({
         completion={todayCompletion}
         routeName={route.name}
         newPersonalBestSeconds={newPersonalBestSeconds}
+        newBadge={newBadge}
         onClose={() => {
           setShowFollowUp(false);
           setNewPersonalBestSeconds(null);
+          setNewBadge(null);
         }}
         onSaved={handleFollowUpSaved}
         onAddPhoto={(completionId) => {
           setShowFollowUp(false);
           setNewPersonalBestSeconds(null);
+          setNewBadge(null);
           onOpenPhotoUpload(route.id, completionId);
         }}
       />

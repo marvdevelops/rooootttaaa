@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { RouteCompletion } from '../types/route';
+import { UserBadge } from '../utils/badgesApi';
 import { updateCompletion } from '../utils/completionsApi';
 import { upsertReview } from '../utils/reviewsApi';
 import { CameraIcon, CloseIcon } from './icons';
@@ -13,6 +14,8 @@ interface Props {
   routeName: string;
   /** Set when a completion beats the user's previous personal best, for the celebration line. */
   newPersonalBestSeconds: number | null;
+  /** Set when this completion just earned a badge — replaces the generic "Nice work!" header. */
+  newBadge: UserBadge | null;
   onClose: () => void;
   onSaved: () => void;
   /** Doesn't block saving the completion — tapped, this closes the sheet and hands off to the photo upload screen. */
@@ -30,6 +33,7 @@ export default function CompletionFollowUpSheet({
   completion,
   routeName,
   newPersonalBestSeconds,
+  newBadge,
   onClose,
   onSaved,
   onAddPhoto,
@@ -89,8 +93,19 @@ export default function CompletionFollowUpSheet({
         <View style={styles.sheet}>
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Nice work!</Text>
-              <Text style={styles.subtitle}>Logged your run on {routeName}</Text>
+              {newBadge ? (
+                <>
+                  <Text style={styles.title}>
+                    {newBadge.badge.icon} You earned {newBadge.badge.name}!
+                  </Text>
+                  <Text style={styles.subtitle}>{newBadge.badge.description}</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.title}>Nice work!</Text>
+                  <Text style={styles.subtitle}>Logged your run on {routeName}</Text>
+                </>
+              )}
             </View>
             <Pressable style={styles.closeButton} onPress={handleClose}>
               <CloseIcon size={16} />

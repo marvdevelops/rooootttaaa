@@ -1,5 +1,4 @@
 import { decode } from 'base64-arraybuffer';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../lib/supabase';
 
@@ -172,6 +171,19 @@ export async function uploadRoutePhoto(input: UploadRoutePhotoInput): Promise<vo
   }
 
   await validateUpload(userId, input.routeId);
+
+  // Imported lazily (not at module scope) — expo-image-manipulator is a native
+  // module, and requireNativeModule() throws immediately on import if it isn't
+  // linked in the running binary. A static import would crash every screen
+  // that pulls in this file (route detail, via the photo gallery) on any
+  // build that predates this feature's native rebuild. Deferring it here
+  // means only the upload action itself fails, gracefully, until then.
+  let ImageManipulator: typeof import('expo-image-manipulator');
+  try {
+    ImageManipulator = await import('expo-image-manipulator');
+  } catch {
+    throw new PhotoUploadError('Photo uploads need the latest app update. Please update Rootah and try again.');
+  }
 
   const [main, thumb] = await Promise.all([
     ImageManipulator.manipulateAsync(input.photo.uri, [{ resize: { width: 1200 } }], {
