@@ -173,7 +173,12 @@ export default function SaveRouteModal({
                         style={[styles.activityPill, active && styles.activityPillActive]}
                         onPress={() => setActivityType(option.value)}
                       >
-                        <Text style={[styles.activityPillText, active && styles.activityPillTextActive]}>
+                        <Text
+                          style={[styles.activityPillText, active && styles.activityPillTextActive]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.75}
+                        >
                           {option.label}
                         </Text>
                       </Pressable>
@@ -223,7 +228,7 @@ export default function SaveRouteModal({
                 {isSaving ? (
                   <ActivityIndicator color={colors.ink} />
                 ) : (
-                  <Text style={styles.saveButtonText}>
+                  <Text style={styles.saveButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                     {isTrailActivity(activityType) ? 'NEXT: TRAIL DETAILS' : isEditing ? 'UPDATE ROUTE' : 'SAVE ROUTE'}
                   </Text>
                 )}

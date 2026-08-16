@@ -217,6 +217,9 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
                             styles.frequencyChipText,
                             frequency === opt.value && styles.frequencyChipTextActive,
                           ]}
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={0.7}
                         >
                           {opt.label}
                         </Text>

@@ -757,7 +757,9 @@ export default function RouteDetailScreen({
           <View style={styles.actionsRow}>
             <Pressable style={[styles.actionButton, isLiked && styles.actionButtonLiked]} onPress={handleToggleLike}>
               <HeartIcon size={16} color={isLiked ? colors.sand : colors.ink} filled={isLiked} />
-              <Text style={[styles.actionButtonText, isLiked && styles.actionButtonTextLiked]}>{likesCount}</Text>
+              <Text style={[styles.actionButtonText, isLiked && styles.actionButtonTextLiked]} numberOfLines={1}>
+                {likesCount}
+              </Text>
             </Pressable>
 
             {!route.isOwnedByMe && (
@@ -765,7 +767,12 @@ export default function RouteDetailScreen({
                 style={[styles.actionButton, isSaved && styles.actionButtonSaved]}
                 onPress={handleToggleSave}
               >
-                <Text style={[styles.actionButtonText, isSaved && styles.actionButtonTextLiked]}>
+                <Text
+                  style={[styles.actionButtonText, isSaved && styles.actionButtonTextLiked]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.8}
+                >
                   {isSaved ? 'SAVED' : 'SAVE'} · {savesCount}
                 </Text>
               </Pressable>
@@ -773,7 +780,9 @@ export default function RouteDetailScreen({
 
             {route.isOwnedByMe && (
               <View style={styles.actionButton}>
-                <Text style={styles.actionButtonText}>{savesCount} SAVED</Text>
+                <Text style={styles.actionButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+                  {savesCount} SAVED
+                </Text>
               </View>
             )}
 
@@ -783,25 +792,33 @@ export default function RouteDetailScreen({
               ) : (
                 <>
                   <CalendarIcon size={16} color={colors.ink} />
-                  <Text style={styles.actionButtonText}>SCHEDULE</Text>
+                  <Text style={styles.actionButtonText} numberOfLines={1}>
+                    SCHEDULE
+                  </Text>
                 </>
               )}
             </Pressable>
 
             <Pressable style={styles.actionButton} onPress={handleNavigateToStart}>
               <CompassIcon size={16} color={colors.ink} />
-              <Text style={styles.actionButtonText}>NAVIGATE</Text>
+              <Text style={styles.actionButtonText} numberOfLines={1}>
+                NAVIGATE
+              </Text>
             </Pressable>
           </View>
 
           {route.isOwnedByMe ? (
             <Pressable style={styles.openButton} onPress={() => onOpenOnMap(route)}>
-              <Text style={styles.openButtonText}>OPEN ON MAP</Text>
+              <Text style={styles.openButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                OPEN ON MAP
+              </Text>
             </Pressable>
           ) : (
             <Pressable style={styles.openButton} onPress={handleCustomize}>
               {tier === 'free' && <LockIcon size={16} color={colors.sand} />}
-              <Text style={styles.openButtonText}>CUSTOMIZE THIS ROUTE</Text>
+              <Text style={styles.openButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                CUSTOMIZE THIS ROUTE
+              </Text>
             </Pressable>
           )}
 

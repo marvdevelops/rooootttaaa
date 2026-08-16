@@ -60,10 +60,18 @@ export default function TopRouteCard({ route, rank, isTop, onPress }: Props) {
         </Text>
 
         <View style={styles.statsRow}>
-          <Text style={styles.stat}>{route.distanceKm.toFixed(1)} km</Text>
-          {route.elevationGainM > 0 && <Text style={styles.stat}>↑{Math.round(route.elevationGainM)}m</Text>}
+          <Text style={styles.stat} numberOfLines={1}>
+            {route.distanceKm.toFixed(1)} km
+          </Text>
+          {route.elevationGainM > 0 && (
+            <Text style={styles.stat} numberOfLines={1}>
+              ↑{Math.round(route.elevationGainM)}m
+            </Text>
+          )}
           <View style={styles.activityPill}>
-            <Text style={styles.activityPillText}>{ACTIVITY_LABEL[route.activityType]}</Text>
+            <Text style={styles.activityPillText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+              {ACTIVITY_LABEL[route.activityType]}
+            </Text>
           </View>
         </View>
 
@@ -140,19 +148,23 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 6,
+    rowGap: 2,
   },
   stat: {
     fontFamily: fonts.bodyMedium,
     fontSize: 11,
     color: colors.muted,
+    flexShrink: 0,
   },
   activityPill: {
     backgroundColor: colors.sand,
     borderRadius: 6,
     paddingHorizontal: 5,
     paddingVertical: 1,
+    maxWidth: 70,
   },
   activityPillText: {
     fontFamily: fonts.bodyBold,

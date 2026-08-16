@@ -839,7 +839,9 @@ export default function MapScreen({
             disabled={rawFullPath.length < 2}
           >
             <ExportIcon />
-            <Text style={styles.exportButtonText}>EXPORT GPX</Text>
+            <Text style={styles.exportButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+              EXPORT GPX
+            </Text>
           </Pressable>
         </View>
       )}
