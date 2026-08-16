@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 
-export type ReportTargetType = 'route' | 'profile' | 'comment' | 'group_run';
+export type ReportTargetType = 'route' | 'profile' | 'comment' | 'group_run' | 'route_photo';
 export type ReportReason = 'spam' | 'harassment' | 'inappropriate' | 'other';
 
 export async function createReport(

@@ -4,7 +4,7 @@ import { brutalShadow, colors, fonts } from '../theme/theme';
 import { RouteCompletion } from '../types/route';
 import { updateCompletion } from '../utils/completionsApi';
 import { upsertReview } from '../utils/reviewsApi';
-import { CloseIcon } from './icons';
+import { CameraIcon, CloseIcon } from './icons';
 import { StarRatingInput } from './StarRating';
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   newPersonalBestSeconds: number | null;
   onClose: () => void;
   onSaved: () => void;
+  /** Doesn't block saving the completion — tapped, this closes the sheet and hands off to the photo upload screen. */
+  onAddPhoto: (completionId: string) => void;
 }
 
 /**
@@ -30,6 +32,7 @@ export default function CompletionFollowUpSheet({
   newPersonalBestSeconds,
   onClose,
   onSaved,
+  onAddPhoto,
 }: Props) {
   const [rating, setRating] = useState(0);
   const [mins, setMins] = useState('');
@@ -135,6 +138,14 @@ export default function CompletionFollowUpSheet({
             multiline
             style={styles.noteInput}
           />
+
+          <Pressable
+            style={styles.addPhotoButton}
+            onPress={() => completion && onAddPhoto(completion.id)}
+          >
+            <CameraIcon size={16} color={colors.ink} />
+            <Text style={styles.addPhotoText}>Add a photo from this run</Text>
+          </Pressable>
 
           <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.saveButtonText}>DONE</Text>}
@@ -245,6 +256,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.ink,
     textAlignVertical: 'top',
+  },
+  addPhotoButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.ink,
+    backgroundColor: colors.white,
+  },
+  addPhotoText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: colors.ink,
   },
   saveButton: {
     height: 52,

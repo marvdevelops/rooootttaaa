@@ -22,6 +22,8 @@ import ImportGpxScreen from './src/screens/ImportGpxScreen';
 import MapScreen from './src/screens/MapScreen';
 import MyMapsScreen from './src/screens/MyMapsScreen';
 import PaywallScreen, { PaywallTrigger } from './src/screens/PaywallScreen';
+import PhotoUploadScreen from './src/screens/PhotoUploadScreen';
+import PhotoViewerScreen from './src/screens/PhotoViewerScreen';
 import ProfileEventsScreen from './src/screens/ProfileEventsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import PublicProfileScreen from './src/screens/PublicProfileScreen';
@@ -58,6 +60,8 @@ type Overlay =
   | 'createEvent'
   | 'clubs'
   | 'topRoutes'
+  | 'photoUpload'
+  | 'photoView'
   | 'clubProfile'
   | 'clubAdmin'
   | 'createClub'
@@ -100,6 +104,9 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
   const [isSchedulingEvent, setIsSchedulingEvent] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   const [topRoutesCity, setTopRoutesCity] = useState<string | null>(null);
+  const [photoUploadTarget, setPhotoUploadTarget] = useState<{ routeId: string; completionId?: string } | null>(null);
+  const [photoViewTarget, setPhotoViewTarget] = useState<{ routeId: string; photoId: string } | null>(null);
+  const [photoRefreshSignal, setPhotoRefreshSignal] = useState(0);
   // True while the builder is open specifically because the user chose
   // "Create a new route" from the Create Event flow — on save, this reroutes
   // the normal "route created" handling into "now finish the event details"
@@ -465,6 +472,41 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
             onOpenProfile={openProfile}
             onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
             onRequirePaywall={openPaywall}
+            onOpenPhotoUpload={(routeId, completionId) => {
+              setPhotoUploadTarget({ routeId, completionId });
+              navigateTo('photoUpload');
+            }}
+            onOpenPhotoViewer={(routeId, photoId) => {
+              setPhotoViewTarget({ routeId, photoId });
+              navigateTo('photoView');
+            }}
+            photoRefreshSignal={photoRefreshSignal}
+          />
+        </View>
+      )}
+
+      {overlay === 'photoUpload' && photoUploadTarget && (
+        <View style={StyleSheet.absoluteFill}>
+          <PhotoUploadScreen
+            routeId={photoUploadTarget.routeId}
+            completionId={photoUploadTarget.completionId}
+            onClose={() => navigateBack()}
+            onUploaded={() => {
+              setPhotoRefreshSignal((n) => n + 1);
+              navigateBack();
+              setToast('Photo added.');
+            }}
+          />
+        </View>
+      )}
+
+      {overlay === 'photoView' && photoViewTarget && (
+        <View style={StyleSheet.absoluteFill}>
+          <PhotoViewerScreen
+            routeId={photoViewTarget.routeId}
+            initialPhotoId={photoViewTarget.photoId}
+            onClose={() => navigateBack()}
+            onDeleted={() => setPhotoRefreshSignal((n) => n + 1)}
           />
         </View>
       )}

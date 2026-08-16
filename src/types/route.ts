@@ -57,6 +57,7 @@ export interface CloudRoute {
   likesCount: number;
   completionCount: number;
   reviewCount: number;
+  photoCount: number;
   /** Sum of all review ratings — average = ratingSum / reviewCount. Only meaningful for display once reviewCount >= 3. */
   ratingSum: number;
   isOwnedByMe: boolean;

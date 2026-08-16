@@ -58,6 +58,21 @@ export async function getTodayCompletion(routeId: string): Promise<RouteCompleti
   return data ? toCompletion(data as CompletionRow) : null;
 }
 
+/** Whether the current user has ever logged a completion for this route — gates the photo-upload entry points to people who've actually run it. */
+export async function hasCompletedRoute(routeId: string): Promise<boolean> {
+  const userId = await currentUserId();
+  if (!userId) return false;
+
+  const { count, error } = await supabase
+    .from('route_completions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('route_id', routeId);
+
+  if (error) throw new Error(error.message);
+  return (count ?? 0) > 0;
+}
+
 /**
  * Logs a completion for right now. If one already exists today (race with
  * another tap, or a stale UI), the DB's unique index rejects the insert —

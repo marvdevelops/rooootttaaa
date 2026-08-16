@@ -24,6 +24,7 @@ import {
 import { BackIcon, CalendarIcon, ChevronUpIcon, CompassIcon, ExportIcon, HeartIcon, LockIcon, ShareIcon, TrashIcon } from '../components/icons';
 import ElevationProfileChart from '../components/ElevationProfileChart';
 import TrailInfoSection from '../components/TrailInfoSection';
+import RoutePhotoGallery from '../components/RoutePhotoGallery';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import ReportModal from '../components/ReportModal';
 import RouteMap, { MapStyleMode } from '../components/RouteMap';
@@ -75,6 +76,9 @@ interface Props {
   onOpenProfile: (userId: string) => void;
   onOpenGroupRun: (groupRunId: string) => void;
   onRequirePaywall: (trigger: PaywallTrigger) => void;
+  onOpenPhotoUpload: (routeId: string, completionId?: string) => void;
+  onOpenPhotoViewer: (routeId: string, photoId: string) => void;
+  photoRefreshSignal?: number;
 }
 
 const ACTIVITY_LABELS: Record<ActivityType, string> = {
@@ -94,6 +98,9 @@ export default function RouteDetailScreen({
   onOpenProfile,
   onOpenGroupRun,
   onRequirePaywall,
+  onOpenPhotoUpload,
+  onOpenPhotoViewer,
+  photoRefreshSignal,
 }: Props) {
   const tier = useUserTier();
   const notificationPrePermission = useNotificationPrePermission();
@@ -709,6 +716,16 @@ export default function RouteDetailScreen({
             isTrail={route.isTrail}
             isOwnedByMe={route.isOwnedByMe}
             elevationPath={chartPath}
+            onOpenPhoto={(photoId) => onOpenPhotoViewer(route.id, photoId)}
+          />
+
+          <RoutePhotoGallery
+            key={`gallery-${photoRefreshSignal ?? 0}`}
+            routeId={route.id}
+            photoCount={route.photoCount}
+            onOpenUpload={() => onOpenPhotoUpload(route.id)}
+            onOpenPhoto={(photoId) => onOpenPhotoViewer(route.id, photoId)}
+            onSeeAll={() => onOpenPhotoViewer(route.id, '')}
           />
 
           <Pressable
@@ -956,6 +973,11 @@ export default function RouteDetailScreen({
           setNewPersonalBestSeconds(null);
         }}
         onSaved={handleFollowUpSaved}
+        onAddPhoto={(completionId) => {
+          setShowFollowUp(false);
+          setNewPersonalBestSeconds(null);
+          onOpenPhotoUpload(route.id, completionId);
+        }}
       />
 
       <ReviewModal

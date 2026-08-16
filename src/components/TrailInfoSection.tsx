@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { PathPoint, TrailDifficulty, TrailInfo } from '../types/route';
 import { elevationGainLossGrade } from '../utils/elevationProfile';
+import { listRecentTrailPhotos, RoutePhoto } from '../utils/photosApi';
 import { getTrailInfo, updateTrailCondition } from '../utils/trailInfoApi';
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
   isTrail: boolean;
   isOwnedByMe: boolean;
   elevationPath: PathPoint[];
+  onOpenPhoto: (photoId: string) => void;
 }
 
 const SURFACE_LABEL: Record<string, string> = {
@@ -35,8 +37,9 @@ function timeAgo(ms: number): string {
   return new Date(ms).toLocaleDateString();
 }
 
-export default function TrailInfoSection({ routeId, isTrail, isOwnedByMe, elevationPath }: Props) {
+export default function TrailInfoSection({ routeId, isTrail, isOwnedByMe, elevationPath, onOpenPhoto }: Props) {
   const [trailInfo, setTrailInfo] = useState<TrailInfo | null>(null);
+  const [recentPhotos, setRecentPhotos] = useState<RoutePhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCondition, setEditingCondition] = useState(false);
   const [conditionDraft, setConditionDraft] = useState('');
@@ -47,8 +50,11 @@ export default function TrailInfoSection({ routeId, isTrail, isOwnedByMe, elevat
       setLoading(false);
       return;
     }
-    getTrailInfo(routeId)
-      .then(setTrailInfo)
+    Promise.all([getTrailInfo(routeId), listRecentTrailPhotos(routeId, 2)])
+      .then(([info, photos]) => {
+        setTrailInfo(info);
+        setRecentPhotos(photos);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [routeId, isTrail]);
@@ -153,6 +159,17 @@ export default function TrailInfoSection({ routeId, isTrail, isOwnedByMe, elevat
               </Text>
             </Pressable>
           )}
+
+          {recentPhotos.length > 0 && (
+            <View style={styles.conditionPhotos}>
+              {recentPhotos.map((photo) => (
+                <Pressable key={photo.id} style={styles.conditionPhotoWrap} onPress={() => onOpenPhoto(photo.id)}>
+                  <Image source={{ uri: photo.thumbnailUrl ?? photo.imageUrl }} style={styles.conditionThumb} />
+                  {photo.takenAt && <Text style={styles.conditionPhotoDate}>{timeAgo(photo.takenAt)}</Text>}
+                </Pressable>
+              ))}
+            </View>
+          )}
         </>
       )}
     </View>
@@ -251,6 +268,25 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 12,
     color: colors.rust,
+  },
+  conditionPhotos: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  conditionPhotoWrap: {
+    gap: 3,
+  },
+  conditionThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 10,
+    backgroundColor: colors.sand,
+  },
+  conditionPhotoDate: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 10,
+    color: colors.mutedLight,
   },
   conditionEdit: {
     gap: 8,
