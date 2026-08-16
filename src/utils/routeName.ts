@@ -2,6 +2,8 @@ import { ActivityType } from '../types/route';
 
 const ACTIVITY_VERB: Record<ActivityType, string> = {
   run: 'run',
+  trail_run: 'trail run',
+  hike: 'hike',
   bike: 'ride',
   walk: 'walk',
   other: 'route',

@@ -23,6 +23,7 @@ import {
 } from 'react-native';
 import { BackIcon, CalendarIcon, ChevronUpIcon, CompassIcon, ExportIcon, HeartIcon, LockIcon, ShareIcon, TrashIcon } from '../components/icons';
 import ElevationProfileChart from '../components/ElevationProfileChart';
+import TrailInfoSection from '../components/TrailInfoSection';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import ReportModal from '../components/ReportModal';
 import RouteMap, { MapStyleMode } from '../components/RouteMap';
@@ -78,6 +79,8 @@ interface Props {
 
 const ACTIVITY_LABELS: Record<ActivityType, string> = {
   run: 'Run',
+  trail_run: 'Trail Run',
+  hike: 'Hike',
   bike: 'Bike',
   walk: 'Walk',
   other: 'Other',
@@ -700,6 +703,13 @@ export default function RouteDetailScreen({
               </View>
             )}
           </View>
+
+          <TrailInfoSection
+            routeId={route.id}
+            isTrail={route.isTrail}
+            isOwnedByMe={route.isOwnedByMe}
+            elevationPath={chartPath}
+          />
 
           <Pressable
             style={[styles.runThisButton, todayCompletion && styles.runThisButtonLogged]}

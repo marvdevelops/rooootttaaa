@@ -19,7 +19,7 @@ import Logo from '../components/Logo';
 import TopRoutesStrip from '../components/TopRoutesStrip';
 import { useUserTier } from '../hooks/useUserTier';
 import { brutalShadow, colors, fonts } from '../theme/theme';
-import { CloudRoute, GroupRun, LatLng } from '../types/route';
+import { ActivityType, CloudRoute, GroupRun, LatLng } from '../types/route';
 import { clusterRoutesByStart, RouteCluster } from '../utils/clusterRoutes';
 import { haversineDistance } from '../utils/distance';
 import { reverseGeocodeCity, reverseGeocodeCountryBounds } from '../utils/geocoding';
@@ -175,6 +175,15 @@ const COUNTRY_ZOOM_FALLBACK = 4.5;
 const PHILIPPINES_NE: [number, number] = [126.6, 21.2];
 const PHILIPPINES_SW: [number, number] = [116.7, 4.5];
 
+const ACTIVITY_TYPE_FILTER_OPTIONS: { value: ActivityType | undefined; label: string }[] = [
+  { value: undefined, label: 'All' },
+  { value: 'run', label: 'Run' },
+  { value: 'trail_run', label: 'Trail Run' },
+  { value: 'hike', label: 'Hike' },
+  { value: 'bike', label: 'Bike' },
+  { value: 'walk', label: 'Walk' },
+];
+
 function isWithinPhilippines(point: { latitude: number; longitude: number }): boolean {
   return (
     point.longitude >= PHILIPPINES_SW[0] &&
@@ -209,6 +218,7 @@ export default function DiscoverMapScreen({
   const [maxDistance, setMaxDistance] = useState('');
   const [maxElevation, setMaxElevation] = useState('');
   const [city, setCity] = useState('');
+  const [activityTypeFilter, setActivityTypeFilter] = useState<ActivityType | undefined>(undefined);
   const [appliedFilters, setAppliedFilters] = useState<PublicRouteFilters>({});
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -393,7 +403,7 @@ export default function DiscoverMapScreen({
   );
 
   const activeFilterCount = useMemo(
-    () => [appliedFilters.minDistanceKm, appliedFilters.maxDistanceKm, appliedFilters.maxElevationGainM, appliedFilters.city].filter(
+    () => [appliedFilters.minDistanceKm, appliedFilters.maxDistanceKm, appliedFilters.maxElevationGainM, appliedFilters.city, appliedFilters.activityType].filter(
       (v) => v !== undefined && v !== '',
     ).length,
     [appliedFilters],
@@ -405,15 +415,17 @@ export default function DiscoverMapScreen({
       maxDistanceKm: maxDistance ? Number(maxDistance) : undefined,
       maxElevationGainM: maxElevation ? Number(maxElevation) : undefined,
       city: city.trim() || undefined,
+      activityType: activityTypeFilter,
     });
     setShowFilters(false);
-  }, [minDistance, maxDistance, maxElevation, city]);
+  }, [minDistance, maxDistance, maxElevation, city, activityTypeFilter]);
 
   const handleClearFilters = useCallback(() => {
     setMinDistance('');
     setMaxDistance('');
     setMaxElevation('');
     setCity('');
+    setActivityTypeFilter(undefined);
     setAppliedFilters({});
   }, []);
 
@@ -473,7 +485,10 @@ export default function DiscoverMapScreen({
                     <View style={styles.pinRow}>
                       <View style={styles.pinDot} />
                       <View style={styles.pinLabel}>
-                        <Text style={styles.pinLabelText}>{route.distanceKm.toFixed(1)} km</Text>
+                        <Text style={styles.pinLabelText}>
+                          {route.isTrail ? '🥾 ' : ''}
+                          {route.distanceKm.toFixed(1)} km
+                        </Text>
                       </View>
                     </View>
                     <View style={styles.pinTail} />
@@ -682,6 +697,26 @@ export default function DiscoverMapScreen({
               <Pressable style={styles.filterCloseButton} onPress={() => setShowFilters(false)}>
                 <CloseIcon size={16} />
               </Pressable>
+            </View>
+
+            <View>
+              <Text style={styles.filterLabel}>ACTIVITY</Text>
+              <View style={styles.activityFilterRow}>
+                {ACTIVITY_TYPE_FILTER_OPTIONS.map((option) => {
+                  const active = activityTypeFilter === option.value;
+                  return (
+                    <Pressable
+                      key={option.value ?? 'all'}
+                      style={[styles.activityFilterChip, active && styles.activityFilterChipActive]}
+                      onPress={() => setActivityTypeFilter(option.value)}
+                    >
+                      <Text style={[styles.activityFilterChipText, active && styles.activityFilterChipTextActive]}>
+                        {option.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
 
             <View>
@@ -1201,6 +1236,30 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     gap: 10,
+  },
+  activityFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  activityFilterChip: {
+    borderWidth: 2,
+    borderColor: colors.ink,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.white,
+  },
+  activityFilterChipActive: {
+    backgroundColor: colors.rust,
+  },
+  activityFilterChipText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    color: colors.ink,
+  },
+  activityFilterChipTextActive: {
+    color: colors.sand,
   },
   filterInput: {
     backgroundColor: colors.white,

@@ -13,6 +13,7 @@ interface RouteRow {
   name: string;
   description: string;
   activity_type: ActivityType;
+  is_trail: boolean;
   waypoints: Waypoint[];
   segments: RouteSegment[];
   distance_km: number;
@@ -74,6 +75,7 @@ async function toCloudRoute(row: RouteRow, viewerId: string | null, savedAt?: st
     name: row.name,
     description: row.description,
     activityType: row.activity_type,
+    isTrail: row.is_trail,
     createdAt: new Date(row.created_at).getTime(),
     waypoints: row.waypoints,
     segments: row.segments,
@@ -211,6 +213,7 @@ export interface PublicRouteFilters {
   maxDistanceKm?: number;
   maxElevationGainM?: number;
   city?: string;
+  activityType?: ActivityType;
   limit?: number;
 }
 
@@ -229,6 +232,7 @@ export async function listPublicRoutes(filters: PublicRouteFilters = {}): Promis
   if (filters.maxDistanceKm !== undefined) query = query.lte('distance_km', filters.maxDistanceKm);
   if (filters.maxElevationGainM !== undefined) query = query.lte('elevation_gain_m', filters.maxElevationGainM);
   if (filters.city?.trim()) query = query.ilike('city', `%${filters.city.trim()}%`);
+  if (filters.activityType) query = query.eq('activity_type', filters.activityType);
   if (blockedIds.length > 0) query = query.not('owner_id', 'in', `(${blockedIds.join(',')})`);
 
   const { data, error } = await query;

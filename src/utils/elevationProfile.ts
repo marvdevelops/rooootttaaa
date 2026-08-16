@@ -80,3 +80,32 @@ export function buildElevationProfile(path: PathPoint[]): ElevationProfile {
 
   return { points, segments, minElevation, maxElevation, totalKm: cumulativeM / 1000 };
 }
+
+export interface GainLossGrade {
+  gainM: number;
+  lossM: number;
+  /** Steepest single-step gradient, as a percentage (rise/run * 100) — trail routes care about this beyond total gain. */
+  maxGradePercent: number;
+}
+
+/** Total elevation gain/loss and steepest grade — for the trail-route "↑800m · ↓200m" stat and "Max grade: 28%" label. */
+export function elevationGainLossGrade(path: PathPoint[]): GainLossGrade {
+  const withElevation = path.filter((p): p is PathPoint & { elevation: number } => typeof p.elevation === 'number');
+  if (withElevation.length < 2) return { gainM: 0, lossM: 0, maxGradePercent: 0 };
+
+  let gainM = 0;
+  let lossM = 0;
+  let maxGradePercent = 0;
+
+  for (let i = 1; i < withElevation.length; i++) {
+    const distM = haversineDistance(withElevation[i - 1], withElevation[i]);
+    const delta = withElevation[i].elevation - withElevation[i - 1].elevation;
+    if (delta > 0) gainM += delta;
+    else lossM += -delta;
+    if (distM > 1) {
+      maxGradePercent = Math.max(maxGradePercent, (Math.abs(delta) / distM) * 100);
+    }
+  }
+
+  return { gainM, lossM, maxGradePercent };
+}

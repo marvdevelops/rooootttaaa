@@ -6,6 +6,8 @@ import { buildStaticMapUrl } from '../utils/staticMap';
 
 const ACTIVITY_LABEL: Record<ActivityType, string> = {
   run: 'RUN',
+  trail_run: 'TRAIL RUN',
+  hike: 'HIKE',
   bike: 'BIKE',
   walk: 'WALK',
   other: 'OTHER',

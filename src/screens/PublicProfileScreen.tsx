@@ -28,6 +28,8 @@ function formatEventWhen(ms: number): string {
 
 const ACTIVITY_LABELS: Record<ActivityType, string> = {
   run: 'Run',
+  trail_run: 'Trail Run',
+  hike: 'Hike',
   bike: 'Bike',
   walk: 'Walk',
   other: 'Other',

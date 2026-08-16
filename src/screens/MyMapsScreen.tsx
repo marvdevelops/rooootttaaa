@@ -15,6 +15,8 @@ type Tab = 'created' | 'saved';
 
 const ACTIVITY_LABELS: Record<ActivityType, string> = {
   run: 'Run',
+  trail_run: 'Trail Run',
+  hike: 'Hike',
   bike: 'Bike',
   walk: 'Walk',
   other: 'Other',

@@ -19,7 +19,22 @@ export interface RouteSegment {
   distanceMeters: number;
 }
 
-export type ActivityType = 'run' | 'bike' | 'walk' | 'other';
+export type ActivityType = 'run' | 'trail_run' | 'hike' | 'bike' | 'walk' | 'other';
+
+export type TrailSurface = 'paved' | 'gravel' | 'dirt' | 'rock' | 'mixed';
+export type TrailDifficulty = 'easy' | 'moderate' | 'hard' | 'expert';
+
+export interface TrailInfo {
+  surface: TrailSurface | null;
+  technicalDifficulty: TrailDifficulty | null;
+  hasWaterCrossing: boolean;
+  hasStream: boolean;
+  isShaded: boolean;
+  isDogFriendly: boolean;
+  requiresPermit: boolean;
+  conditionNote: string | null;
+  conditionUpdatedAt: number | null;
+}
 
 export interface CloudRoute {
   id: string;
@@ -29,6 +44,7 @@ export interface CloudRoute {
   name: string;
   description: string;
   activityType: ActivityType;
+  isTrail: boolean;
   createdAt: number;
   waypoints: Waypoint[];
   segments: RouteSegment[];

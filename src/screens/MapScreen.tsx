@@ -25,6 +25,7 @@ import { colorSegmentsByGrade } from '../utils/routeColor';
 import { downsampleForStorage } from '../utils/elevationProfile';
 import { reverseGeocodeCity } from '../utils/geocoding';
 import { countMyRoutes, createRoute, updateRoute } from '../utils/routesApi';
+import { TrailInfoInput, upsertTrailInfo } from '../utils/trailInfoApi';
 
 const ELEVATION_DEBOUNCE_MS = 1200;
 const CAMERA_ZOOM = 15;
@@ -643,7 +644,7 @@ export default function MapScreen({
   }, [tier, editingRoute, onRequirePaywall]);
 
   const handleSaveRoute = useCallback(
-    async (name: string, description: string, activityType: ActivityType) => {
+    async (name: string, description: string, activityType: ActivityType, trailInfo: TrailInfoInput | null) => {
       setIsSavingRoute(true);
       try {
         const city = saveCity ?? (waypoints[0] ? await reverseGeocodeCity(waypoints[0]) : null);
@@ -664,11 +665,13 @@ export default function MapScreen({
 
         if (editingRoute) {
           const updated = await updateRoute(editingRoute.id, payload);
+          if (trailInfo) await upsertTrailInfo(updated.id, trailInfo);
           setShowSaveModal(false);
           handleClear();
           onRouteUpdated?.(updated);
         } else {
           const created = await createRoute(payload);
+          if (trailInfo) await upsertTrailInfo(created.id, trailInfo);
           setShowSaveModal(false);
           handleClear();
           onRouteCreated?.(created);
