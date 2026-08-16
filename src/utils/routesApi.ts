@@ -237,6 +237,36 @@ export async function listPublicRoutes(filters: PublicRouteFilters = {}): Promis
   return Promise.all(rows.map((row) => toCloudRoute(row, viewerId)));
 }
 
+/** Fetches specific public routes by id — used by Top Routes to hydrate full CloudRoute objects for a set of ids already ranked by the top_routes view. Order is not guaranteed to match `ids`; callers that need ranked order should re-sort client-side. */
+export async function getRoutesByIds(ids: string[]): Promise<CloudRoute[]> {
+  if (ids.length === 0) return [];
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase.from('routes').select(ROUTE_SELECT).in('id', ids);
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as RouteRow[];
+  return Promise.all(rows.map((row) => toCloudRoute(row, viewerId)));
+}
+
+/** Fallback for Top Routes when a city has no routes with the 3+ review minimum yet — most-completed public routes, regardless of review count. */
+export async function listMostCompletedInCity(city: string | null, limit = 5): Promise<CloudRoute[]> {
+  const viewerId = await currentUserId();
+
+  let query = supabase
+    .from('routes')
+    .select(ROUTE_SELECT)
+    .eq('is_public', true)
+    .gte('completion_count', 2)
+    .order('completion_count', { ascending: false })
+    .limit(limit);
+  if (city) query = query.eq('city', city);
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as RouteRow[];
+  return Promise.all(rows.map((row) => toCloudRoute(row, viewerId)));
+}
+
 /**
  * Keyword search over public route names/descriptions (Postgres full-text
  * search, see 0030_route_search.sql). `websearch_to_tsquery` under the hood

@@ -27,6 +27,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import PublicProfileScreen from './src/screens/PublicProfileScreen';
 import RouteDetailScreen from './src/screens/RouteDetailScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import TopRoutesScreen from './src/screens/TopRoutesScreen';
 import UsernameSetupScreen from './src/screens/UsernameSetupScreen';
 import NotificationPermissionModal from './src/components/NotificationPermissionModal';
 import ScheduleGroupRunModal from './src/components/ScheduleGroupRunModal';
@@ -56,6 +57,7 @@ type Overlay =
   | 'events'
   | 'createEvent'
   | 'clubs'
+  | 'topRoutes'
   | 'clubProfile'
   | 'clubAdmin'
   | 'createClub'
@@ -97,6 +99,7 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
   const [eventClubId, setEventClubId] = useState<string | null>(null);
   const [isSchedulingEvent, setIsSchedulingEvent] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
+  const [topRoutesCity, setTopRoutesCity] = useState<string | null>(null);
   // True while the builder is open specifically because the user chose
   // "Create a new route" from the Create Event flow — on save, this reroutes
   // the normal "route created" handling into "now finish the event details"
@@ -299,6 +302,10 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
         onCreateRoute={() => setOverlay('builder')}
         onImportGpx={() => (tier === 'paid' ? setOverlay('importGpx') : openPaywall('gpx_import'))}
         onCreateEvent={handleTapCreateEvent}
+        onOpenTopRoutes={(city) => {
+          setTopRoutesCity(city);
+          navigateTo('topRoutes');
+        }}
         refreshSignal={discoverRefreshSignal}
       />
 
@@ -381,6 +388,12 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
             onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
             onRequirePaywall={() => openPaywall('group_run_join_limit')}
           />
+        </View>
+      )}
+
+      {overlay === 'topRoutes' && (
+        <View style={StyleSheet.absoluteFill}>
+          <TopRoutesScreen city={topRoutesCity} onClose={() => navigateBack()} onOpenDetail={(route) => openDetail(route)} />
         </View>
       )}
 

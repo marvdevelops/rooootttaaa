@@ -16,15 +16,17 @@ import {
 } from 'react-native';
 import { CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, SearchIcon, UserIcon, UsersIcon } from '../components/icons';
 import Logo from '../components/Logo';
+import TopRoutesStrip from '../components/TopRoutesStrip';
 import { useUserTier } from '../hooks/useUserTier';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { CloudRoute, GroupRun, LatLng } from '../types/route';
 import { clusterRoutesByStart, RouteCluster } from '../utils/clusterRoutes';
 import { haversineDistance } from '../utils/distance';
-import { reverseGeocodeCountryBounds } from '../utils/geocoding';
+import { reverseGeocodeCity, reverseGeocodeCountryBounds } from '../utils/geocoding';
 import { listRunsNearLocation } from '../utils/groupRunsApi';
 import '../utils/mapboxInit';
 import { listPublicRoutes, PublicRouteFilters, searchRoutes } from '../utils/routesApi';
+import { fetchTopRoutesInCity } from '../utils/topRoutesApi';
 
 function formatDistanceAway(distanceKm: number): string {
   if (distanceKm < 1) return `${Math.round(distanceKm * 1000)}m away`;
@@ -143,6 +145,7 @@ interface Props {
   onCreateRoute: () => void;
   onImportGpx: () => void;
   onCreateEvent: () => void;
+  onOpenTopRoutes: (city: string | null) => void;
   /** Bump this to force a re-fetch (e.g. after a route is created or deleted elsewhere). */
   refreshSignal?: number;
 }
@@ -190,6 +193,7 @@ export default function DiscoverMapScreen({
   onCreateRoute,
   onImportGpx,
   onCreateEvent,
+  onOpenTopRoutes,
   refreshSignal,
 }: Props) {
   const tier = useUserTier();
@@ -242,6 +246,31 @@ export default function DiscoverMapScreen({
   // reflects what's currently on screen instead of staying pinned to a
   // one-time location.
   const [mapViewport, setMapViewport] = useState<{ center: LatLng; radiusKm: number } | null>(null);
+  // "Top in your city" strip — resolved once from GPS position, not the map
+  // viewport (which the "runs near you" strip already tracks), so panning
+  // around doesn't make the Top Routes ranking flicker between cities.
+  const [topRoutesCity, setTopRoutesCity] = useState<string | null>(null);
+  const [topRoutes, setTopRoutes] = useState<CloudRoute[]>([]);
+  const [topRoutesIsFallback, setTopRoutesIsFallback] = useState(false);
+
+  useEffect(() => {
+    if (!userLocation) return;
+    reverseGeocodeCity(userLocation).then(setTopRoutesCity).catch(() => {});
+  }, [userLocation]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchTopRoutesInCity(topRoutesCity)
+      .then(({ routes: r, isFallback }) => {
+        if (cancelled) return;
+        setTopRoutes(r);
+        setTopRoutesIsFallback(isFallback);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [topRoutesCity, refreshSignal]);
 
   const refresh = useCallback(async (filters: PublicRouteFilters) => {
     setLoading(true);
@@ -559,6 +588,14 @@ export default function DiscoverMapScreen({
             <ActivityIndicator size="small" color={colors.ink} />
           </View>
         )}
+
+        <TopRoutesStrip
+          routes={topRoutes}
+          city={topRoutesCity}
+          isFallback={topRoutesIsFallback}
+          onOpenRoute={onOpenDetail}
+          onSeeAll={() => onOpenTopRoutes(topRoutesCity)}
+        />
       </View>
 
       {!loading && routes.length === 0 && !error && (
