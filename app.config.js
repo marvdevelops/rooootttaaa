@@ -83,7 +83,6 @@ module.exports = {
           calendarPermission: 'Rootah uses your calendar to add events you RSVP to.',
         },
       ],
-      'expo-video',
       [
         'expo-media-library',
         {

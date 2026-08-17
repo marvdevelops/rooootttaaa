@@ -9,17 +9,15 @@ import {
 } from '@rnmapbox/maps';
 import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
-import { File } from 'expo-file-system';
 import type { Feature, LineString } from 'geojson';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { BackIcon, ShareIcon } from '../components/icons';
 import FlybyStatCard from '../components/FlybyStatCard';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { CloudRoute } from '../types/route';
-import { appendFrozenFrames, captureFramesForDuration, cleanupFramesDir, makeFramesDir, stitchFramesToVideo } from '../utils/flybyCapture';
 import { animateFlybyCamera, sampleFlybyPoints } from '../utils/flybyCamera';
+import { captureStatCardImage } from '../utils/flybyCapture';
 import { deleteFlybyTiles, preloadFlybyTiles } from '../utils/flybyPreload';
 import { defaultStyleForRoute, FLYBY_STYLES, FlybyStyleKey } from '../utils/flybyStyles';
 
@@ -28,33 +26,22 @@ interface Props {
   onClose: () => void;
 }
 
-type Phase = 'preview' | 'preloading' | 'rendering' | 'ready' | 'error';
+type Phase = 'preview' | 'preloading' | 'playing' | 'ready' | 'error';
 
 const DEM_SOURCE_ID = 'flyby-terrain-dem';
 const ANIMATION_DURATION_MS = 14_000;
-const STAT_CARD_HOLD_MS = 1500;
 
 export default function FlybyScreen({ route, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>('preview');
   const [selectedStyle, setSelectedStyle] = useState<FlybyStyleKey>(defaultStyleForRoute(route));
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('Preparing map…');
-  const [videoUri, setVideoUri] = useState<string | null>(null);
+  const [statCardUri, setStatCardUri] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const mapViewRef = useRef<React.ComponentRef<typeof View>>(null);
   const cameraRef = useRef<React.ComponentRef<typeof Camera>>(null);
   const statCardRef = useRef<View>(null);
   const cancelledRef = useRef(false);
-  const videoPlayer = useVideoPlayer(null, (p) => {
-    p.loop = true;
-  });
-
-  useEffect(() => {
-    if (!videoUri) return;
-    videoPlayer.replace(videoUri);
-    videoPlayer.play();
-  }, [videoUri, videoPlayer]);
 
   useEffect(() => {
     return () => {
@@ -92,79 +79,57 @@ export default function FlybyScreen({ route, onClose }: Props) {
       await preloadFlybyTiles(route.id, route.waypoints, style.url, (pct) => setProgress(pct / 100));
       if (cancelledRef.current) return;
 
-      setPhase('rendering');
-      setProgress(0);
-      setProgressLabel('Recording flyby…');
-
-      const framesDir = makeFramesDir(route.id);
+      setPhase('playing');
       const points = sampleFlybyPoints(fullPath, 100);
-
-      const animationPromise = animateFlybyCamera({
+      await animateFlybyCamera({
         points,
         cameraRef,
         durationMs: ANIMATION_DURATION_MS,
         isCancelled: () => cancelledRef.current,
       });
-      const capturePromise = captureFramesForDuration(mapViewRef, framesDir, ANIMATION_DURATION_MS, (fraction) =>
-        setProgress(fraction * 0.8),
-      );
-
-      const [, frameCount] = await Promise.all([animationPromise, capturePromise]);
       if (cancelledRef.current) return;
 
-      setProgressLabel('Adding summary card…');
-      const totalFrames = await appendFrozenFrames(statCardRef, framesDir, frameCount, STAT_CARD_HOLD_MS);
-      void totalFrames;
-
-      setProgressLabel('Encoding video…');
-      setProgress(0.9);
-      const outputFile = new File(framesDir.parentDirectory, `flyby_${route.id}_${Date.now()}.mp4`);
-      await stitchFramesToVideo(framesDir, outputFile);
-      cleanupFramesDir(framesDir);
+      const uri = await captureStatCardImage(statCardRef);
       await deleteFlybyTiles(route.id);
-
       if (cancelledRef.current) return;
-      setVideoUri(outputFile.uri);
-      setProgress(1);
+      setStatCardUri(uri);
       setPhase('ready');
     } catch (e) {
-      setErrorMessage(e instanceof Error ? e.message : 'Something went wrong generating the video.');
+      setErrorMessage(e instanceof Error ? e.message : 'Something went wrong.');
       setPhase('error');
     }
   }, [route.id, route.waypoints, fullPath, style.url]);
 
   const handleShare = useCallback(async () => {
-    if (!videoUri) return;
-    const message = [
-      `${route.name} 🗺`,
-      `${route.distanceKm.toFixed(1)}km · ↑${Math.round(route.elevationGainM)}m`,
-      `Plan it on Rootah → rootah.com`,
-    ].join('\n');
+    if (!statCardUri) return;
+    const message = [`${route.name} 🗺`, `${route.distanceKm.toFixed(1)}km · ↑${Math.round(route.elevationGainM)}m`, `Plan it on Rootah → rootah.com`].join(
+      '\n',
+    );
     try {
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(videoUri, { mimeType: 'video/mp4' });
+        await Sharing.shareAsync(statCardUri, { mimeType: 'image/jpeg' });
       } else {
-        await Share.share({ url: videoUri, message, title: route.name });
+        await Share.share({ url: statCardUri, message, title: route.name });
       }
     } catch {
-      // User cancelling the share sheet throws — not an error worth surfacing.
+      // User cancelling the share sheet throws — not worth surfacing.
     }
-  }, [videoUri, route]);
+  }, [statCardUri, route]);
 
   const handleSave = useCallback(async () => {
-    if (!videoUri) return;
+    if (!statCardUri) return;
     const permission = await MediaLibrary.requestPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Enable photo library access in Settings to save this video.');
+      Alert.alert('Permission needed', 'Enable photo library access in Settings to save this image.');
       return;
     }
     try {
-      await MediaLibrary.saveToLibraryAsync(videoUri);
-      Alert.alert('Saved', 'Flyby video saved to your camera roll.');
+      await MediaLibrary.saveToLibraryAsync(statCardUri);
+      Alert.alert('Saved', 'Saved to your camera roll.');
     } catch {
-      Alert.alert('Error', 'Could not save the video.');
+      Alert.alert('Error', 'Could not save the image.');
     }
-  }, [videoUri]);
+  }, [statCardUri]);
 
   const handleClose = () => {
     cancelledRef.current = true;
@@ -174,7 +139,6 @@ export default function FlybyScreen({ route, onClose }: Props) {
   return (
     <View style={styles.container}>
       <MapView
-        ref={mapViewRef as never}
         style={styles.map}
         styleURL={style.url}
         scaleBarEnabled={false}
@@ -206,7 +170,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
         )}
       </MapView>
 
-      {/* Rendered off-screen but laid out, so it can be captured for the stat-card freeze frames. */}
+      {/* Rendered off-screen but laid out, so it can be captured as the shareable summary image. */}
       <View style={styles.offscreen} pointerEvents="none">
         <View ref={statCardRef} collapsable={false}>
           <FlybyStatCard route={route} />
@@ -219,6 +183,11 @@ export default function FlybyScreen({ route, onClose }: Props) {
 
       {phase === 'preview' && (
         <View style={styles.previewOverlay}>
+          <View style={styles.noticeBanner}>
+            <Text style={styles.noticeText}>
+              Video export is coming soon — this previews the flyby animation and gives you a shareable summary card for now.
+            </Text>
+          </View>
           <View style={styles.styleRow}>
             {(Object.keys(FLYBY_STYLES) as FlybyStyleKey[]).map((key) => {
               const active = selectedStyle === key;
@@ -235,12 +204,12 @@ export default function FlybyScreen({ route, onClose }: Props) {
             })}
           </View>
           <Pressable style={styles.startButton} onPress={handleStart}>
-            <Text style={styles.startButtonText}>CREATE FLYBY VIDEO</Text>
+            <Text style={styles.startButtonText}>PLAY FLYBY</Text>
           </Pressable>
         </View>
       )}
 
-      {(phase === 'preloading' || phase === 'rendering') && (
+      {phase === 'preloading' && (
         <View style={styles.progressOverlay}>
           <ActivityIndicator color={colors.sand} size="large" />
           <Text style={styles.progressLabel}>{progressLabel}</Text>
@@ -259,21 +228,18 @@ export default function FlybyScreen({ route, onClose }: Props) {
         </View>
       )}
 
-      {phase === 'ready' && videoUri && (
-        <View style={styles.readyOverlay}>
-          <VideoView player={videoPlayer} style={styles.videoPreview} contentFit="cover" nativeControls={false} />
-          <View style={styles.readyActions}>
-            <Pressable style={styles.startButton} onPress={handleShare}>
-              <ShareIcon size={16} color={colors.sand} />
-              <Text style={styles.startButtonText}>SHARE VIDEO</Text>
-            </Pressable>
-            <Pressable style={styles.secondaryButton} onPress={handleSave}>
-              <Text style={styles.secondaryButtonText}>Save to camera roll</Text>
-            </Pressable>
-            <Pressable onPress={() => setPhase('preview')} hitSlop={8}>
-              <Text style={styles.regenerateText}>Regenerate</Text>
-            </Pressable>
-          </View>
+      {phase === 'ready' && statCardUri && (
+        <View style={styles.readyActions}>
+          <Pressable style={styles.startButton} onPress={handleShare}>
+            <ShareIcon size={16} color={colors.sand} />
+            <Text style={styles.startButtonText}>SHARE SUMMARY CARD</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryButton} onPress={handleSave}>
+            <Text style={styles.secondaryButtonText}>Save to camera roll</Text>
+          </Pressable>
+          <Pressable onPress={() => setPhase('preview')} hitSlop={8}>
+            <Text style={styles.regenerateText}>Replay</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -311,6 +277,18 @@ const styles = StyleSheet.create({
     bottom: 40,
     paddingHorizontal: 20,
     gap: 14,
+  },
+  noticeBanner: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  noticeText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    color: colors.sand,
+    textAlign: 'center',
+    lineHeight: 17,
   },
   styleRow: {
     flexDirection: 'row',
@@ -385,17 +363,6 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     backgroundColor: colors.rust,
-  },
-  readyOverlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: colors.ink,
-  },
-  videoPreview: {
-    flex: 1,
   },
   readyActions: {
     position: 'absolute',
