@@ -30,7 +30,7 @@ interface Props {
 type Phase = 'preview' | 'preloading' | 'playing' | 'ready' | 'error';
 
 const DEM_SOURCE_ID = 'flyby-terrain-dem';
-const ANIMATION_DURATION_MS = 14_000;
+const ANIMATION_DURATION_MS = 22_000;
 
 const STYLE_ICON: Record<FlybyStyleKey, (props: { size?: number; color?: string }) => React.JSX.Element> = {
   satellite: SatelliteIcon,

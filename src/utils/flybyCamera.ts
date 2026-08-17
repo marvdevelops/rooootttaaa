@@ -25,18 +25,14 @@ export function getBearing(from: FlybyCameraPoint, to: FlybyCameraPoint): number
   return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 }
 
-/** Shortest angular path between two headings, so interpolating through 359°→1° doesn't spin the long way round. */
-function interpolateBearing(from: number, to: number, t: number): number {
-  let delta = ((to - from + 540) % 360) - 180;
-  return (from + delta * t + 360) % 360;
-}
-
 export interface AnimateFlybyCameraOptions {
   points: FlybyCameraPoint[];
   cameraRef: React.RefObject<Camera | null>;
   durationMs?: number;
   pitch?: number;
   zoomLevel?: number;
+  /** Caps how fast the camera is allowed to rotate, so a sharp turn in the route eases the camera around it instead of snapping to the new heading. */
+  maxTurnRateDegPerSec?: number;
   /** Called if the animation is cancelled mid-flight (e.g. user backs out of the flyby screen). */
   isCancelled?: () => boolean;
   /** Fired every animation frame (~60fps) with the interpolated position — drives the runner marker so it moves continuously instead of jumping between waypoints. */
@@ -51,6 +47,12 @@ export interface AnimateFlybyCameraOptions {
  * than simply following the object; this keeps pitch and zoom constant and
  * only ever changes heading, smoothed, to track the direction of travel.
  *
+ * Heading is rate-limited (maxTurnRateDegPerSec) rather than snapped straight
+ * to the route's bearing at each point — a sharp turn used to whip the
+ * camera around instantly since the underlying bearing changes over a very
+ * short segment; capping the turn rate makes the camera ease around corners
+ * at a consistent, comfortable speed regardless of how tight the turn is.
+ *
  * Drives the camera directly (setCamera with animationDuration: 0, i.e. an
  * instant position set) from a requestAnimationFrame loop that interpolates
  * between waypoints every frame, so motion is one continuous flight rather
@@ -59,9 +61,10 @@ export interface AnimateFlybyCameraOptions {
 export async function animateFlybyCamera({
   points,
   cameraRef,
-  durationMs = 14_000,
+  durationMs = 22_000,
   pitch = 58,
   zoomLevel = 16.2,
+  maxTurnRateDegPerSec = 45,
   isCancelled,
   onFrame,
 }: AnimateFlybyCameraOptions): Promise<void> {
@@ -74,6 +77,8 @@ export async function animateFlybyCamera({
 
   await new Promise<void>((resolve) => {
     const startedAt = Date.now();
+    let lastFrameAt = startedAt;
+    let currentHeading = bearings[0];
 
     const tick = () => {
       if (isCancelled?.()) {
@@ -81,7 +86,11 @@ export async function animateFlybyCamera({
         return;
       }
 
-      const elapsed = Date.now() - startedAt;
+      const now = Date.now();
+      const dtSec = Math.max(0, (now - lastFrameAt) / 1000);
+      lastFrameAt = now;
+
+      const elapsed = now - startedAt;
       const t = Math.min(1, elapsed / durationMs);
       const segFloat = t * segmentCount;
       const segIndex = Math.min(segmentCount - 1, Math.floor(segFloat));
@@ -89,24 +98,28 @@ export async function animateFlybyCamera({
 
       const prev = points[segIndex];
       const curr = points[segIndex + 1];
-      const bearing = bearings[segIndex];
-      const prevBearing = bearings[Math.max(0, segIndex - 1)];
+      const targetHeading = bearings[segIndex];
 
       const lat = prev.latitude + (curr.latitude - prev.latitude) * localT;
       const lng = prev.longitude + (curr.longitude - prev.longitude) * localT;
-      // Blend heading from the previous segment's value at the start of this
-      // one, so direction changes ease across the boundary instead of snapping.
-      const heading = interpolateBearing(prevBearing, bearing, localT);
+
+      // Turn currentHeading toward targetHeading by at most the allowed rate
+      // this frame, along the shortest angular path — this is what keeps
+      // sharp turns from snapping the camera around instantly.
+      const maxStep = maxTurnRateDegPerSec * dtSec;
+      const delta = ((targetHeading - currentHeading + 540) % 360) - 180;
+      const step = Math.max(-maxStep, Math.min(maxStep, delta));
+      currentHeading = (currentHeading + step + 360) % 360;
 
       cameraRef.current?.setCamera({
         centerCoordinate: [lng, lat],
         zoomLevel,
         pitch,
-        heading,
+        heading: currentHeading,
         animationDuration: 0,
         animationMode: 'none',
       });
-      onFrame?.([lng, lat], heading);
+      onFrame?.([lng, lat], currentHeading);
 
       if (t >= 1) {
         resolve();
