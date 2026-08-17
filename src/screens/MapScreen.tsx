@@ -4,7 +4,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Location from 'expo-location';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import BuilderTutorial, { TutorialStep } from '../components/BuilderTutorial';
 import ExportSheet from '../components/ExportSheet';
 import { CloseIcon, ExportIcon, LoopIcon, SaveIcon, UndoIcon } from '../components/icons';
@@ -82,6 +82,8 @@ export default function MapScreen({
   const [showPointsModal, setShowPointsModal] = useState(false);
   const [editingRoute, setEditingRoute] = useState<CloudRoute | null>(null);
   const [tutorialStep, setTutorialStep] = useState<TutorialStep | null>(null);
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const hintOpacity = useRef(new Animated.Value(1)).current;
   // Snapshot-based undo: each entry is the full {waypoints, segments} state
   // right before a mutation, so undo is a direct restore — no need to
   // re-fetch routing or reverse individual operations (add/drag/delete all
@@ -187,6 +189,17 @@ export default function MapScreen({
     setTutorialStep(null);
     AsyncStorage.setItem(TUTORIAL_STORAGE_KEY, '1').catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (hintDismissed) return;
+    const timer = setTimeout(() => {
+      Animated.timing(hintOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start(() => {
+        setHintDismissed(true);
+      });
+    }, 10_000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hintDismissed]);
 
   useEffect(() => {
     if (tutorialStep === null) return;
@@ -786,14 +799,14 @@ export default function MapScreen({
         )}
       </View>
 
-      {!hasRoute && tutorialStep === null && (
-        <View style={styles.hintSheet}>
+      {!hasRoute && tutorialStep === null && !hintDismissed && (
+        <Animated.View style={[styles.hintOverlay, { opacity: hintOpacity }]} pointerEvents="none">
           <Text style={styles.hintTitle}>Tap the map to start</Text>
           <Text style={styles.hintBody}>
             Your first tap sets the start point. Keep tapping to add stops — Rootah routes along
             real streets automatically.
           </Text>
-        </View>
+        </Animated.View>
       )}
 
       {tutorialStep !== null && (
@@ -1000,31 +1013,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.ink,
   },
-  hintSheet: {
+  hintOverlay: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 46,
-    gap: 6,
+    left: 20,
+    right: 20,
+    bottom: 120,
+    backgroundColor: 'rgba(20,16,12,0.82)',
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 4,
   },
   hintTitle: {
     fontFamily: fonts.display,
-    fontSize: 18,
-    color: colors.ink,
+    fontSize: 16,
+    color: colors.sand,
   },
   hintBody: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 14,
-    color: colors.muted,
-    lineHeight: 21,
+    fontSize: 13,
+    color: colors.sand,
+    opacity: 0.85,
+    lineHeight: 19,
   },
   bottomOverlay: {
     position: 'absolute',

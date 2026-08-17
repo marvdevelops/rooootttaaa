@@ -35,25 +35,12 @@ function unwrapRoute(routes: GroupRunRow['routes']) {
   return Array.isArray(routes) ? routes[0] : routes;
 }
 
-async function toGroupRun(
+function buildGroupRun(
   row: GroupRunRow,
   viewerId: string | null,
+  myRsvpStatus: RsvpStatus | null,
   myRole?: 'host' | 'participant',
-  myStatusOverride?: RsvpStatus | null,
-): Promise<GroupRun> {
-  let myRsvpStatus: RsvpStatus | null = myStatusOverride ?? null;
-  if (myRole === 'host') {
-    myRsvpStatus = 'approved';
-  } else if (viewerId && myStatusOverride === undefined && !myRole) {
-    const { data } = await supabase
-      .from('group_run_rsvps')
-      .select('status')
-      .eq('group_run_id', row.id)
-      .eq('user_id', viewerId)
-      .maybeSingle();
-    myRsvpStatus = (data?.status as RsvpStatus | undefined) ?? null;
-  }
-
+): GroupRun {
   const route = unwrapRoute(row.routes);
   const host = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
   const club = Array.isArray(row.run_clubs) ? row.run_clubs[0] : row.run_clubs;
@@ -84,6 +71,56 @@ async function toGroupRun(
     clubAvatarUrl: club?.avatar_url ?? null,
     seriesId: row.series_id,
   };
+}
+
+async function toGroupRun(
+  row: GroupRunRow,
+  viewerId: string | null,
+  myRole?: 'host' | 'participant',
+  myStatusOverride?: RsvpStatus | null,
+): Promise<GroupRun> {
+  let myRsvpStatus: RsvpStatus | null = myStatusOverride ?? null;
+  if (myRole === 'host') {
+    myRsvpStatus = 'approved';
+  } else if (viewerId && myStatusOverride === undefined && !myRole) {
+    const { data } = await supabase
+      .from('group_run_rsvps')
+      .select('status')
+      .eq('group_run_id', row.id)
+      .eq('user_id', viewerId)
+      .maybeSingle();
+    myRsvpStatus = (data?.status as RsvpStatus | undefined) ?? null;
+  }
+
+  return buildGroupRun(row, viewerId, myRsvpStatus, myRole);
+}
+
+/**
+ * Same result as mapping each row through toGroupRun, but fetches this
+ * viewer's RSVP status for every row in a single query instead of one round
+ * trip per row — listing 20-40 upcoming runs previously meant 20-40
+ * concurrent RSVP queries on top of the list query itself, which is what
+ * made the group runs / near-you list feel slow to load.
+ */
+async function toGroupRunBatch(rows: GroupRunRow[], viewerId: string | null): Promise<GroupRun[]> {
+  if (rows.length === 0) return [];
+  if (!viewerId) return rows.map((row) => buildGroupRun(row, viewerId, null));
+
+  const { data } = await supabase
+    .from('group_run_rsvps')
+    .select('group_run_id, status')
+    .eq('user_id', viewerId)
+    .in(
+      'group_run_id',
+      rows.map((r) => r.id),
+    );
+
+  const byRunId = new Map((data ?? []).map((r) => [r.group_run_id as string, r.status as RsvpStatus]));
+  return rows.map((row) => {
+    const myRole = row.host_id === viewerId ? 'host' : undefined;
+    const myRsvpStatus = myRole === 'host' ? 'approved' : (byRunId.get(row.id) ?? null);
+    return buildGroupRun(row, viewerId, myRsvpStatus, myRole);
+  });
 }
 
 export interface CreateGroupRunInput {
@@ -143,7 +180,7 @@ export async function listUpcomingGroupRuns(limit = 40): Promise<GroupRun[]> {
 
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as unknown as GroupRunRow[];
-  return dedupeBySeries(await Promise.all(rows.map((row) => toGroupRun(row, viewerId))));
+  return dedupeBySeries(await toGroupRunBatch(rows, viewerId));
 }
 
 /**
@@ -183,7 +220,7 @@ export async function listRunsNearLocation(
   if (error) throw new Error(error.message);
 
   const rows = (data ?? []) as unknown as GroupRunRow[];
-  const runs = await Promise.all(rows.map((row) => toGroupRun(row, viewerId)));
+  const runs = await toGroupRunBatch(rows, viewerId);
   // The .in() query above doesn't preserve the RPC's distance ordering.
   const sorted = runs.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
   return dedupeBySeries(sorted);
@@ -211,7 +248,7 @@ export async function listGroupRunsForRoute(routeId: string): Promise<GroupRun[]
 
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as unknown as GroupRunRow[];
-  return Promise.all(rows.map((row) => toGroupRun(row, viewerId)));
+  return toGroupRunBatch(rows, viewerId);
 }
 
 /** Upcoming (scheduled/active) group runs tagged to a club — for the club profile's Events tab. */
@@ -227,7 +264,7 @@ export async function listClubEvents(clubId: string): Promise<GroupRun[]> {
 
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as unknown as GroupRunRow[];
-  return Promise.all(rows.map((row) => toGroupRun(row, viewerId)));
+  return toGroupRunBatch(rows, viewerId);
 }
 
 /** Thrown when a free-tier user tries to RSVP to a second event — callers should open the paywall rather than show a plain error. */

@@ -1,6 +1,7 @@
 import { MarkerView } from '@rnmapbox/maps';
 import React, { forwardRef, useImperativeHandle, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { RunnerIcon } from './icons';
 import { brutalShadow, colors } from '../theme/theme';
 
 export interface FlybyRunnerMarkerHandle {
@@ -26,7 +27,7 @@ const FlybyRunnerMarker = forwardRef<FlybyRunnerMarkerHandle>(function FlybyRunn
   return (
     <MarkerView coordinate={coordinate} anchor={{ x: 0.5, y: 0.5 }} allowOverlap>
       <View style={styles.marker}>
-        <Text style={styles.icon}>🏃</Text>
+        <RunnerIcon size={17} color={colors.sand} />
       </View>
     </MarkerView>
   );
@@ -45,8 +46,5 @@ const styles = StyleSheet.create({
     ...brutalShadow(2),
     borderWidth: 2.5,
     borderColor: colors.sand,
-  },
-  icon: {
-    fontSize: 16,
   },
 });

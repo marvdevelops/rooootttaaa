@@ -12,7 +12,7 @@ import * as Sharing from 'expo-sharing';
 import type { Feature, LineString } from 'geojson';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
-import { BackIcon, ShareIcon } from '../components/icons';
+import { BackIcon, MapStyleIcon, SatelliteIcon, ShareIcon, TerrainIcon } from '../components/icons';
 import FlybyRunnerMarker, { FlybyRunnerMarkerHandle } from '../components/FlybyRunnerMarker';
 import FlybyStatCard from '../components/FlybyStatCard';
 import { brutalShadow, colors, fonts } from '../theme/theme';
@@ -32,6 +32,12 @@ type Phase = 'preview' | 'preloading' | 'playing' | 'ready' | 'error';
 const DEM_SOURCE_ID = 'flyby-terrain-dem';
 const ANIMATION_DURATION_MS = 14_000;
 
+const STYLE_ICON: Record<FlybyStyleKey, (props: { size?: number; color?: string }) => React.JSX.Element> = {
+  satellite: SatelliteIcon,
+  outdoors: TerrainIcon,
+  streets: MapStyleIcon,
+};
+
 export default function FlybyScreen({ route, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>('preview');
   const [selectedStyle, setSelectedStyle] = useState<FlybyStyleKey>(defaultStyleForRoute(route));
@@ -44,6 +50,25 @@ export default function FlybyScreen({ route, onClose }: Props) {
   const statCardRef = useRef<View>(null);
   const runnerMarkerRef = useRef<FlybyRunnerMarkerHandle>(null);
   const cancelledRef = useRef(false);
+  const mapImageReadyRef = useRef(false);
+  const mapImageWaitersRef = useRef<(() => void)[]>([]);
+
+  const handleMapImageSettled = useCallback(() => {
+    mapImageReadyRef.current = true;
+    mapImageWaitersRef.current.forEach((fn) => fn());
+    mapImageWaitersRef.current = [];
+  }, []);
+
+  const waitForMapImage = useCallback((timeoutMs = 3000) => {
+    if (mapImageReadyRef.current) return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, timeoutMs);
+      mapImageWaitersRef.current.push(() => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -95,6 +120,9 @@ export default function FlybyScreen({ route, onClose }: Props) {
       });
       if (cancelledRef.current) return;
 
+      await waitForMapImage();
+      if (cancelledRef.current) return;
+
       const uri = await captureStatCardImage(statCardRef);
       await deleteFlybyTiles(route.id);
       if (cancelledRef.current) return;
@@ -104,7 +132,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
       setErrorMessage(e instanceof Error ? e.message : 'Something went wrong.');
       setPhase('error');
     }
-  }, [route.id, route.waypoints, fullPath, style.url]);
+  }, [route.id, route.waypoints, fullPath, style.url, waitForMapImage]);
 
   const handleShare = useCallback(async () => {
     if (!statCardUri) return;
@@ -178,30 +206,26 @@ export default function FlybyScreen({ route, onClose }: Props) {
         <FlybyRunnerMarker ref={runnerMarkerRef} />
       </MapView>
 
-      {/* Rendered off-screen but laid out, so it can be captured as the shareable summary image. */}
+      {/* Rendered off-screen (opacity 0, not offset far outside the window) but laid out, so it can be captured as the shareable summary image. */}
       <View style={styles.offscreen} pointerEvents="none">
         <View ref={statCardRef} collapsable={false}>
-          <FlybyStatCard route={route} />
+          <FlybyStatCard route={route} fullPath={fullPath} onMapImageSettled={handleMapImageSettled} />
         </View>
       </View>
 
       {phase === 'preview' && (
         <View style={styles.previewOverlay}>
-          <View style={styles.noticeBanner}>
-            <Text style={styles.noticeText}>
-              Video export is coming soon — this previews the flyby animation and gives you a shareable summary card for now.
-            </Text>
-          </View>
           <View style={styles.styleRow}>
             {(Object.keys(FLYBY_STYLES) as FlybyStyleKey[]).map((key) => {
               const active = selectedStyle === key;
+              const StyleIcon = STYLE_ICON[key];
               return (
                 <Pressable
                   key={key}
                   style={[styles.styleChip, active && styles.styleChipActive]}
                   onPress={() => setSelectedStyle(key)}
                 >
-                  <Text style={styles.styleIcon}>{FLYBY_STYLES[key].icon}</Text>
+                  <StyleIcon size={14} color={colors.sand} />
                   <Text style={[styles.styleLabel, active && styles.styleLabelActive]}>{FLYBY_STYLES[key].label}</Text>
                 </Pressable>
               );
@@ -268,8 +292,9 @@ const styles = StyleSheet.create({
   },
   offscreen: {
     position: 'absolute',
-    top: -4000,
+    top: 0,
     left: 0,
+    opacity: 0,
   },
   closeButton: {
     position: 'absolute',
@@ -292,18 +317,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 14,
   },
-  noticeBanner: {
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 12,
-    padding: 12,
-  },
-  noticeText: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    color: colors.sand,
-    textAlign: 'center',
-    lineHeight: 17,
-  },
   styleRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -322,9 +335,6 @@ const styles = StyleSheet.create({
   },
   styleChipActive: {
     backgroundColor: colors.rust,
-  },
-  styleIcon: {
-    fontSize: 14,
   },
   styleLabel: {
     fontFamily: fonts.bodyBold,

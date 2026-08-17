@@ -20,6 +20,28 @@ async function currentUserId(): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
+function buildRunClub(
+  row: ClubRow,
+  myRole: ClubRole | null,
+  myStatus: ClubMembershipStatus | null,
+): RunClub {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    description: row.description,
+    city: row.city,
+    avatarUrl: row.avatar_url,
+    coverUrl: row.cover_url,
+    isPrivate: row.is_private,
+    memberCount: row.member_count,
+    createdBy: row.created_by,
+    createdAt: new Date(row.created_at).getTime(),
+    myRole,
+    myStatus,
+  };
+}
+
 async function toRunClub(row: ClubRow, viewerId: string | null): Promise<RunClub> {
   let myRole: ClubRole | null = null;
   let myStatus: ClubMembershipStatus | null = null;
@@ -36,21 +58,35 @@ async function toRunClub(row: ClubRow, viewerId: string | null): Promise<RunClub
     }
   }
 
-  return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    description: row.description,
-    city: row.city,
-    avatarUrl: row.avatar_url,
-    coverUrl: row.cover_url,
-    isPrivate: row.is_private,
-    memberCount: row.member_count,
-    createdBy: row.created_by,
-    createdAt: new Date(row.created_at).getTime(),
-    myRole,
-    myStatus,
-  };
+  return buildRunClub(row, myRole, myStatus);
+}
+
+/**
+ * Same as mapping each row through toRunClub, but fetches this viewer's
+ * membership for every row in a single query instead of one round trip per
+ * row — listing 10 clubs previously meant 10 concurrent membership queries
+ * on top of the list query itself, which is what made club/run lists feel
+ * slow to load.
+ */
+async function toRunClubBatch(rows: ClubRow[], viewerId: string | null): Promise<RunClub[]> {
+  if (rows.length === 0) return [];
+  if (!viewerId) return rows.map((row) => buildRunClub(row, null, null));
+
+  const { data } = await supabase
+    .from('club_memberships')
+    .select('club_id, role, status')
+    .eq('user_id', viewerId)
+    .in(
+      'club_id',
+      rows.map((r) => r.id),
+    );
+
+  const byClubId = new Map((data ?? []).map((m) => [m.club_id as string, m]));
+  return rows.map((row) => {
+    const membership = byClubId.get(row.id);
+    if (!membership || membership.status === 'removed') return buildRunClub(row, null, null);
+    return buildRunClub(row, membership.role as ClubRole, membership.status as ClubMembershipStatus);
+  });
 }
 
 function slugify(name: string): string {
@@ -131,7 +167,7 @@ export async function listNearbyClubs(city: string | null, limit = 10): Promise<
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return Promise.all(((data ?? []) as ClubRow[]).map((row) => toRunClub(row, viewerId)));
+  return toRunClubBatch((data ?? []) as ClubRow[], viewerId);
 }
 
 /** Clubs the current user actively belongs to — for the "My Clubs" section on Profile. */
@@ -155,7 +191,7 @@ export async function listMyClubs(): Promise<RunClub[]> {
     .in('id', clubIds)
     .order('member_count', { ascending: false });
   if (error) throw new Error(error.message);
-  return Promise.all(((data ?? []) as ClubRow[]).map((row) => toRunClub(row, userId)));
+  return toRunClubBatch((data ?? []) as ClubRow[], userId);
 }
 
 export async function joinClub(clubId: string, isPrivate: boolean): Promise<ClubMembershipStatus> {

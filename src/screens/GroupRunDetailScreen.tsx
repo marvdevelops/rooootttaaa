@@ -627,12 +627,14 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               </View>
             )}
 
-            {/* "Add to Calendar" is hidden until a native build ships with
-                expo-calendar linked — re-add the button once that's live. */}
             <View style={styles.secondaryActionsRow}>
               <Pressable style={styles.secondaryActionButton} onPress={handleNavigateToStart}>
                 <CompassIcon size={15} color={colors.ink} />
                 <Text style={styles.secondaryActionText}>NAVIGATE</Text>
+              </Pressable>
+              <Pressable style={styles.secondaryActionButton} onPress={handleAddToCalendar}>
+                <CalendarIcon size={15} color={colors.ink} />
+                <Text style={styles.secondaryActionText}>CALENDAR</Text>
               </Pressable>
               <Pressable style={styles.secondaryActionButton} onPress={handleShare}>
                 <ShareIcon size={15} color={colors.ink} />

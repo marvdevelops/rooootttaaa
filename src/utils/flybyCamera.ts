@@ -1,7 +1,6 @@
 import { Camera } from '@rnmapbox/maps';
 import React from 'react';
 import { PathPoint } from '../types/route';
-import { haversineDistance } from './distance';
 
 export interface FlybyCameraPoint {
   latitude: number;
@@ -32,74 +31,46 @@ function interpolateBearing(from: number, to: number, t: number): number {
   return (from + delta * t + 360) % 360;
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export interface AnimateFlybyCameraOptions {
   points: FlybyCameraPoint[];
   cameraRef: React.RefObject<Camera | null>;
   durationMs?: number;
-  pitchDefault?: number;
+  pitch?: number;
+  zoomLevel?: number;
   /** Called if the animation is cancelled mid-flight (e.g. user backs out of the flyby screen). */
   isCancelled?: () => boolean;
   /** Fired every animation frame (~60fps) with the interpolated position — drives the runner marker so it moves continuously instead of jumping between waypoints. */
   onFrame?: (coordinate: [number, number], bearing: number) => void;
 }
 
-function centerOf(points: FlybyCameraPoint[]): [number, number] {
-  const lats = points.map((p) => p.latitude);
-  const lngs = points.map((p) => p.longitude);
-  return [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2];
-}
-
 /**
- * Flies the camera along the route: an opening pull-back shot of the whole
- * route, then a low-altitude flight along it with elevation-responsive pitch
- * (steeper climbs tilt the camera further forward for a more dramatic shot).
+ * Locks the camera to the runner marker as it moves along the route — a
+ * fixed pitch/zoom chase cam, not an independent cinematic shot. Earlier
+ * versions had the camera do its own thing (opening pull-back, grade-
+ * responsive pitch swings) which read as "a lot of camera movement" rather
+ * than simply following the object; this keeps pitch and zoom constant and
+ * only ever changes heading, smoothed, to track the direction of travel.
  *
- * The along-route flight drives the camera directly (setCamera with
- * animationDuration: 0, i.e. an instant position set) from a
- * requestAnimationFrame loop that interpolates between waypoints every
- * frame. Chaining many short flyTo/linearTo calls — even linearTo — still
- * reads as segmented, because each call is its own discrete animation with
- * its own start/end; the only way to get one genuinely continuous flight is
- * to own the interpolation ourselves and just place the camera every frame.
+ * Drives the camera directly (setCamera with animationDuration: 0, i.e. an
+ * instant position set) from a requestAnimationFrame loop that interpolates
+ * between waypoints every frame, so motion is one continuous flight rather
+ * than a chain of discrete flyTo/linearTo animations stitched together.
  */
 export async function animateFlybyCamera({
   points,
   cameraRef,
   durationMs = 14_000,
-  pitchDefault = 55,
+  pitch = 58,
+  zoomLevel = 16.2,
   isCancelled,
   onFrame,
 }: AnimateFlybyCameraOptions): Promise<void> {
   if (points.length < 2) return;
 
-  cameraRef.current?.setCamera({
-    centerCoordinate: centerOf(points),
-    zoomLevel: 11,
-    pitch: 25,
-    animationDuration: 1500,
-    animationMode: 'flyTo',
-  });
-  await sleep(2300);
-  if (isCancelled?.()) return;
-
   const segmentCount = points.length - 1;
 
-  // Precompute per-segment bearing and pitch once, up front, rather than
-  // recomputing on every frame.
-  const segments = points.slice(1).map((curr, i) => {
-    const prev = points[i];
-    const elevDiff = curr.elevation - prev.elevation;
-    const distM = Math.max(1, haversineDistance(prev, curr));
-    const gradePct = (elevDiff / distM) * 100;
-    return {
-      pitch: Math.min(75, Math.max(40, pitchDefault + gradePct * 0.8)),
-      bearing: getBearing(prev, curr),
-    };
-  });
+  // Precompute per-segment bearing once, up front, rather than recomputing on every frame.
+  const bearings = points.slice(1).map((curr, i) => getBearing(points[i], curr));
 
   await new Promise<void>((resolve) => {
     const startedAt = Date.now();
@@ -118,26 +89,24 @@ export async function animateFlybyCamera({
 
       const prev = points[segIndex];
       const curr = points[segIndex + 1];
-      const seg = segments[segIndex];
-      const prevSeg = segments[Math.max(0, segIndex - 1)];
+      const bearing = bearings[segIndex];
+      const prevBearing = bearings[Math.max(0, segIndex - 1)];
 
       const lat = prev.latitude + (curr.latitude - prev.latitude) * localT;
       const lng = prev.longitude + (curr.longitude - prev.longitude) * localT;
-      // Blend pitch/bearing from the previous segment's value at the start
-      // of this one, so grade/direction changes ease across the boundary
-      // instead of snapping.
-      const pitch = prevSeg.pitch + (seg.pitch - prevSeg.pitch) * localT;
-      const bearing = interpolateBearing(prevSeg.bearing, seg.bearing, localT);
+      // Blend heading from the previous segment's value at the start of this
+      // one, so direction changes ease across the boundary instead of snapping.
+      const heading = interpolateBearing(prevBearing, bearing, localT);
 
       cameraRef.current?.setCamera({
         centerCoordinate: [lng, lat],
-        zoomLevel: 15.5,
+        zoomLevel,
         pitch,
-        heading: bearing,
+        heading,
         animationDuration: 0,
         animationMode: 'none',
       });
-      onFrame?.([lng, lat], bearing);
+      onFrame?.([lng, lat], heading);
 
       if (t >= 1) {
         resolve();

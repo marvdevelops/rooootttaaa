@@ -418,3 +418,62 @@ export function BellIcon({ size = 20, color = colors.ink }: { size?: number; col
     </Svg>
   );
 }
+
+export function SatelliteIcon({ size = 16, color = colors.sand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M8.5 8.5l3.8-3.8a1.5 1.5 0 012.1 0l3.9 3.9a1.5 1.5 0 010 2.1l-3.8 3.8-6-6z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <Path d="M9.5 14.5L4 20M11 12l-6 6M9 10l-1.5 1.5a2 2 0 000 2.8l2.2 2.2a2 2 0 002.8 0L14 15" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15.5 5.5l1-1M18.5 8.5l1-1" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function TerrainIcon({ size = 16, color = colors.sand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 18l5.5-9 3.2 4.6L14 10l7 8H3z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <Path d="M9.2 13.6l1.3-1.9 1.4 1.3" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function MapStyleIcon({ size = 16, color = colors.sand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 4L4 6v14l5-2 6 2 5-2V4l-5 2-6-2z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <Path d="M9 4v14M15 6v14" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function RunnerIcon({ size = 16, color = colors.sand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M15.2 5.3a1.6 1.6 0 11-3.2 0 1.6 1.6 0 013.2 0z" fill={color} />
+      <Path
+        d="M9 9.5l3-1.2 2.3 2.6 3.2.9M12.7 10.4l-1 3 2.4 2 .4 4.3M11.7 13.4l-2.4 1.2-2.8 4M8.8 12.8L6 14.3"
+        stroke={color}
+        strokeWidth={1.9}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
