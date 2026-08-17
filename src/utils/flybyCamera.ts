@@ -37,6 +37,8 @@ export interface AnimateFlybyCameraOptions {
   pitchDefault?: number;
   /** Called if the animation is cancelled mid-flight (e.g. user backs out of the flyby screen). */
   isCancelled?: () => boolean;
+  /** Fired on every waypoint step — drives the runner marker so it travels in lockstep with the camera. */
+  onPoint?: (point: FlybyCameraPoint, bearing: number) => void;
 }
 
 function centerOf(points: FlybyCameraPoint[]): [number, number] {
@@ -56,6 +58,7 @@ export async function animateFlybyCamera({
   durationMs = 14_000,
   pitchDefault = 55,
   isCancelled,
+  onPoint,
 }: AnimateFlybyCameraOptions): Promise<void> {
   if (points.length < 2) return;
 
@@ -70,6 +73,11 @@ export async function animateFlybyCamera({
   if (isCancelled?.()) return;
 
   const segmentDuration = durationMs / points.length;
+  // linearTo (constant velocity) rather than flyTo for these short hops —
+  // flyTo re-eases in and out on every single call, and chaining ~100 of
+  // them back to back reads as a stutter/stitch at each waypoint boundary
+  // instead of one continuous flight. flyTo is kept only for the opening
+  // pull-back shot above, where a single eased move is exactly what you want.
   for (let i = 1; i < points.length; i++) {
     if (isCancelled?.()) return;
     const prev = points[i - 1];
@@ -87,8 +95,9 @@ export async function animateFlybyCamera({
       pitch,
       heading: bearing,
       animationDuration: segmentDuration,
-      animationMode: 'flyTo',
+      animationMode: 'linearTo',
     });
+    onPoint?.(curr, bearing);
     await sleep(segmentDuration);
   }
 }

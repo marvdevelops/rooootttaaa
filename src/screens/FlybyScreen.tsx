@@ -2,6 +2,7 @@ import {
   Camera,
   LineLayer,
   MapView,
+  MarkerView,
   RasterDemSource,
   ShapeSource,
   SkyLayer,
@@ -38,6 +39,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
   const [progressLabel, setProgressLabel] = useState('Preparing map…');
   const [statCardUri, setStatCardUri] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [runnerPosition, setRunnerPosition] = useState<[number, number] | null>(null);
 
   const cameraRef = useRef<React.ComponentRef<typeof Camera>>(null);
   const statCardRef = useRef<View>(null);
@@ -81,11 +83,15 @@ export default function FlybyScreen({ route, onClose }: Props) {
 
       setPhase('playing');
       const points = sampleFlybyPoints(fullPath, 100);
+      setRunnerPosition([points[0].longitude, points[0].latitude]);
       await animateFlybyCamera({
         points,
         cameraRef,
         durationMs: ANIMATION_DURATION_MS,
         isCancelled: () => cancelledRef.current,
+        onPoint: (point) => {
+          setRunnerPosition([point.longitude, point.latitude]);
+        },
       });
       if (cancelledRef.current) return;
 
@@ -93,6 +99,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
       await deleteFlybyTiles(route.id);
       if (cancelledRef.current) return;
       setStatCardUri(uri);
+      setRunnerPosition(null);
       setPhase('ready');
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : 'Something went wrong.');
@@ -167,6 +174,14 @@ export default function FlybyScreen({ route, onClose }: Props) {
               style={{ lineColor: style.routeColor, lineWidth: style.routeWidth, lineCap: 'round', lineJoin: 'round' }}
             />
           </ShapeSource>
+        )}
+
+        {runnerPosition && (
+          <MarkerView coordinate={runnerPosition} anchor={{ x: 0.5, y: 0.5 }} allowOverlap>
+            <View style={styles.runnerMarker}>
+              <Text style={styles.runnerIcon}>🏃</Text>
+            </View>
+          </MarkerView>
         )}
       </MapView>
 
@@ -253,6 +268,20 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  runnerMarker: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.rust,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...brutalShadow(2),
+    borderWidth: 2.5,
+    borderColor: colors.sand,
+  },
+  runnerIcon: {
+    fontSize: 16,
   },
   offscreen: {
     position: 'absolute',
