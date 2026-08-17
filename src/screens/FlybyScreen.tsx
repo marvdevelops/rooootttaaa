@@ -2,7 +2,6 @@ import {
   Camera,
   LineLayer,
   MapView,
-  MarkerView,
   RasterDemSource,
   ShapeSource,
   SkyLayer,
@@ -12,8 +11,9 @@ import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import type { Feature, LineString } from 'geojson';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { BackIcon, ShareIcon } from '../components/icons';
+import FlybyRunnerMarker, { FlybyRunnerMarkerHandle } from '../components/FlybyRunnerMarker';
 import FlybyStatCard from '../components/FlybyStatCard';
 import { brutalShadow, colors, fonts } from '../theme/theme';
 import { CloudRoute } from '../types/route';
@@ -39,10 +39,10 @@ export default function FlybyScreen({ route, onClose }: Props) {
   const [progressLabel, setProgressLabel] = useState('Preparing map…');
   const [statCardUri, setStatCardUri] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [runnerPosition, setRunnerPosition] = useState<[number, number] | null>(null);
 
   const cameraRef = useRef<React.ComponentRef<typeof Camera>>(null);
   const statCardRef = useRef<View>(null);
+  const runnerMarkerRef = useRef<FlybyRunnerMarkerHandle>(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
@@ -83,14 +83,14 @@ export default function FlybyScreen({ route, onClose }: Props) {
 
       setPhase('playing');
       const points = sampleFlybyPoints(fullPath, 100);
-      setRunnerPosition([points[0].longitude, points[0].latitude]);
+      runnerMarkerRef.current?.updatePosition([points[0].longitude, points[0].latitude]);
       await animateFlybyCamera({
         points,
         cameraRef,
         durationMs: ANIMATION_DURATION_MS,
         isCancelled: () => cancelledRef.current,
-        onPoint: (point) => {
-          setRunnerPosition([point.longitude, point.latitude]);
+        onFrame: (coordinate) => {
+          runnerMarkerRef.current?.updatePosition(coordinate);
         },
       });
       if (cancelledRef.current) return;
@@ -99,7 +99,6 @@ export default function FlybyScreen({ route, onClose }: Props) {
       await deleteFlybyTiles(route.id);
       if (cancelledRef.current) return;
       setStatCardUri(uri);
-      setRunnerPosition(null);
       setPhase('ready');
     } catch (e) {
       setErrorMessage(e instanceof Error ? e.message : 'Something went wrong.');
@@ -176,13 +175,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
           </ShapeSource>
         )}
 
-        {runnerPosition && (
-          <MarkerView coordinate={runnerPosition} anchor={{ x: 0.5, y: 0.5 }} allowOverlap>
-            <View style={styles.runnerMarker}>
-              <Text style={styles.runnerIcon}>🏃</Text>
-            </View>
-          </MarkerView>
-        )}
+        <FlybyRunnerMarker ref={runnerMarkerRef} />
       </MapView>
 
       {/* Rendered off-screen but laid out, so it can be captured as the shareable summary image. */}
@@ -191,10 +184,6 @@ export default function FlybyScreen({ route, onClose }: Props) {
           <FlybyStatCard route={route} />
         </View>
       </View>
-
-      <Pressable style={styles.closeButton} onPress={handleClose}>
-        <BackIcon color={colors.sand} />
-      </Pressable>
 
       {phase === 'preview' && (
         <View style={styles.previewOverlay}>
@@ -244,19 +233,27 @@ export default function FlybyScreen({ route, onClose }: Props) {
       )}
 
       {phase === 'ready' && statCardUri && (
-        <View style={styles.readyActions}>
-          <Pressable style={styles.startButton} onPress={handleShare}>
-            <ShareIcon size={16} color={colors.sand} />
-            <Text style={styles.startButtonText}>SHARE SUMMARY CARD</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={handleSave}>
-            <Text style={styles.secondaryButtonText}>Save to camera roll</Text>
-          </Pressable>
-          <Pressable onPress={() => setPhase('preview')} hitSlop={8}>
-            <Text style={styles.regenerateText}>Replay</Text>
-          </Pressable>
+        <View style={styles.readyOverlay}>
+          <Image source={{ uri: statCardUri }} style={styles.readyImage} resizeMode="contain" />
+          <View style={styles.readyActions}>
+            <Pressable style={styles.startButton} onPress={handleShare}>
+              <ShareIcon size={16} color={colors.sand} />
+              <Text style={styles.startButtonText}>SHARE SUMMARY CARD</Text>
+            </Pressable>
+            <Pressable style={styles.secondaryButton} onPress={handleSave}>
+              <Text style={styles.secondaryButtonText}>Save to camera roll</Text>
+            </Pressable>
+            <Pressable onPress={() => setPhase('preview')} hitSlop={8}>
+              <Text style={styles.regenerateText}>Replay</Text>
+            </Pressable>
+          </View>
         </View>
       )}
+
+      {/* Rendered last (after the phase overlays above) so it always sits on top and stays tappable/visible in every phase, including 'ready'. */}
+      <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={8}>
+        <BackIcon color={colors.sand} />
+      </Pressable>
     </View>
   );
 }
@@ -268,20 +265,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  runnerMarker: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.rust,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...brutalShadow(2),
-    borderWidth: 2.5,
-    borderColor: colors.sand,
-  },
-  runnerIcon: {
-    fontSize: 16,
   },
   offscreen: {
     position: 'absolute',
@@ -295,7 +278,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -393,6 +378,17 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.rust,
   },
+  readyOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: colors.ink,
+  },
+  readyImage: {
+    flex: 1,
+  },
   readyActions: {
     position: 'absolute',
     left: 20,
@@ -407,6 +403,7 @@ const styles = StyleSheet.create({
     borderColor: colors.sand,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   secondaryButtonText: {
     fontFamily: fonts.bodyBold,
@@ -416,7 +413,7 @@ const styles = StyleSheet.create({
   regenerateText: {
     fontFamily: fonts.bodyMedium,
     fontSize: 13,
-    color: colors.mutedLight,
+    color: colors.sand,
     textAlign: 'center',
   },
 });

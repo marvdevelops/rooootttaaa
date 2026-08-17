@@ -21,7 +21,7 @@ import {
   UIManager,
   View,
 } from 'react-native';
-import { BackIcon, CalendarIcon, ChevronUpIcon, CompassIcon, ExportIcon, HeartIcon, LockIcon, ShareIcon, TrashIcon } from '../components/icons';
+import { BackIcon, CalendarIcon, ChevronUpIcon, CompassIcon, ExportIcon, FlybyIcon, HeartIcon, LockIcon, ShareIcon, TrashIcon } from '../components/icons';
 import ElevationProfileChart from '../components/ElevationProfileChart';
 import TrailInfoSection from '../components/TrailInfoSection';
 import RoutePhotoGallery from '../components/RoutePhotoGallery';
@@ -602,7 +602,7 @@ export default function RouteDetailScreen({
             {flybyAccess.allowed ? (
               <Pressable style={styles.iconChip} onPress={() => onOpenFlyby(route)}>
                 <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-                <Text style={styles.flybyChipIcon}>🎬</Text>
+                <FlybyIcon size={17} />
               </Pressable>
             ) : (
               <Pressable style={styles.iconChip} onPress={() => onRequirePaywall('flyby_video')}>
@@ -1082,9 +1082,6 @@ const styles = StyleSheet.create({
   },
   iconChipSolid: {
     backgroundColor: colors.rust,
-  },
-  flybyChipIcon: {
-    fontSize: 16,
   },
   toggleText: {
     fontFamily: fonts.display,

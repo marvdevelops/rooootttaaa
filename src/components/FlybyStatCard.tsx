@@ -63,8 +63,14 @@ export default function FlybyStatCard({ route }: Props) {
   );
 }
 
-const CARD_WIDTH = 1080;
-const CARD_HEIGHT = 1920;
+// Design-point size, not pixels — react-native-view-shot captures at the
+// device's native pixel ratio automatically (e.g. ~3x on most iPhones), so a
+// 360x640 layout already exports at roughly 1080x1920. Making the RN layout
+// itself literally 1080x1920 points was the actual bug behind the blank/
+// broken share: an off-screen view that large is well past what some
+// devices reliably lay out and rasterize in one pass.
+const CARD_WIDTH = 360;
+const CARD_HEIGHT = 640;
 
 const styles = StyleSheet.create({
   card: {
@@ -74,66 +80,66 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   content: {
-    padding: 64,
-    gap: 12,
+    padding: 22,
+    gap: 5,
   },
   brand: {
     fontFamily: fonts.display,
-    fontSize: 32,
+    fontSize: 12,
     color: colors.sand,
-    letterSpacing: 2,
+    letterSpacing: 1.5,
   },
   routeName: {
     fontFamily: fonts.display,
-    fontSize: 56,
+    fontSize: 20,
     color: colors.sand,
-    marginTop: 8,
+    marginTop: 4,
   },
   city: {
     fontFamily: fonts.bodyBold,
-    fontSize: 28,
+    fontSize: 12,
     color: colors.sand,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    marginTop: 12,
+    gap: 8,
+    marginTop: 6,
   },
   stat: {
     fontFamily: fonts.display,
-    fontSize: 36,
+    fontSize: 14,
     color: colors.sand,
   },
   divider: {
-    width: 3,
-    height: 28,
+    width: 2,
+    height: 12,
     backgroundColor: colors.mutedLight,
   },
   socialRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
   },
   social: {
     fontFamily: fonts.bodyBold,
-    fontSize: 28,
+    fontSize: 12,
     color: colors.amber,
   },
   socialDot: {
     fontFamily: fonts.bodyBold,
-    fontSize: 28,
+    fontSize: 12,
     color: colors.mutedLight,
   },
   cta: {
     fontFamily: fonts.bodyBold,
-    fontSize: 24,
+    fontSize: 11,
     color: colors.sand,
-    marginTop: 24,
+    marginTop: 10,
   },
   url: {
     fontFamily: fonts.bodyMedium,
-    fontSize: 22,
+    fontSize: 10,
     color: colors.mutedLight,
   },
 });

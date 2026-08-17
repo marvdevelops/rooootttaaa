@@ -212,6 +212,26 @@ export function GearIcon({ size = 20, color = colors.ink }: { size?: number; col
   );
 }
 
+export function FlybyIcon({ size = 20, color = colors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 7.5a1.5 1.5 0 011.5-1.5h9A1.5 1.5 0 0115 7.5v9a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 013 16.5v-9z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M15 10.2l4.3-2.6a.9.9 0 011.2.8v7.2a.9.9 0 01-1.2.8L15 13.8"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
 export function LoopIcon({ size = 20, color = colors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
