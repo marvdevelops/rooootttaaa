@@ -13,7 +13,8 @@ export type PaywallTrigger =
   | 'route_customize'
   | 'group_run_limit'
   | 'group_run_join_limit'
-  | 'leg_distance';
+  | 'leg_distance'
+  | 'flyby_video';
 
 interface Props {
   /** Which locked feature sent the user here — drives a tailored, motivation-specific headline; no gating logic depends on it. */
@@ -31,6 +32,7 @@ const TRIGGER_HEADLINE: Record<NonNullable<Props['trigger']>, string> = {
   group_run_limit: "You're already hosting a run",
   group_run_join_limit: "You've joined your one free event",
   leg_distance: 'This leg is longer than the free limit',
+  flyby_video: 'Flyby videos are a Pro feature',
 };
 
 const TRIGGER_SUBHEAD: Record<NonNullable<Props['trigger']>, string> = {
@@ -40,6 +42,7 @@ const TRIGGER_SUBHEAD: Record<NonNullable<Props['trigger']>, string> = {
   group_run_limit: 'Go Pro to host as many group runs as you want, at once.',
   group_run_join_limit: 'Go Pro to join unlimited events, any time.',
   leg_distance: 'Go Pro for legs up to 50km — plan bigger routes.',
+  flyby_video: 'Go Pro to create cinematic flyby videos of your routes.',
 };
 
 const DEFAULT_HEADLINE = 'Get more out of every run';

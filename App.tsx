@@ -24,6 +24,7 @@ import MyMapsScreen from './src/screens/MyMapsScreen';
 import PaywallScreen, { PaywallTrigger } from './src/screens/PaywallScreen';
 import PhotoUploadScreen from './src/screens/PhotoUploadScreen';
 import PhotoViewerScreen from './src/screens/PhotoViewerScreen';
+import FlybyScreen from './src/screens/FlybyScreen';
 import ProfileEventsScreen from './src/screens/ProfileEventsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import PublicProfileScreen from './src/screens/PublicProfileScreen';
@@ -62,6 +63,7 @@ type Overlay =
   | 'topRoutes'
   | 'photoUpload'
   | 'photoView'
+  | 'flyby'
   | 'clubProfile'
   | 'clubAdmin'
   | 'createClub'
@@ -481,7 +483,17 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
               navigateTo('photoView');
             }}
             photoRefreshSignal={photoRefreshSignal}
+            onOpenFlyby={(r) => {
+              setSelectedRoute(r);
+              navigateTo('flyby');
+            }}
           />
+        </View>
+      )}
+
+      {overlay === 'flyby' && selectedRoute && (
+        <View style={StyleSheet.absoluteFill}>
+          <FlybyScreen route={selectedRoute} onClose={() => navigateBack()} />
         </View>
       )}
 

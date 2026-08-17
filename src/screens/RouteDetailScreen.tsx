@@ -26,6 +26,7 @@ import ElevationProfileChart from '../components/ElevationProfileChart';
 import TrailInfoSection from '../components/TrailInfoSection';
 import RoutePhotoGallery from '../components/RoutePhotoGallery';
 import LocalLegendCallout from '../components/LocalLegendCallout';
+import { useFlybyAccess } from '../hooks/useFlybyAccess';
 import { listRecentlyGrantedBadges, UserBadge } from '../utils/badgesApi';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import ReportModal from '../components/ReportModal';
@@ -81,6 +82,7 @@ interface Props {
   onOpenPhotoUpload: (routeId: string, completionId?: string) => void;
   onOpenPhotoViewer: (routeId: string, photoId: string) => void;
   photoRefreshSignal?: number;
+  onOpenFlyby: (route: CloudRoute) => void;
 }
 
 const ACTIVITY_LABELS: Record<ActivityType, string> = {
@@ -103,8 +105,10 @@ export default function RouteDetailScreen({
   onOpenPhotoUpload,
   onOpenPhotoViewer,
   photoRefreshSignal,
+  onOpenFlyby,
 }: Props) {
   const tier = useUserTier();
+  const flybyAccess = useFlybyAccess();
   const notificationPrePermission = useNotificationPrePermission();
   const [likesCount, setLikesCount] = useState(route.likesCount);
   const [savesCount, setSavesCount] = useState(route.savesCount);
@@ -595,6 +599,17 @@ export default function RouteDetailScreen({
               <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
               <ShareIcon size={16} />
             </Pressable>
+            {flybyAccess.allowed ? (
+              <Pressable style={styles.iconChip} onPress={() => onOpenFlyby(route)}>
+                <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+                <Text style={styles.flybyChipIcon}>🎬</Text>
+              </Pressable>
+            ) : (
+              <Pressable style={styles.iconChip} onPress={() => onRequirePaywall('flyby_video')}>
+                <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+                <LockIcon size={14} color={colors.ink} />
+              </Pressable>
+            )}
             {route.isOwnedByMe && (
               <Pressable style={styles.iconChip} onPress={handleDelete} disabled={busy}>
                 <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
@@ -1067,6 +1082,9 @@ const styles = StyleSheet.create({
   },
   iconChipSolid: {
     backgroundColor: colors.rust,
+  },
+  flybyChipIcon: {
+    fontSize: 16,
   },
   toggleText: {
     fontFamily: fonts.display,

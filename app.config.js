@@ -83,6 +83,14 @@ module.exports = {
           calendarPermission: 'Rootah uses your calendar to add events you RSVP to.',
         },
       ],
+      'expo-video',
+      [
+        'expo-media-library',
+        {
+          photosPermission: 'Rootah needs access to your photos to save flyby videos to your camera roll.',
+          savePhotosPermission: 'Rootah needs access to your photos to save flyby videos to your camera roll.',
+        },
+      ],
       // GOOGLE_IOS_URL_SCHEME is the *reversed* iOS OAuth client ID from Google
       // Cloud Console (e.g. "com.googleusercontent.apps.1234-abc"), set as an
       // EAS build-time env var. The plugin errors on an empty string, so it's
