@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import ElevationChart from '../../../components/ElevationChart';
 import Header from '../../../components/Header';
 import RoutePathMap from '../../../components/RoutePathMap';
 import RouteSocial from '../../../components/RouteSocial';
 import { useAuth } from '../../../lib/AuthContext';
+import { buildElevationProfile } from '../../../lib/elevationProfile';
 import { getRoute, toggleLike, toggleSave } from '../../../lib/routesApi';
 import { CloudRoute } from '../../../lib/types';
 
@@ -118,8 +120,24 @@ export default function RouteDetailPage() {
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Stat label={ACTIVITY_LABEL[route.activityType] ?? route.activityType} />
               <Stat label={`${route.distanceKm.toFixed(1)} km`} />
+              {route.elevationGainM > 0 && <Stat label={`↑ ${Math.round(route.elevationGainM)} m`} />}
               {route.city && <Stat label={route.city} />}
             </div>
+
+            {route.elevationProfile.length > 1 && (
+              <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 12, boxShadow: 'var(--elevation-subtle)' }}>
+                <ElevationChart path={route.elevationProfile} height={80} />
+                {(() => {
+                  const profile = buildElevationProfile(route.elevationProfile);
+                  return profile.points.length > 1 ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                      <span style={{ fontSize: 11, color: 'var(--stone)' }}>Low {Math.round(profile.minElevation)} m</span>
+                      <span style={{ fontSize: 11, color: 'var(--stone)' }}>Peak {Math.round(profile.maxElevation)} m</span>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
 
             {route.description && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{route.description}</p>}
 

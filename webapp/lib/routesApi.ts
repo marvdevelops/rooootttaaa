@@ -1,5 +1,5 @@
 import { createClient } from './supabase/client';
-import { ActivityType, CloudRoute, CreateRouteInput, RouteSegment, Waypoint } from './types';
+import { ActivityType, CloudRoute, CreateRouteInput, PathPoint, RouteSegment, Waypoint } from './types';
 
 interface OwnerProfile {
   username: string;
@@ -17,6 +17,7 @@ interface RouteRow {
   segments: RouteSegment[];
   distance_km: number;
   elevation_gain_m: number;
+  elevation_profile: PathPoint[] | null;
   city: string | null;
   created_at: string;
   completion_count: number;
@@ -26,7 +27,7 @@ interface RouteRow {
 }
 
 const ROUTE_SELECT =
-  'id, owner_id, name, description, activity_type, is_trail, waypoints, segments, distance_km, elevation_gain_m, city, created_at, completion_count, profiles!owner_id(username, avatar_url), saves:route_saves(count), likes:route_likes(count)';
+  'id, owner_id, name, description, activity_type, is_trail, waypoints, segments, distance_km, elevation_gain_m, elevation_profile, city, created_at, completion_count, profiles!owner_id(username, avatar_url), saves:route_saves(count), likes:route_likes(count)';
 
 function ownerProfile(row: RouteRow): OwnerProfile {
   const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
@@ -68,6 +69,7 @@ async function toCloudRoute(row: RouteRow, viewerId: string | null): Promise<Clo
     segments: row.segments,
     distanceKm: row.distance_km,
     elevationGainM: row.elevation_gain_m,
+    elevationProfile: row.elevation_profile ?? [],
     city: row.city,
     savesCount: row.saves?.[0]?.count ?? 0,
     likesCount: row.likes?.[0]?.count ?? 0,
@@ -132,6 +134,7 @@ export async function createRoute(input: CreateRouteInput): Promise<CloudRoute> 
       segments: input.segments,
       distance_km: input.distanceKm,
       elevation_gain_m: input.elevationGainM,
+      elevation_profile: input.elevationProfile,
       city: input.city,
     })
     .select(ROUTE_SELECT)

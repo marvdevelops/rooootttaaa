@@ -37,6 +37,7 @@ export interface CloudRoute {
   segments: RouteSegment[];
   distanceKm: number;
   elevationGainM: number;
+  elevationProfile: PathPoint[];
   city: string | null;
   savesCount: number;
   likesCount: number;
@@ -54,6 +55,7 @@ export interface CreateRouteInput {
   segments: RouteSegment[];
   distanceKm: number;
   elevationGainM: number;
+  elevationProfile: PathPoint[];
   city: string | null;
 }
 

@@ -2,13 +2,16 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import ElevationChart from '../../components/ElevationChart';
 import Header from '../../components/Header';
 import RoutePathMap from '../../components/RoutePathMap';
 import { useAuth } from '../../lib/AuthContext';
 import { metersToKm } from '../../lib/distance';
+import { annotateElevation } from '../../lib/elevation';
+import { downsampleForStorage } from '../../lib/elevationProfile';
 import { createRoute } from '../../lib/routesApi';
 import { routeBetween, straightLineFallback } from '../../lib/routing';
-import { ActivityType, RouteSegment, Waypoint } from '../../lib/types';
+import { ActivityType, PathPoint, RouteSegment, Waypoint } from '../../lib/types';
 
 const ACTIVITY_OPTIONS: { value: ActivityType; label: string }[] = [
   { value: 'run', label: 'Run' },
@@ -30,12 +33,45 @@ export default function BuildPage() {
   const [activityType, setActivityType] = useState<ActivityType>('run');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [elevationPath, setElevationPath] = useState<PathPoint[]>([]);
+  const [elevationGainM, setElevationGainM] = useState(0);
+  const [elevationLoading, setElevationLoading] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !session) router.push('/login?next=/build');
   }, [authLoading, session, router]);
 
   const distanceKm = metersToKm(segments.reduce((sum, s) => sum + s.distanceMeters, 0));
+  const fullPath = segments.flatMap((s) => s.path);
+
+  useEffect(() => {
+    if (fullPath.length < 2) {
+      setElevationPath([]);
+      setElevationGainM(0);
+      return;
+    }
+    let cancelled = false;
+    setElevationLoading(true);
+    annotateElevation(fullPath)
+      .then(({ path, gainMeters }) => {
+        if (cancelled) return;
+        setElevationPath(path);
+        setElevationGainM(Math.round(gainMeters));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setElevationPath([]);
+          setElevationGainM(0);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setElevationLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [segments]);
 
   async function handleMapClick(point: { lat: number; lng: number }) {
     const newPoint: Waypoint = { id: crypto.randomUUID(), latitude: point.lat, longitude: point.lng };
@@ -90,7 +126,8 @@ export default function BuildPage() {
         waypoints,
         segments,
         distanceKm,
-        elevationGainM: 0,
+        elevationGainM,
+        elevationProfile: downsampleForStorage(elevationPath),
         city: null,
       });
       router.push(`/routes/${route.id}`);
@@ -129,8 +166,16 @@ export default function BuildPage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Stat label={`${distanceKm.toFixed(2)} km`} />
             <Stat label={`${waypoints.length} ${waypoints.length === 1 ? 'point' : 'points'}`} />
+            {elevationGainM > 0 && <Stat label={`↑ ${elevationGainM} m`} />}
             {routing && <Stat label="Routing…" />}
+            {elevationLoading && <Stat label="Elevation…" />}
           </div>
+
+          {elevationPath.length > 1 && (
+            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 12, boxShadow: 'var(--elevation-subtle)' }}>
+              <ElevationChart path={elevationPath} height={80} />
+            </div>
+          )}
 
           {waypoints.length > 0 && (
             <div style={{ display: 'flex', gap: 10 }}>
