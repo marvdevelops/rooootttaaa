@@ -1,16 +1,16 @@
 :root {
-  --cream: #efe9dc;
-  --map-bg: #f2eee2;
-  --ink: #222a2a;
-  --rust: #ec4624;
-  --rust-dark: #c43a1d;
-  --aqua: #4fbbbc;
-  --sand: #e2dac2;
-  --amber: #f39120;
-  --green: #3fa34d;
-  --red: #e13a3a;
-  --muted: #5b5548;
-  --muted-light: #8a7a6a;
+  --coral: #e84b2a;
+  --cream: #f2ede5;
+  --surface: #ffffff;
+  --sheet-bg: #f7f3ed;
+  --ink: #1a1614;
+  --stone: #8c8078;
+  --mist: #b0a898;
+  --map-bg: #e5e0d8;
+  --teal: #4babb8;
+  --amber: #e8923a;
+  --sage: #4bab7a;
+  --danger: #e13a3a;
 }
 
 html,
@@ -57,37 +57,38 @@ img {
   display: block;
 }
 
-/* Interactive states — brutal-shadow buttons lift on hover, press flat on
-   active; per-button accent shadow color is passed via --hover-shadow /
-   --active-shadow custom properties on the element itself. */
-.brutal-btn {
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+/* Soft-shadow interactive buttons — the design system expresses elevation
+   through shadow only (never borders), so hover/press just deepen or flatten
+   the existing shadow rather than shifting a hard offset shadow. */
+.soft-btn {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
 }
-.brutal-btn:hover {
-  transform: translate(-2px, -2px);
-  box-shadow: var(--hover-shadow);
+.soft-btn:hover {
+  transform: translateY(-2px);
+  opacity: 0.94;
 }
-.brutal-btn:active {
-  transform: translate(2px, 2px);
-  box-shadow: var(--active-shadow, 0 0 0 transparent);
+.soft-btn:active {
+  transform: translateY(0);
+  opacity: 0.88;
 }
 
 .nav-link {
   transition: color 0.12s ease;
 }
 .nav-link:hover {
-  color: var(--rust);
+  color: var(--coral);
 }
 .nav-link:active {
-  color: var(--rust-dark);
+  color: var(--coral);
+  opacity: 0.85;
 }
 
 .icon-btn {
-  transition: transform 0.12s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .icon-btn:hover {
-  transform: translate(-2px, -2px);
+  transform: translateY(-2px);
 }
 .icon-btn:active {
-  transform: translate(1px, 1px);
+  transform: translateY(0);
 }

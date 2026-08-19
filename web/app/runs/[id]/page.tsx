@@ -45,7 +45,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     `${run.rsvpCount} joining`,
     `Organised by @${run.hostUsername}`,
   ].filter(Boolean);
-  const description = statParts.join(' · ');
+  const stats = statParts.join(' · ');
+  const description = run.description ? `${run.description} (${stats})` : stats;
   const path = `/runs/${id}`;
 
   return {

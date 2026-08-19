@@ -1,15 +1,11 @@
 import type { Metadata } from 'next';
-import { Archivo_Black, Space_Grotesk } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
+import Script from 'next/script';
 import './globals.css';
 
-const archivoBlack = Archivo_Black({
-  variable: '--font-display',
-  weight: '400',
-  subsets: ['latin'],
-});
-
-const spaceGrotesk = Space_Grotesk({
+const plusJakartaSans = Plus_Jakarta_Sans({
   variable: '--font-body',
+  weight: ['400', '500', '600', '700', '800'],
   subsets: ['latin'],
 });
 
@@ -26,8 +22,19 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${archivoBlack.variable} ${spaceGrotesk.variable}`}>
-      <body>{children}</body>
+    <html lang="en" className={plusJakartaSans.variable}>
+      <body>
+        {children}
+        <Script src="https://www.googletagmanager.com/gtag/js?id=G-4WT4HKQ6K0" strategy="afterInteractive" />
+        <Script id="ga-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-4WT4HKQ6K0');
+          `}
+        </Script>
+      </body>
     </html>
   );
 }

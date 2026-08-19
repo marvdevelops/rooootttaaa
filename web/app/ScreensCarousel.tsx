@@ -25,7 +25,7 @@ export default function ScreensCarousel({ screens }: { screens: Screen[] }) {
           gap: 24,
           overflowX: 'auto',
           scrollSnapType: 'x mandatory',
-          padding: '4px 4px 12px',
+          padding: '4px 4px 16px',
           scrollbarWidth: 'none',
         }}
       >
@@ -36,17 +36,16 @@ export default function ScreensCarousel({ screens }: { screens: Screen[] }) {
               flex: '0 0 min(260px,78vw)',
               scrollSnapAlign: 'start',
               background: 'var(--ink)',
-              border: '4px solid var(--ink)',
               borderRadius: 28,
-              boxShadow: `8px 8px 0 ${screen.shadowColor}`,
+              boxShadow: `0 8px 24px ${screen.shadowColor}33, 0 16px 40px rgba(0,0,0,.16)`,
               overflow: 'hidden',
             }}
           >
             <Image
               src={screen.src}
               alt={screen.alt}
-              width={738}
-              height={1600}
+              width={800}
+              height={1734}
               style={{ display: 'block', width: '100%', height: 'auto' }}
             />
           </div>
@@ -60,10 +59,10 @@ export default function ScreensCarousel({ screens }: { screens: Screen[] }) {
           style={{
             width: 48,
             height: 48,
-            borderRadius: 12,
+            borderRadius: 14,
             background: '#FFFFFF',
-            border: '3px solid var(--ink)',
-            boxShadow: '3px 3px 0 var(--ink)',
+            boxShadow: '0 2px 10px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.07)',
+            border: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -71,7 +70,7 @@ export default function ScreensCarousel({ screens }: { screens: Screen[] }) {
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M15 6l-6 6 6 6" stroke="#222A2A" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M15 6l-6 6 6 6" stroke="#1A1614" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
         <button
@@ -81,10 +80,10 @@ export default function ScreensCarousel({ screens }: { screens: Screen[] }) {
           style={{
             width: 48,
             height: 48,
-            borderRadius: 12,
-            background: 'var(--rust)',
-            border: '3px solid var(--ink)',
-            boxShadow: '3px 3px 0 var(--ink)',
+            borderRadius: 14,
+            background: 'var(--coral)',
+            boxShadow: '0 4px 16px rgba(232,75,42,.35)',
+            border: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -92,7 +91,7 @@ export default function ScreensCarousel({ screens }: { screens: Screen[] }) {
           }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M9 6l6 6-6 6" stroke="#E2DAC2" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M9 6l6 6-6 6" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </div>
