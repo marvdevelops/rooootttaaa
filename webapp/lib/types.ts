@@ -41,4 +41,18 @@ export interface CloudRoute {
   savesCount: number;
   likesCount: number;
   completionCount: number;
+  isOwnedByMe: boolean;
+  isSavedByMe: boolean;
+  isLikedByMe: boolean;
+}
+
+export interface CreateRouteInput {
+  name: string;
+  description: string;
+  activityType: ActivityType;
+  waypoints: Waypoint[];
+  segments: RouteSegment[];
+  distanceKm: number;
+  elevationGainM: number;
+  city: string | null;
 }

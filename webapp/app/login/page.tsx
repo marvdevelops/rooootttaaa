@@ -1,13 +1,23 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 import Logo from '../../components/Logo';
 import { useAuth } from '../../lib/AuthContext';
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const { signInWithPassword, signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get('next') ?? '/';
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,7 +38,7 @@ export default function LoginPage() {
         setError(error);
         return;
       }
-      router.push('/');
+      router.push(next);
       return;
     }
 
@@ -103,7 +113,7 @@ export default function LoginPage() {
           {loading ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Sign up'}
         </button>
 
-        <button type="button" onClick={() => signInWithGoogle()} style={secondaryBtnStyle}>
+        <button type="button" onClick={() => signInWithGoogle(next)} style={secondaryBtnStyle}>
           Continue with Google
         </button>
 

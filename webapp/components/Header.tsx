@@ -27,20 +27,35 @@ export default function Header() {
 
       {!loading &&
         (session ? (
-          <button
-            onClick={() => signOut()}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-pill)',
-              border: '1px solid rgba(0,0,0,.1)',
-              background: 'var(--surface)',
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: 'pointer',
-            }}
-          >
-            Sign out
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Link
+              href="/build"
+              style={{
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-pill)',
+                background: 'var(--coral)',
+                color: 'var(--white)',
+                fontWeight: 700,
+                fontSize: 13,
+              }}
+            >
+              Build a route
+            </Link>
+            <button
+              onClick={() => signOut()}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 'var(--radius-pill)',
+                border: '1px solid rgba(0,0,0,.1)',
+                background: 'var(--surface)',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              Sign out
+            </button>
+          </div>
         ) : (
           <Link
             href="/login"

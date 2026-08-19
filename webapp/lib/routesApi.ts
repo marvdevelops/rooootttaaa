@@ -1,5 +1,5 @@
 import { createClient } from './supabase/client';
-import { ActivityType, CloudRoute, RouteSegment, Waypoint } from './types';
+import { ActivityType, CloudRoute, CreateRouteInput, RouteSegment, Waypoint } from './types';
 
 interface OwnerProfile {
   username: string;
@@ -33,8 +33,27 @@ function ownerProfile(row: RouteRow): OwnerProfile {
   return profile ?? { username: 'unknown', avatar_url: null };
 }
 
-function toCloudRoute(row: RouteRow): CloudRoute {
+export async function currentUserId(): Promise<string | null> {
+  const supabase = createClient();
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
+
+async function toCloudRoute(row: RouteRow, viewerId: string | null): Promise<CloudRoute> {
   const owner = ownerProfile(row);
+  let isSavedByMe = false;
+  let isLikedByMe = false;
+
+  if (viewerId) {
+    const supabase = createClient();
+    const [{ data: saveRow }, { data: likeRow }] = await Promise.all([
+      supabase.from('route_saves').select('route_id').eq('route_id', row.id).eq('user_id', viewerId).maybeSingle(),
+      supabase.from('route_likes').select('route_id').eq('route_id', row.id).eq('user_id', viewerId).maybeSingle(),
+    ]);
+    isSavedByMe = !!saveRow;
+    isLikedByMe = !!likeRow;
+  }
+
   return {
     id: row.id,
     ownerId: row.owner_id,
@@ -53,6 +72,9 @@ function toCloudRoute(row: RouteRow): CloudRoute {
     savesCount: row.saves?.[0]?.count ?? 0,
     likesCount: row.likes?.[0]?.count ?? 0,
     completionCount: row.completion_count,
+    isOwnedByMe: viewerId === row.owner_id,
+    isSavedByMe,
+    isLikedByMe,
   };
 }
 
@@ -67,6 +89,7 @@ export interface PublicRouteFilters {
 /** Public routes for the Discover map — anonymous-readable via RLS, same shape as mobile's listPublicRoutes. */
 export async function listPublicRoutes(filters: PublicRouteFilters = {}): Promise<CloudRoute[]> {
   const supabase = createClient();
+  const viewerId = await currentUserId();
 
   let query = supabase
     .from('routes')
@@ -82,12 +105,62 @@ export async function listPublicRoutes(filters: PublicRouteFilters = {}): Promis
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => toCloudRoute(row as unknown as RouteRow));
+  return Promise.all((data ?? []).map((row) => toCloudRoute(row as unknown as RouteRow, viewerId)));
 }
 
 export async function getRoute(id: string): Promise<CloudRoute | null> {
   const supabase = createClient();
+  const viewerId = await currentUserId();
   const { data, error } = await supabase.from('routes').select(ROUTE_SELECT).eq('id', id).maybeSingle();
   if (error) throw new Error(error.message);
-  return data ? toCloudRoute(data as unknown as RouteRow) : null;
+  return data ? toCloudRoute(data as unknown as RouteRow, viewerId) : null;
+}
+
+export async function createRoute(input: CreateRouteInput): Promise<CloudRoute> {
+  const supabase = createClient();
+  const ownerId = await currentUserId();
+  if (!ownerId) throw new Error('You must be signed in to save a route.');
+
+  const { data, error } = await supabase
+    .from('routes')
+    .insert({
+      owner_id: ownerId,
+      name: input.name,
+      description: input.description,
+      activity_type: input.activityType,
+      waypoints: input.waypoints,
+      segments: input.segments,
+      distance_km: input.distanceKm,
+      elevation_gain_m: input.elevationGainM,
+      city: input.city,
+    })
+    .select(ROUTE_SELECT)
+    .single();
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to save route.');
+  return toCloudRoute(data as unknown as RouteRow, ownerId);
+}
+
+export async function toggleLike(routeId: string, isLiked: boolean): Promise<void> {
+  const supabase = createClient();
+  const userId = await currentUserId();
+  if (!userId) throw new Error('You must be signed in.');
+
+  if (isLiked) {
+    await supabase.from('route_likes').delete().eq('route_id', routeId).eq('user_id', userId);
+  } else {
+    await supabase.from('route_likes').insert({ route_id: routeId, user_id: userId });
+  }
+}
+
+export async function toggleSave(routeId: string, isSaved: boolean): Promise<void> {
+  const supabase = createClient();
+  const userId = await currentUserId();
+  if (!userId) throw new Error('You must be signed in.');
+
+  if (isSaved) {
+    await supabase.from('route_saves').delete().eq('route_id', routeId).eq('user_id', userId);
+  } else {
+    await supabase.from('route_saves').insert({ route_id: routeId, user_id: userId });
+  }
 }

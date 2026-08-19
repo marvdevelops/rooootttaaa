@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { CloudRoute } from '../lib/types';
 
 const ACTIVITY_LABEL: Record<string, string> = {
@@ -17,8 +18,11 @@ interface Props {
 
 export default function RouteListCard({ route, active, onClick }: Props) {
   return (
-    <button
+    <div
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onClick()}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -27,7 +31,6 @@ export default function RouteListCard({ route, active, onClick }: Props) {
         textAlign: 'left',
         padding: 14,
         borderRadius: 'var(--radius-md)',
-        border: 'none',
         background: active ? 'var(--sheet-bg)' : 'var(--surface)',
         boxShadow: 'var(--elevation-subtle)',
         cursor: 'pointer',
@@ -50,6 +53,15 @@ export default function RouteListCard({ route, active, onClick }: Props) {
         </span>
         {route.city && <span style={{ fontSize: 12, color: 'var(--mist)' }}>{route.city}</span>}
       </div>
-    </button>
+      {active && (
+        <Link
+          href={`/routes/${route.id}`}
+          onClick={(e) => e.stopPropagation()}
+          style={{ fontSize: 12, fontWeight: 700, color: 'var(--coral)', marginTop: 2 }}
+        >
+          View details →
+        </Link>
+      )}
+    </div>
   );
 }
