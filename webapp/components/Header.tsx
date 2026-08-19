@@ -4,6 +4,8 @@ import Link from 'next/link';
 import Logo from './Logo';
 import { useAuth } from '../lib/AuthContext';
 
+const navLinkStyle: React.CSSProperties = { fontSize: 13, fontWeight: 700, color: 'var(--ink)' };
+
 export default function Header() {
   const { session, loading, signOut } = useAuth();
 
@@ -20,10 +22,22 @@ export default function Header() {
         zIndex: 10,
       }}
     >
-      <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Logo size={32} />
-        <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px' }}>rootah</span>
-      </Link>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Logo size={32} />
+          <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px' }}>rootah</span>
+        </Link>
+        {session && (
+          <nav style={{ display: 'flex', gap: 18 }}>
+            <Link href="/runs" style={navLinkStyle}>
+              Group runs
+            </Link>
+            <Link href="/clubs" style={navLinkStyle}>
+              Clubs
+            </Link>
+          </nav>
+        )}
+      </div>
 
       {!loading &&
         (session ? (
@@ -40,6 +54,9 @@ export default function Header() {
               }}
             >
               Build a route
+            </Link>
+            <Link href={`/profile/${session.user.id}`} style={navLinkStyle}>
+              Profile
             </Link>
             <button
               onClick={() => signOut()}

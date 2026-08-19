@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Header from '../../../components/Header';
 import RoutePathMap from '../../../components/RoutePathMap';
+import RouteSocial from '../../../components/RouteSocial';
 import { useAuth } from '../../../lib/AuthContext';
 import { getRoute, toggleLike, toggleSave } from '../../../lib/routesApi';
 import { CloudRoute } from '../../../lib/types';
@@ -123,7 +124,10 @@ export default function RouteDetailPage() {
             {route.description && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{route.description}</p>}
 
             <span style={{ fontSize: 13, color: 'var(--stone)' }}>
-              By <strong style={{ color: 'var(--ink)' }}>{route.ownerUsername}</strong>
+              By{' '}
+              <Link href={`/profile/${route.ownerId}`} style={{ color: 'var(--ink)', fontWeight: 700 }}>
+                {route.ownerUsername}
+              </Link>
             </span>
 
             <div style={{ display: 'flex', gap: 10 }}>
@@ -140,6 +144,13 @@ export default function RouteDetailPage() {
                 Ran by {route.completionCount} {route.completionCount === 1 ? 'person' : 'people'}
               </span>
             )}
+
+            <hr style={{ border: 'none', borderTop: '1px solid rgba(0,0,0,.08)', width: '100%' }} />
+
+            <RouteSocial
+              routeId={route.id}
+              onLogged={() => setRoute({ ...route, completionCount: route.completionCount + 1 })}
+            />
           </aside>
 
           <main style={{ flex: 1, position: 'relative' }}>
