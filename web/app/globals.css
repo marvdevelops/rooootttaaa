@@ -1,4 +1,5 @@
 :root {
+  /* Colors — mirrors src/theme/theme.ts colors on mobile. One palette, two runtimes. */
   --coral: #e84b2a;
   --cream: #f2ede5;
   --surface: #ffffff;
@@ -11,6 +12,42 @@
   --amber: #e8923a;
   --sage: #4bab7a;
   --danger: #e13a3a;
+  --white: #ffffff;
+
+  /* Radii — mirrors src/theme/theme.ts radii */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 17px;
+  --radius-lg: 23px;
+  --radius-pill: 50px;
+  --radius-fab: 18px;
+  --radius-icon: 11px;
+
+  /* Spacing — mirrors src/theme/theme.ts spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-base: 14px;
+  --space-lg: 16px;
+  --space-xl: 20px;
+  --space-xxl: 24px;
+  --space-xxxl: 32px;
+  --space-huge: 48px;
+
+  /* Font weights — Plus Jakarta Sans is loaded as one variable font via next/font */
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  /* Elevation — shadow-only, mirrors theme.ts elevation(), never borders */
+  --elevation-subtle: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --elevation-card: 0 4px 16px rgba(0, 0, 0, 0.07);
+  --elevation-sheet: 0 -4px 32px rgba(0, 0, 0, 0.11);
+  --elevation-fab: 0 6px 20px rgba(232, 75, 42, 0.45);
+  --elevation-primary-btn: 0 4px 12px rgba(232, 75, 42, 0.3);
+  --elevation-small-cta: 0 3px 10px rgba(232, 75, 42, 0.3);
 }
 
 html,

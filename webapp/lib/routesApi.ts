@@ -110,6 +110,17 @@ export async function listPublicRoutes(filters: PublicRouteFilters = {}): Promis
   return Promise.all((data ?? []).map((row) => toCloudRoute(row as unknown as RouteRow, viewerId)));
 }
 
+/** Top-scored routes from the top_routes view, falling back to latest public routes when too few qualify yet (mirrors mobile's fallback). */
+export async function listFeaturedRoutes(limit = 8): Promise<CloudRoute[]> {
+  const supabase = createClient();
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase.from('top_routes').select(ROUTE_SELECT).order('score', { ascending: false }).limit(limit);
+  const rows = (data ?? []) as unknown as RouteRow[];
+  if (error || rows.length === 0) return listPublicRoutes({ limit });
+  return Promise.all(rows.map((row) => toCloudRoute(row, viewerId)));
+}
+
 export async function getRoute(id: string): Promise<CloudRoute | null> {
   const supabase = createClient();
   const viewerId = await currentUserId();

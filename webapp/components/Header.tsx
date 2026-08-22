@@ -27,16 +27,17 @@ export default function Header() {
           <Logo size={32} />
           <span style={{ fontWeight: 800, fontSize: 17, letterSpacing: '-0.3px' }}>rootah</span>
         </Link>
-        {session && (
-          <nav style={{ display: 'flex', gap: 18 }}>
-            <Link href="/runs" style={navLinkStyle}>
-              Group runs
-            </Link>
-            <Link href="/clubs" style={navLinkStyle}>
-              Clubs
-            </Link>
-          </nav>
-        )}
+        <nav style={{ display: 'flex', gap: 18 }}>
+          <Link href="/explore" style={navLinkStyle}>
+            Explore
+          </Link>
+          <Link href="/runs" style={navLinkStyle}>
+            Group runs
+          </Link>
+          <Link href="/clubs" style={navLinkStyle}>
+            Clubs
+          </Link>
+        </nav>
       </div>
 
       {!loading &&

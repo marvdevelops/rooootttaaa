@@ -288,6 +288,7 @@ export default function LandingPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 'clamp(16px,3vw,32px)', flexWrap: 'wrap' }}>
           <a href="#how" className="nav-link" style={NAV_LINK_STYLE}>How it works</a>
           <a href="#clubs" className="nav-link" style={NAV_LINK_STYLE}>For clubs</a>
+          <a href="/explore" className="nav-link" style={NAV_LINK_STYLE}>Explore</a>
           <PillButton href="#download">DOWNLOAD</PillButton>
         </div>
       </div>
