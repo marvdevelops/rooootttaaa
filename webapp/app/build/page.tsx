@@ -144,101 +144,113 @@ export default function BuildPage() {
     <div className="app-shell">
       <Sidebar />
       <div className="app-shell-content">
-      <div className="split-layout">
-        <aside className="split-sidebar">
-          <h1 style={{ fontSize: 20, fontWeight: 800 }}>Build a route</h1>
-          <p style={{ fontSize: 13, color: 'var(--stone)', lineHeight: 1.5 }}>
-            Tap the map to drop your start point, then keep tapping to add stops. Rootah routes between each one
-            along real streets.
-          </p>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Stat label={`${distanceKm.toFixed(2)} km`} />
-            <Stat label={`${waypoints.length} ${waypoints.length === 1 ? 'point' : 'points'}`} />
-            {elevationGainM > 0 && <Stat label={`↑ ${elevationGainM} m`} />}
-            {routing && <Stat label="Routing…" />}
-            {elevationLoading && <Stat label="Elevation…" />}
-          </div>
-
-          {elevationPath.length > 1 && (
-            <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-md)', padding: 12, boxShadow: 'var(--elevation-subtle)' }}>
-              <ElevationChart path={elevationPath} height={80} />
-            </div>
-          )}
-
-          {waypoints.length > 0 && (
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={handleUndo} style={secondaryBtnStyle}>
-                Undo last point
-              </button>
-              <button onClick={handleClear} style={secondaryBtnStyle}>
-                Clear
-              </button>
-            </div>
-          )}
-
-          <hr style={{ border: 'none', borderTop: '1px solid rgba(0,0,0,.08)' }} />
-
-          <input
-            type="text"
-            placeholder="Route name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={inputStyle}
-          />
-          <textarea
-            placeholder="Description (optional)"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
-          />
-          <select value={activityType} onChange={(e) => setActivityType(e.target.value as ActivityType)} style={inputStyle}>
-            {ACTIVITY_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          {error && <span style={{ fontSize: 13, color: 'var(--danger)' }}>{error}</span>}
-
-          <button
-            onClick={handleSave}
-            disabled={saving || !name.trim() || waypoints.length < 2}
-            style={{
-              ...primaryBtnStyle,
-              opacity: saving || !name.trim() || waypoints.length < 2 ? 0.5 : 1,
-              cursor: saving || !name.trim() || waypoints.length < 2 ? 'default' : 'pointer',
-            }}
-          >
-            {saving ? 'Saving…' : 'Save route'}
+        <div className="builder-toolbar">
+          <button onClick={() => router.push('/')} className="builder-toolbar-btn">
+            Cancel
           </button>
-        </aside>
+          <div className="builder-toolbar-actions">
+            <button onClick={handleUndo} disabled={waypoints.length === 0} className="builder-toolbar-btn">
+              Undo
+            </button>
+            <button onClick={handleClear} disabled={waypoints.length === 0} className="builder-toolbar-btn">
+              Clear all
+            </button>
+          </div>
+        </div>
 
-        <main className="split-main">
-          <RoutePathMap waypoints={waypoints} segments={segments} onMapClick={handleMapClick} />
-        </main>
-      </div>
+        <div className="split-layout">
+          <aside className="split-sidebar">
+            <div className="route-detail-card" style={{ padding: 14 }}>
+              <h1 style={{ fontSize: 17, fontWeight: 800 }}>Build a route</h1>
+              <p style={{ marginTop: 6, fontSize: 12.5, color: 'var(--stone)', lineHeight: 1.5 }}>
+                Tap the map to drop your start point, then keep tapping to add stops. Rootah routes between each one
+                along real streets.
+              </p>
+            </div>
+
+            <div className="discover-stat-grid">
+              <div className="discover-stat-tile">
+                <span className="discover-stat-value">{distanceKm.toFixed(2)} km</span>
+                <span className="discover-stat-label">Distance</span>
+              </div>
+              <div className="discover-stat-tile">
+                <span className="discover-stat-value">{waypoints.length}</span>
+                <span className="discover-stat-label">Points</span>
+              </div>
+              {elevationGainM > 0 && (
+                <div className="discover-stat-tile">
+                  <span className="discover-stat-value">+{elevationGainM}m</span>
+                  <span className="discover-stat-label">Gain</span>
+                </div>
+              )}
+            </div>
+
+            {(routing || elevationLoading) && (
+              <span style={{ fontSize: 12, color: 'var(--stone)' }}>{routing ? 'Routing…' : 'Reading elevation…'}</span>
+            )}
+
+            {elevationPath.length > 1 && (
+              <div className="route-detail-card">
+                <ElevationChart path={elevationPath} height={80} />
+              </div>
+            )}
+
+            {waypoints.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {waypoints.map((wp, i) => (
+                  <div key={wp.id} className="builder-point-row">
+                    <span className="builder-point-index">{i + 1}</span>
+                    <span>{i === 0 ? 'Start' : i === waypoints.length - 1 ? 'End' : `Waypoint ${i}`}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="route-detail-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <input
+                type="text"
+                placeholder="Route name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                style={inputStyle}
+              />
+              <textarea
+                placeholder="Description (optional)"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }}
+              />
+              <select value={activityType} onChange={(e) => setActivityType(e.target.value as ActivityType)} style={inputStyle}>
+                {ACTIVITY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {error && <span style={{ fontSize: 13, color: 'var(--danger)' }}>{error}</span>}
+
+            <button
+              onClick={handleSave}
+              disabled={saving || !name.trim() || waypoints.length < 2}
+              className="discover-run-btn"
+              style={{
+                opacity: saving || !name.trim() || waypoints.length < 2 ? 0.5 : 1,
+                cursor: saving || !name.trim() || waypoints.length < 2 ? 'default' : 'pointer',
+              }}
+            >
+              {saving ? 'Saving…' : 'Save route'}
+            </button>
+          </aside>
+
+          <main className="split-main">
+            <RoutePathMap waypoints={waypoints} segments={segments} onMapClick={handleMapClick} />
+          </main>
+        </div>
       </div>
     </div>
-  );
-}
-
-function Stat({ label }: { label: string }) {
-  return (
-    <span
-      style={{
-        fontSize: 12,
-        fontWeight: 700,
-        padding: '5px 10px',
-        borderRadius: 'var(--radius-xs)',
-        background: 'rgba(0,0,0,.06)',
-        color: 'var(--ink)',
-      }}
-    >
-      {label}
-    </span>
   );
 }
 
@@ -250,27 +262,4 @@ const inputStyle: React.CSSProperties = {
   fontFamily: 'inherit',
   outline: 'none',
   background: 'var(--surface)',
-};
-
-const primaryBtnStyle: React.CSSProperties = {
-  padding: '13px 20px',
-  borderRadius: 'var(--radius-pill)',
-  border: 'none',
-  background: 'var(--coral)',
-  color: 'var(--white)',
-  fontWeight: 700,
-  fontSize: 15,
-  boxShadow: 'var(--elevation-primary-btn)',
-};
-
-const secondaryBtnStyle: React.CSSProperties = {
-  flex: 1,
-  padding: '10px 14px',
-  borderRadius: 'var(--radius-pill)',
-  border: '1px solid rgba(0,0,0,.1)',
-  background: 'var(--surface)',
-  color: 'var(--ink)',
-  fontWeight: 700,
-  fontSize: 13,
-  cursor: 'pointer',
 };
