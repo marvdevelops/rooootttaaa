@@ -71,115 +71,101 @@ export default function ProfilePage() {
     <div className="app-shell">
       <Sidebar />
       <div className="app-shell-content">
-        <main style={{ flex: 1, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: 32 }}>
-          {loading && <span style={{ color: 'var(--stone)' }}>Loading…</span>}
-          {error && <span style={{ color: 'var(--danger)' }}>{error}</span>}
+        <main style={{ flex: 1, overflowY: 'auto' }}>
+          {loading && <span style={{ color: 'var(--stone)', display: 'block', padding: 32 }}>Loading…</span>}
+          {error && <span style={{ color: 'var(--danger)', display: 'block', padding: 32 }}>{error}</span>}
 
           {profile && (
-            <div style={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 24 }}>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 16,
-                  background: 'var(--surface)',
-                  borderRadius: 'var(--radius-lg)',
-                  padding: 28,
-                  boxShadow: 'var(--elevation-card)',
-                }}
-              >
-                {profile.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={profile.avatarUrl}
-                    alt={profile.username}
-                    style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: '50%',
-                      background: 'var(--sheet-bg)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: 24,
-                      fontWeight: 800,
-                      color: 'var(--coral)',
-                    }}
-                  >
-                    {profile.username.slice(0, 1).toUpperCase()}
-                  </div>
-                )}
+            <div className="profile-body">
+              <div className="profile-hero">
+                <div className="profile-banner" />
+                <div className="profile-hero-content">
+                  {profile.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={profile.avatarUrl} alt={profile.username} className="profile-avatar-lg" />
+                  ) : (
+                    <div className="profile-avatar-lg">{profile.username.slice(0, 1).toUpperCase()}</div>
+                  )}
 
-                {editing ? (
-                  <>
-                    <input
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      style={inputStyle}
-                      placeholder="Username"
-                    />
-                    <textarea
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      rows={3}
-                      style={{ ...inputStyle, resize: 'vertical' }}
-                      placeholder="Bio"
-                    />
-                    {saveError && <span style={{ fontSize: 13, color: 'var(--danger)' }}>{saveError}</span>}
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button onClick={handleSave} disabled={saving} style={primaryBtnStyle}>
-                        {saving ? 'Saving…' : 'Save'}
-                      </button>
-                      <button onClick={() => setEditing(false)} style={secondaryBtnStyle}>
-                        Cancel
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <h1 style={{ fontSize: 22, fontWeight: 800 }}>{profile.username}</h1>
-                      {profile.tier === 'paid' && (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 800,
-                            letterSpacing: '0.04em',
-                            padding: '3px 8px',
-                            borderRadius: 6,
-                            background: 'var(--coral)',
-                            color: 'var(--white)',
-                          }}
-                        >
-                          PRO
+                  {editing ? (
+                    <>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        style={inputStyle}
+                        placeholder="Username"
+                      />
+                      <textarea
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
+                        rows={3}
+                        style={{ ...inputStyle, resize: 'vertical' }}
+                        placeholder="Bio"
+                      />
+                      {saveError && <span style={{ fontSize: 13, color: 'var(--danger)' }}>{saveError}</span>}
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button onClick={handleSave} disabled={saving} style={primaryBtnStyle}>
+                          {saving ? 'Saving…' : 'Save'}
+                        </button>
+                        <button onClick={() => setEditing(false)} style={secondaryBtnStyle}>
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <h1 style={{ fontSize: 21, fontWeight: 800 }}>{profile.username}</h1>
+                        {profile.tier === 'paid' && (
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 800,
+                              letterSpacing: '0.04em',
+                              padding: '3px 8px',
+                              borderRadius: 6,
+                              background: 'var(--coral)',
+                              color: 'var(--white)',
+                            }}
+                          >
+                            PRO
+                          </span>
+                        )}
+                      </div>
+                      {profile.bio && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{profile.bio}</p>}
+                      <div style={{ display: 'flex', gap: 16 }}>
+                        <span style={{ fontSize: 12, color: 'var(--mist)' }}>
+                          <strong style={{ color: 'var(--ink)' }}>{routes.length}</strong> routes
                         </span>
+                        <span style={{ fontSize: 12, color: 'var(--mist)' }}>
+                          <strong style={{ color: 'var(--ink)' }}>{activity.length}</strong> runs logged
+                        </span>
+                        <span style={{ fontSize: 12, color: 'var(--mist)' }}>
+                          Joined {new Date(profile.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {isOwn && (
+                        <button onClick={() => setEditing(true)} style={secondaryBtnStyle}>
+                          Edit profile
+                        </button>
                       )}
-                    </div>
-                    {profile.bio && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{profile.bio}</p>}
-                    <div style={{ display: 'flex', gap: 16 }}>
-                      <span style={{ fontSize: 12, color: 'var(--mist)' }}>
-                        <strong style={{ color: 'var(--ink)' }}>{routes.length}</strong> routes
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--mist)' }}>
-                        <strong style={{ color: 'var(--ink)' }}>{activity.length}</strong> runs logged
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--mist)' }}>
-                        Joined {new Date(profile.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    {isOwn && (
-                      <button onClick={() => setEditing(true)} style={secondaryBtnStyle}>
-                        Edit profile
-                      </button>
-                    )}
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
+
+              {isOwn && profile.tier !== 'paid' && (
+                <div className="profile-pro-banner">
+                  <div>
+                    <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--ink)' }}>Go Pro</span>
+                    <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--stone)' }}>Unlock GPX import, unlimited group runs, and more.</p>
+                  </div>
+                  <span className="discover-run-btn" style={{ width: 'auto', padding: '9px 16px' }}>
+                    Upgrade
+                  </span>
+                </div>
+              )}
 
               <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 800 }}>Routes</h2>
@@ -188,19 +174,7 @@ export default function ProfilePage() {
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
                     {routes.map((route) => (
-                      <Link
-                        key={route.id}
-                        href={`/routes/${route.id}`}
-                        style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 6,
-                          padding: 14,
-                          borderRadius: 'var(--radius-md)',
-                          background: 'var(--surface)',
-                          boxShadow: 'var(--elevation-subtle)',
-                        }}
-                      >
+                      <Link key={route.id} href={`/routes/${route.id}`} className="route-detail-card" style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 14 }}>
                         <span style={{ fontWeight: 700, fontSize: 14 }}>{route.name}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <span style={{ fontSize: 12, color: 'var(--stone)' }}>{route.distanceKm.toFixed(1)} km</span>
@@ -224,15 +198,8 @@ export default function ProfilePage() {
                       <Link
                         key={item.id}
                         href={`/routes/${item.routeId}`}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '12px 14px',
-                          borderRadius: 'var(--radius-md)',
-                          background: 'var(--surface)',
-                          boxShadow: 'var(--elevation-subtle)',
-                        }}
+                        className="route-detail-card"
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px' }}
                       >
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <span style={{ fontWeight: 700, fontSize: 13 }}>{item.routeName}</span>
