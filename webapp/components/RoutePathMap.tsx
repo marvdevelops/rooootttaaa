@@ -3,7 +3,7 @@
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef, useState } from 'react';
-import { RouteSegment, Waypoint } from '../lib/types';
+import { RouteNote, RouteSegment, Waypoint } from '../lib/types';
 import MapStyleControls, { MapStyleMode } from './MapStyleControls';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
@@ -20,6 +20,7 @@ const STYLE_URLS: Record<MapStyleMode, string> = {
 interface Props {
   waypoints: Waypoint[];
   segments: RouteSegment[];
+  notes?: RouteNote[];
   interactive?: boolean;
   onMapClick?: (lngLat: { lat: number; lng: number }) => void;
 }
@@ -40,10 +41,11 @@ function applyTerrain(map: mapboxgl.Map, is3D: boolean) {
   }
 }
 
-export default function RoutePathMap({ waypoints, segments, interactive = true, onMapClick }: Props) {
+export default function RoutePathMap({ waypoints, segments, notes = [], interactive = true, onMapClick }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
+  const noteMarkers = useRef<mapboxgl.Marker[]>([]);
   const onMapClickRef = useRef(onMapClick);
   onMapClickRef.current = onMapClick;
   // isStyleLoaded()/once('load') race — if 'load' already fired by the time
@@ -158,6 +160,21 @@ export default function RoutePathMap({ waypoints, segments, interactive = true, 
         return new mapboxgl.Marker({ element: el }).setLngLat([wp.longitude, wp.latitude]).addTo(m);
       });
 
+      noteMarkers.current.forEach((marker) => marker.remove());
+      noteMarkers.current = notes.map((note) => {
+        const el = document.createElement('div');
+        el.style.width = '22px';
+        el.style.height = '22px';
+        el.style.borderRadius = '50% 50% 50% 0';
+        el.style.transform = 'rotate(-45deg)';
+        el.style.background = '#E8923A';
+        el.style.border = '2px solid white';
+        el.style.boxShadow = '0 2px 6px rgba(0,0,0,.35)';
+        el.style.cursor = 'pointer';
+        const popup = new mapboxgl.Popup({ offset: 16, closeButton: false }).setText(note.text || 'Note');
+        return new mapboxgl.Marker({ element: el }).setLngLat([note.longitude, note.latitude]).setPopup(popup).addTo(m);
+      });
+
       if (coordinates.length > 0) {
         const bounds = coordinates.reduce(
           (b, c) => b.extend(c as [number, number]),
@@ -171,7 +188,7 @@ export default function RoutePathMap({ waypoints, segments, interactive = true, 
 
     applyGeometryRef.current = applyGeometry;
     if (loaded.current) applyGeometry();
-  }, [waypoints, segments]);
+  }, [waypoints, segments, notes]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>

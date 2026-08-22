@@ -116,7 +116,7 @@ export default function RouteDetailPage() {
               <Link href="/" className="route-detail-back">
                 ← Discover
               </Link>
-              <RoutePathMap waypoints={route.waypoints} segments={route.segments} interactive />
+              <RoutePathMap waypoints={route.waypoints} segments={route.segments} notes={route.notes} interactive />
             </div>
 
             <div className="route-detail-body">
@@ -180,6 +180,18 @@ export default function RouteDetailPage() {
                     {route.isSavedByMe ? 'Saved' : 'Save'} · {route.savesCount}
                   </button>
                 </div>
+
+                {route.isOwnedByMe ? (
+                  <Link href={`/build?edit=${route.id}`} className="discover-run-btn" style={{ textAlign: 'center' }}>
+                    Edit route
+                  </Link>
+                ) : (
+                  session && (
+                    <Link href={`/build?from=${route.id}`} className="discover-run-btn" style={{ textAlign: 'center' }}>
+                      Save your own copy
+                    </Link>
+                  )
+                )}
 
                 {route.completionCount > 0 && (
                   <span style={{ fontSize: 13, color: 'var(--stone)', padding: '0 4px' }}>

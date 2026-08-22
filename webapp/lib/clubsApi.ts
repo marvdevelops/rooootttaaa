@@ -1,5 +1,5 @@
 import { createClient } from './supabase/client';
-import { ClubMembershipStatus, ClubRole, CreateClubInput, RunClub } from './types';
+import { ClubMember, ClubMembershipStatus, ClubRole, ClubRouteSummary, CreateClubInput, RunClub } from './types';
 
 interface ClubRow {
   id: string;
@@ -121,6 +121,44 @@ export async function createClub(input: CreateClubInput): Promise<RunClub> {
   return toRunClub(data as ClubRow, userId);
 }
 
+export interface UpdateClubInput {
+  name?: string;
+  description?: string;
+  city?: string;
+  isPrivate?: boolean;
+  avatarUrl?: string;
+}
+
+export async function updateClub(clubId: string, input: UpdateClubInput): Promise<void> {
+  const updates: Record<string, unknown> = {};
+  if (input.name !== undefined) updates.name = input.name.trim();
+  if (input.description !== undefined) updates.description = input.description.trim() || null;
+  if (input.city !== undefined) updates.city = input.city.trim() || null;
+  if (input.isPrivate !== undefined) updates.is_private = input.isPrivate;
+  if (input.avatarUrl !== undefined) updates.avatar_url = input.avatarUrl;
+
+  const supabase = createClient();
+  const { error } = await supabase.from('run_clubs').update(updates).eq('id', clubId);
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * Uploads a club logo to the `avatars` bucket under `clubs/{clubId}/` —
+ * storage RLS there checks the uploader is an active admin/owner of that
+ * club — and returns a cache-busted public URL.
+ */
+export async function uploadClubAvatar(clubId: string, file: File): Promise<string> {
+  const supabase = createClient();
+  const ext = file.type === 'image/png' ? 'png' : 'jpg';
+  const path = `clubs/${clubId}/logo.${ext}`;
+
+  const { error } = await supabase.storage.from('avatars').upload(path, file, { contentType: file.type, upsert: true });
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+  return `${data.publicUrl}?t=${Date.now()}`;
+}
+
 export async function getClub(id: string): Promise<RunClub> {
   const supabase = createClient();
   const viewerId = await currentUserId();
@@ -184,5 +222,108 @@ export async function leaveClub(clubId: string): Promise<void> {
   const userId = await currentUserId();
   if (!userId) return;
   const { error } = await supabase.from('club_memberships').delete().eq('club_id', clubId).eq('user_id', userId);
+  if (error) throw new Error(error.message);
+}
+
+interface MemberRow {
+  user_id: string;
+  role: ClubRole;
+  status: ClubMembershipStatus;
+  joined_at: string;
+  profiles: { username: string; avatar_url: string | null } | { username: string; avatar_url: string | null }[] | null;
+}
+
+export async function listClubMembers(clubId: string, status: ClubMembershipStatus = 'active'): Promise<ClubMember[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('club_memberships')
+    .select('user_id, role, status, joined_at, profiles:user_id(username, avatar_url)')
+    .eq('club_id', clubId)
+    .eq('status', status)
+    .order('joined_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as MemberRow[]).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return {
+      userId: row.user_id,
+      username: profile?.username ?? 'unknown',
+      avatarUrl: profile?.avatar_url ?? null,
+      role: row.role,
+      status: row.status,
+      joinedAt: new Date(row.joined_at).getTime(),
+    };
+  });
+}
+
+export async function respondToClubJoinRequest(clubId: string, userId: string, approve: boolean): Promise<void> {
+  const supabase = createClient();
+  if (approve) {
+    const { error } = await supabase.from('club_memberships').update({ status: 'active' }).eq('club_id', clubId).eq('user_id', userId);
+    if (error) {
+      if (error.message.includes('currently full')) throw new ClubFullError('This club is currently full.');
+      throw new Error(error.message);
+    }
+  } else {
+    const { error } = await supabase.from('club_memberships').delete().eq('club_id', clubId).eq('user_id', userId);
+    if (error) throw new Error(error.message);
+  }
+}
+
+export async function setClubMemberRole(clubId: string, userId: string, role: ClubRole): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from('club_memberships').update({ role }).eq('club_id', clubId).eq('user_id', userId);
+  if (error) throw new Error(error.message);
+}
+
+export async function removeClubMember(clubId: string, userId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from('club_memberships').delete().eq('club_id', clubId).eq('user_id', userId);
+  if (error) throw new Error(error.message);
+}
+
+interface ClubRouteRow {
+  routes: {
+    id: string;
+    name: string;
+    distance_km: number;
+    elevation_gain_m: number;
+    profiles: { username: string } | { username: string }[] | null;
+  } | null;
+}
+
+export async function listClubRoutes(clubId: string): Promise<ClubRouteSummary[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('club_routes')
+    .select('routes:route_id(id, name, distance_km, elevation_gain_m, profiles:owner_id(username))')
+    .eq('club_id', clubId)
+    .order('added_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as ClubRouteRow[])
+    .filter((row): row is ClubRouteRow & { routes: NonNullable<ClubRouteRow['routes']> } => !!row.routes)
+    .map((row) => {
+      const owner = Array.isArray(row.routes.profiles) ? row.routes.profiles[0] : row.routes.profiles;
+      return {
+        id: row.routes.id,
+        name: row.routes.name,
+        distanceKm: row.routes.distance_km,
+        elevationGainM: row.routes.elevation_gain_m,
+        ownerUsername: owner?.username ?? 'unknown',
+      };
+    });
+}
+
+export async function addClubRoute(clubId: string, routeId: string): Promise<void> {
+  const supabase = createClient();
+  const userId = await currentUserId();
+  const { error } = await supabase.from('club_routes').upsert({ club_id: clubId, route_id: routeId, added_by: userId }, { onConflict: 'club_id,route_id' });
+  if (error) throw new Error(error.message);
+}
+
+export async function removeClubRoute(clubId: string, routeId: string): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from('club_routes').delete().eq('club_id', clubId).eq('route_id', routeId);
   if (error) throw new Error(error.message);
 }

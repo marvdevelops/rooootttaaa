@@ -120,7 +120,7 @@ export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
       }
 
       const el = marker.getElement();
-      el.style.background = route.id === selectedId ? 'var(--coral)' : 'var(--teal)';
+      el.style.background = route.id === selectedId ? 'var(--coral)' : 'var(--amber)';
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routes, selectedId]);

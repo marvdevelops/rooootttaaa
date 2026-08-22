@@ -845,6 +845,72 @@ button {
   color: var(--coral);
 }
 
+/* Club profile — hero card + Events/Routes/Members tabs. */
+.club-body {
+  max-width: 760px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 32px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.club-avatar-upload {
+  position: relative;
+  width: fit-content;
+  cursor: pointer;
+}
+.club-avatar-upload:hover .club-avatar-upload-overlay {
+  opacity: 1;
+}
+.club-avatar-upload-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: var(--white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  text-align: center;
+}
+.club-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--segment-track);
+  border-radius: var(--radius-pill);
+  width: fit-content;
+}
+.club-tab {
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--stone);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+.club-tab[data-active='true'] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-hairline);
+}
+.club-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
 /* Profile — coral banner with an overlapping avatar, per the design brief. */
 .profile-body {
   width: 100%;

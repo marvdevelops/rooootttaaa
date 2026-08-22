@@ -21,6 +21,16 @@ export interface RouteSegment {
   distanceMeters: number;
 }
 
+/**
+ * A note pinned somewhere along a route (e.g. "water stop", "turn here") —
+ * a standalone entity, not tied to any Waypoint. Waypoints exist only to
+ * draw/route the line; moving, adding, or deleting one never touches notes.
+ */
+export interface RouteNote extends LatLng {
+  id: string;
+  text: string;
+}
+
 export type ActivityType = 'run' | 'trail_run' | 'hike' | 'bike' | 'walk' | 'other';
 
 export interface CloudRoute {
@@ -35,6 +45,7 @@ export interface CloudRoute {
   createdAt: number;
   waypoints: Waypoint[];
   segments: RouteSegment[];
+  notes: RouteNote[];
   distanceKm: number;
   elevationGainM: number;
   elevationProfile: PathPoint[];
@@ -53,6 +64,7 @@ export interface CreateRouteInput {
   activityType: ActivityType;
   waypoints: Waypoint[];
   segments: RouteSegment[];
+  notes: RouteNote[];
   distanceKm: number;
   elevationGainM: number;
   elevationProfile: PathPoint[];
@@ -170,4 +182,21 @@ export interface CreateClubInput {
   description: string;
   city: string;
   isPrivate: boolean;
+}
+
+export interface ClubMember {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  role: ClubRole;
+  status: ClubMembershipStatus;
+  joinedAt: number;
+}
+
+export interface ClubRouteSummary {
+  id: string;
+  name: string;
+  distanceKm: number;
+  elevationGainM: number;
+  ownerUsername: string;
 }

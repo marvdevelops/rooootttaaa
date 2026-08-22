@@ -164,6 +164,22 @@ export async function listGroupRunsForRoute(routeId: string): Promise<GroupRun[]
   return toGroupRunBatch((data ?? []) as unknown as GroupRunRow[], viewerId);
 }
 
+/** Upcoming (scheduled/active) group runs tagged to a club — for the club profile's Events tab. */
+export async function listClubEvents(clubId: string): Promise<GroupRun[]> {
+  const supabase = createClient();
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase
+    .from('group_runs')
+    .select(GROUP_RUN_SELECT)
+    .eq('club_id', clubId)
+    .in('status', UPCOMING_STATUSES)
+    .order('scheduled_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return toGroupRunBatch((data ?? []) as unknown as GroupRunRow[], viewerId);
+}
+
 export class FreeJoinLimitError extends Error {}
 
 export async function setGroupRunRsvp(groupRunId: string, rsvped: boolean): Promise<void> {
