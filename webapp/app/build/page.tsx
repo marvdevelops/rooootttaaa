@@ -144,19 +144,8 @@ export default function BuildPage() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Header />
 
-      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <aside
-          style={{
-            width: 360,
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 16,
-            padding: 20,
-            overflowY: 'auto',
-            background: 'var(--cream)',
-          }}
-        >
+      <div className="split-layout">
+        <aside className="split-sidebar">
           <h1 style={{ fontSize: 20, fontWeight: 800 }}>Build a route</h1>
           <p style={{ fontSize: 13, color: 'var(--stone)', lineHeight: 1.5 }}>
             Tap the map to drop your start point, then keep tapping to add stops. Rootah routes between each one
@@ -227,7 +216,7 @@ export default function BuildPage() {
           </button>
         </aside>
 
-        <main style={{ flex: 1, position: 'relative' }}>
+        <main className="split-main">
           <RoutePathMap waypoints={waypoints} segments={segments} onMapClick={handleMapClick} />
         </main>
       </div>

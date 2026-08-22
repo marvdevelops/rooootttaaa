@@ -98,19 +98,8 @@ export default function RouteDetailPage() {
       )}
 
       {route && (
-        <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-          <aside
-            style={{
-              width: 360,
-              flexShrink: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 16,
-              padding: 20,
-              overflowY: 'auto',
-              background: 'var(--cream)',
-            }}
-          >
+        <div className="split-layout">
+          <aside className="split-sidebar">
             <Link href="/" style={{ fontSize: 13, color: 'var(--stone)', fontWeight: 600 }}>
               ← Back to Discover
             </Link>
@@ -171,7 +160,7 @@ export default function RouteDetailPage() {
             />
           </aside>
 
-          <main style={{ flex: 1, position: 'relative' }}>
+          <main className="split-main">
             <RoutePathMap waypoints={route.waypoints} segments={route.segments} interactive />
           </main>
         </div>

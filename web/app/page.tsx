@@ -289,6 +289,7 @@ export default function LandingPage() {
           <a href="#how" className="nav-link" style={NAV_LINK_STYLE}>How it works</a>
           <a href="#clubs" className="nav-link" style={NAV_LINK_STYLE}>For clubs</a>
           <a href="/explore" className="nav-link" style={NAV_LINK_STYLE}>Explore</a>
+          <a href="https://app.rootah.com" className="nav-link" style={NAV_LINK_STYLE}>Sign in</a>
           <PillButton href="#download">DOWNLOAD</PillButton>
         </div>
       </div>
@@ -621,6 +622,23 @@ export default function LandingPage() {
               <ComingSoonBadge platform="ios" />
               <ComingSoonBadge platform="android" />
             </div>
+            <a
+              href="https://app.rootah.com"
+              className="soft-btn"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '13px 26px',
+                borderRadius: 50,
+                background: '#F2EDE5',
+                color: '#1A1614',
+                fontWeight: 700,
+                fontSize: 15,
+              }}
+            >
+              Or use Rootah on the web right now →
+            </a>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginTop: 16, width: '100%' }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: '#F2EDE5' }}>
                 Sign up for the waitlist to know the moment we launch.

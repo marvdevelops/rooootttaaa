@@ -31,19 +31,8 @@ export default function Home() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       <Header />
 
-      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
-        <aside
-          style={{
-            width: 340,
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-            padding: 16,
-            overflowY: 'auto',
-            background: 'var(--cream)',
-          }}
-        >
+      <div className="split-layout">
+        <aside className="split-sidebar" style={{ padding: 16, gap: 12 }}>
           <input
             type="text"
             placeholder="Search routes or city…"
@@ -76,7 +65,7 @@ export default function Home() {
           ))}
         </aside>
 
-        <main style={{ flex: 1, position: 'relative' }}>
+        <main className="split-main">
           <DiscoverMap routes={filtered} selectedId={selectedId} onSelect={setSelectedId} />
         </main>
       </div>
