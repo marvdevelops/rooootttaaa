@@ -826,8 +826,14 @@ button {
 }
 .mymaps-filters {
   display: flex;
+  align-items: center;
   gap: 10px;
   margin-top: 20px;
+  flex-wrap: wrap;
+}
+.mymaps-segmented-disabled {
+  color: var(--mist);
+  cursor: default;
 }
 .mymaps-filter-select {
   padding: 0 16px;
@@ -861,7 +867,7 @@ button {
   transform: translateY(-2px);
 }
 .mymaps-thumb {
-  height: 118px;
+  height: 132px;
   border-radius: var(--radius-sm);
   background: var(--map-land);
   display: flex;

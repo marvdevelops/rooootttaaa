@@ -18,6 +18,8 @@ const ACTIVITY_OPTIONS: { value: ActivityType | 'all'; label: string }[] = [
   { value: 'walk', label: 'Walk' },
 ];
 
+type SortMode = 'recent' | 'distance' | 'name';
+
 export default function MyMapsPage() {
   const { session, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -25,6 +27,7 @@ export default function MyMapsPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [activityFilter, setActivityFilter] = useState<ActivityType | 'all'>('all');
+  const [sort, setSort] = useState<SortMode>('recent');
 
   useEffect(() => {
     if (!authLoading && !session) router.push('/login?next=/my-maps');
@@ -39,12 +42,15 @@ export default function MyMapsPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return routes.filter((route) => {
+    const result = routes.filter((route) => {
       if (activityFilter !== 'all' && route.activityType !== activityFilter) return false;
       if (q && !route.name.toLowerCase().includes(q) && !route.city?.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [routes, query, activityFilter]);
+    if (sort === 'distance') return [...result].sort((a, b) => b.distanceKm - a.distanceKm);
+    if (sort === 'name') return [...result].sort((a, b) => a.name.localeCompare(b.name));
+    return result;
+  }, [routes, query, activityFilter, sort]);
 
   if (authLoading || !session) return null;
 
@@ -67,6 +73,18 @@ export default function MyMapsPage() {
             </Link>
           </div>
 
+          <div className="discover-segmented" style={{ margin: '18px 0 0', maxWidth: 340 }}>
+            <button className="discover-segmented-item" data-active="true">
+              All routes
+            </button>
+            <span className="discover-segmented-item mymaps-segmented-disabled" title="Coming soon">
+              Drafts
+            </span>
+            <span className="discover-segmented-item mymaps-segmented-disabled" title="Coming soon">
+              Shared
+            </span>
+          </div>
+
           <div className="mymaps-filters">
             <input
               type="text"
@@ -82,6 +100,11 @@ export default function MyMapsPage() {
                   {opt.label}
                 </option>
               ))}
+            </select>
+            <select value={sort} onChange={(e) => setSort(e.target.value as SortMode)} className="mymaps-filter-select" style={{ marginLeft: 'auto' }}>
+              <option value="recent">Sort: Recent</option>
+              <option value="distance">Sort: Distance</option>
+              <option value="name">Sort: Name</option>
             </select>
           </div>
 
