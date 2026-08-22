@@ -17,12 +17,23 @@ const STYLE_URLS: Record<MapStyleMode, string> = {
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
 };
 
+function cursorSvg(glyph: '+' | '−'): string {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 26 26'><circle cx='13' cy='13' r='10' fill='white' stroke='%23E84B2A' stroke-width='2'/><path d='${
+    glyph === '+' ? 'M13 8v10M8 13h10' : 'M8 13h10'
+  }' stroke='%23E84B2A' stroke-width='2.4' stroke-linecap='round'/></svg>`;
+  return `url("data:image/svg+xml,${svg}") 13 13, pointer`;
+}
+
+const ADD_CURSOR = cursorSvg('+');
+const REMOVE_CURSOR = cursorSvg('−');
+
 interface Props {
   waypoints: Waypoint[];
   segments: RouteSegment[];
   notes?: RouteNote[];
   interactive?: boolean;
   onMapClick?: (lngLat: { lat: number; lng: number }) => void;
+  onRemoveWaypoint?: (id: string) => void;
 }
 
 const SOURCE_ID = 'route-line';
@@ -41,13 +52,15 @@ function applyTerrain(map: mapboxgl.Map, is3D: boolean) {
   }
 }
 
-export default function RoutePathMap({ waypoints, segments, notes = [], interactive = true, onMapClick }: Props) {
+export default function RoutePathMap({ waypoints, segments, notes = [], interactive = true, onMapClick, onRemoveWaypoint }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
   const noteMarkers = useRef<mapboxgl.Marker[]>([]);
   const onMapClickRef = useRef(onMapClick);
   onMapClickRef.current = onMapClick;
+  const onRemoveWaypointRef = useRef(onRemoveWaypoint);
+  onRemoveWaypointRef.current = onRemoveWaypoint;
   // isStyleLoaded()/once('load') race — if 'load' already fired by the time
   // the geometry effect below subscribes, once() never calls back (it only
   // listens for *future* emissions). This ref is the single source of truth
@@ -97,6 +110,7 @@ export default function RoutePathMap({ waypoints, segments, notes = [], interact
     });
     map.current = m;
     m.keyboard.disable();
+    if (isBuilderMode) m.getCanvas().style.cursor = ADD_CURSOR;
 
     m.on('load', () => {
       setupRouteLayer(m);
@@ -165,6 +179,18 @@ export default function RoutePathMap({ waypoints, segments, notes = [], interact
         el.style.border = '2px solid white';
         el.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
         el.style.background = i === 0 ? '#4BAB7A' : i === waypoints.length - 1 ? '#E84B2A' : '#4BABB8';
+
+        if (isBuilderMode) {
+          el.style.cursor = REMOVE_CURSOR;
+          // Waypoint clicks must not also register as an "add point" click
+          // on the map underneath — stop it from bubbling to the map's own
+          // click listener.
+          el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            onRemoveWaypointRef.current?.(wp.id);
+          });
+        }
+
         return new mapboxgl.Marker({ element: el }).setLngLat([wp.longitude, wp.latitude]).addTo(m);
       });
 

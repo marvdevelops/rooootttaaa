@@ -154,6 +154,48 @@ function BuildForm() {
     setSegments((s) => s.slice(0, -1));
   }
 
+  async function handleRemoveWaypoint(id: string) {
+    const idx = waypoints.findIndex((w) => w.id === id);
+    if (idx === -1) return;
+    const prev = waypoints[idx - 1];
+    const next = waypoints[idx + 1];
+    // Position of the prev→removed segment in the *current* segments array —
+    // captured now so the bridge segment (once routed) can be spliced back
+    // into the same spot, keeping segment order (and therefore the drawn
+    // line) correct instead of just appending it at the end.
+    const insertAt = segments.findIndex((seg) => seg.toId === id);
+
+    setWaypoints((w) => w.filter((wp) => wp.id !== id));
+    setSegments((s) => s.filter((seg) => seg.fromId !== id && seg.toId !== id));
+
+    if (!prev || !next) return;
+
+    setRouting(true);
+    try {
+      let bridge: RouteSegment;
+      try {
+        const routed = await routeBetween(
+          { latitude: prev.latitude, longitude: prev.longitude },
+          { latitude: next.latitude, longitude: next.longitude },
+        );
+        bridge = { fromId: prev.id, toId: next.id, path: routed.path, distanceMeters: routed.distanceMeters };
+      } catch {
+        const fallback = straightLineFallback(
+          { latitude: prev.latitude, longitude: prev.longitude },
+          { latitude: next.latitude, longitude: next.longitude },
+        );
+        bridge = { fromId: prev.id, toId: next.id, path: fallback.path, distanceMeters: fallback.distanceMeters };
+      }
+      setSegments((s) => {
+        const copy = [...s];
+        copy.splice(Math.min(insertAt, copy.length), 0, bridge);
+        return copy;
+      });
+    } finally {
+      setRouting(false);
+    }
+  }
+
   function handleClear() {
     setWaypoints([]);
     setSegments([]);
@@ -224,7 +266,7 @@ function BuildForm() {
               <p style={{ marginTop: 6, fontSize: 12.5, color: 'var(--stone)', lineHeight: 1.5 }}>
                 {noteMode
                   ? 'Tap the map to drop a note pin, then describe it below.'
-                  : 'Tap the map to drop your start point, then keep tapping to add stops. Rootah routes between each one along real streets.'}
+                  : 'Tap the map (+) to add a stop — Rootah routes between each one along real streets. Tap an existing point (−) to remove it.'}
               </p>
             </div>
 
@@ -328,7 +370,7 @@ function BuildForm() {
           </aside>
 
           <main className="split-main">
-            <RoutePathMap waypoints={waypoints} segments={segments} notes={notes} onMapClick={handleMapClick} />
+            <RoutePathMap waypoints={waypoints} segments={segments} notes={notes} onMapClick={handleMapClick} onRemoveWaypoint={handleRemoveWaypoint} />
           </main>
         </div>
       </div>

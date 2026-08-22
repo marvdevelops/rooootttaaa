@@ -12,27 +12,37 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 const SITE_URL = 'https://app.rootah.com';
 const SITE_NAME = 'Rootah';
 const SITE_DESCRIPTION =
-  'Discover running and hiking routes, build your own, and join group runs across the Philippines. Rootah is a free route-planning and run-community app.';
+  'Find running routes near you across the Philippines — Manila, Cebu, Davao, and beyond. Discover routes shared by runners, build your own with turn-by-turn elevation, and join group runs. Free to use.';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: { default: `${SITE_NAME} — Discover & build running routes`, template: `%s | ${SITE_NAME}` },
+  title: { default: `${SITE_NAME} — Running routes near you`, template: `%s | ${SITE_NAME}` },
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
-  keywords: ['running routes', 'trail running', 'route planner', 'group runs', 'run clubs', 'Philippines running', 'hiking trails'],
+  keywords: [
+    'running routes near me',
+    'running routes in Manila',
+    'running routes in Cebu',
+    'running routes in the Philippines',
+    'trail running routes',
+    'route planner',
+    'group runs',
+    'run clubs',
+    'hiking trails near me',
+  ],
   robots: { index: true, follow: true },
   alternates: { canonical: SITE_URL },
   openGraph: {
     type: 'website',
     siteName: SITE_NAME,
-    title: `${SITE_NAME} — Discover & build running routes`,
+    title: `${SITE_NAME} — Running routes near you`,
     description: SITE_DESCRIPTION,
     url: SITE_URL,
     images: [{ url: '/icon.png', width: 512, height: 512, alt: SITE_NAME }],
   },
   twitter: {
     card: 'summary',
-    title: `${SITE_NAME} — Discover & build running routes`,
+    title: `${SITE_NAME} — Running routes near you`,
     description: SITE_DESCRIPTION,
     images: ['/icon.png'],
   },
