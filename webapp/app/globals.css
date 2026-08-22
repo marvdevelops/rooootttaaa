@@ -797,6 +797,22 @@ button {
   margin: 0 auto;
   padding: 28px 32px 48px;
 }
+.mymaps-filters {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.mymaps-filter-select {
+  padding: 0 16px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--surface);
+  box-shadow: var(--shadow-hairline);
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--ink);
+  outline: none;
+}
 .mymaps-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));

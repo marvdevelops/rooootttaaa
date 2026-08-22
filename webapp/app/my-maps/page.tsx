@@ -2,18 +2,29 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import RouteThumb from '../../components/RouteThumb';
 import Sidebar from '../../components/Sidebar';
 import { useAuth } from '../../lib/AuthContext';
 import { listRoutesByOwner } from '../../lib/routesApi';
-import { CloudRoute } from '../../lib/types';
+import { ActivityType, CloudRoute } from '../../lib/types';
+
+const ACTIVITY_OPTIONS: { value: ActivityType | 'all'; label: string }[] = [
+  { value: 'all', label: 'All types' },
+  { value: 'run', label: 'Run' },
+  { value: 'trail_run', label: 'Trail run' },
+  { value: 'hike', label: 'Hike' },
+  { value: 'bike', label: 'Bike' },
+  { value: 'walk', label: 'Walk' },
+];
 
 export default function MyMapsPage() {
   const { session, loading: authLoading } = useAuth();
   const router = useRouter();
   const [routes, setRoutes] = useState<CloudRoute[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [activityFilter, setActivityFilter] = useState<ActivityType | 'all'>('all');
 
   useEffect(() => {
     if (!authLoading && !session) router.push('/login?next=/my-maps');
@@ -26,6 +37,15 @@ export default function MyMapsPage() {
       .finally(() => setLoading(false));
   }, [session]);
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return routes.filter((route) => {
+      if (activityFilter !== 'all' && route.activityType !== activityFilter) return false;
+      if (q && !route.name.toLowerCase().includes(q) && !route.city?.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [routes, query, activityFilter]);
+
   if (authLoading || !session) return null;
 
   const totalKm = routes.reduce((sum, r) => sum + r.distanceKm, 0);
@@ -35,12 +55,40 @@ export default function MyMapsPage() {
       <Sidebar />
       <div className="app-shell-content" style={{ overflowY: 'auto' }}>
         <div className="mymaps-body">
-          <h1 style={{ fontSize: 22, fontWeight: 800 }}>My maps</h1>
-          <span style={{ fontSize: 13, color: 'var(--stone)' }}>
-            {routes.length} route{routes.length === 1 ? '' : 's'} · {totalKm.toFixed(1)} km total
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h1 style={{ fontSize: 22, fontWeight: 800 }}>My maps</h1>
+              <span style={{ fontSize: 13, color: 'var(--stone)' }}>
+                {routes.length} route{routes.length === 1 ? '' : 's'} · {totalKm.toFixed(1)} km total
+              </span>
+            </div>
+            <Link href="/build" className="discover-run-btn" style={{ width: 'auto', padding: '10px 18px' }}>
+              + Build a route
+            </Link>
+          </div>
+
+          <div className="mymaps-filters">
+            <input
+              type="text"
+              placeholder="Search your routes…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="discover-search-input"
+              style={{ boxShadow: 'var(--shadow-hairline)', maxWidth: 280 }}
+            />
+            <select value={activityFilter} onChange={(e) => setActivityFilter(e.target.value as ActivityType | 'all')} className="mymaps-filter-select">
+              {ACTIVITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {loading && <div style={{ marginTop: 20, color: 'var(--stone)', fontSize: 13 }}>Loading…</div>}
+          {!loading && routes.length > 0 && filtered.length === 0 && (
+            <div style={{ marginTop: 20, color: 'var(--stone)', fontSize: 13 }}>No routes match your search.</div>
+          )}
 
           <div className="mymaps-grid">
             <Link href="/build" className="mymaps-add-tile">
@@ -48,7 +96,7 @@ export default function MyMapsPage() {
               Build a route
             </Link>
 
-            {routes.map((route) => (
+            {filtered.map((route) => (
               <Link key={route.id} href={`/routes/${route.id}`} className="mymaps-card">
                 <RouteThumb waypoints={route.waypoints} />
                 <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink)' }}>{route.name}</span>
