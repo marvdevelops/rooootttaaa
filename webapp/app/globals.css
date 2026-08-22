@@ -601,15 +601,19 @@ button {
   }
 }
 
-/* Route detail — 328px hero map band, then a 2-column body (main + a
-   304px right rail), per the design brief. */
+/* Route detail — a tall hero map band (tall enough that elongated
+   point-to-point routes still render at a legible zoom instead of
+   shrinking to a sliver in a short, wide box), then a 2-column body
+   (main + a 304px right rail). */
 .route-detail-scroll {
   flex: 1;
   overflow-y: auto;
 }
 .route-detail-hero {
   position: relative;
-  height: 328px;
+  height: 62vh;
+  min-height: 420px;
+  max-height: 720px;
   width: 100%;
 }
 .route-detail-back {
@@ -664,7 +668,8 @@ button {
     width: 100%;
   }
   .route-detail-hero {
-    height: 220px;
+    height: 50vh;
+    min-height: 280px;
   }
 }
 
