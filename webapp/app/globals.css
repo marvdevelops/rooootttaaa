@@ -600,3 +600,70 @@ button {
     width: 100%;
   }
 }
+
+/* Route detail — 328px hero map band, then a 2-column body (main + a
+   304px right rail), per the design brief. */
+.route-detail-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+.route-detail-hero {
+  position: relative;
+  height: 328px;
+  width: 100%;
+}
+.route-detail-back {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-floating);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.route-detail-body {
+  display: flex;
+  gap: 24px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px 32px 48px;
+}
+.route-detail-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.route-detail-rail {
+  width: 304px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.route-detail-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 18px;
+}
+@media (max-width: 900px) {
+  .route-detail-body {
+    flex-direction: column;
+    padding: 20px;
+  }
+  .route-detail-rail {
+    width: 100%;
+  }
+  .route-detail-hero {
+    height: 220px;
+  }
+}
