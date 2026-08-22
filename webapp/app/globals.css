@@ -980,10 +980,46 @@ button {
   box-shadow: var(--shadow-card);
 }
 
-/* Profile — coral banner with an overlapping avatar, per the design brief. */
+/* Profile — 212px settings rail + content, coral banner with an
+   overlapping avatar, per the design brief. */
+.profile-page-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.profile-settings-rail {
+  width: 212px;
+  flex-shrink: 0;
+  background: var(--panel);
+  padding: 24px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.profile-settings-item {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.profile-settings-item[data-active='true'] {
+  background: var(--surface);
+  box-shadow: var(--shadow-hairline);
+  font-weight: 700;
+}
+.profile-settings-item[data-disabled='true'] {
+  color: var(--mist);
+  cursor: default;
+}
+.profile-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
 .profile-body {
   width: 100%;
-  max-width: 720px;
+  max-width: 680px;
   margin: 0 auto;
   padding: 32px 32px 48px;
   display: flex;
@@ -997,12 +1033,14 @@ button {
   overflow: hidden;
 }
 .profile-banner {
-  height: 88px;
-  background: linear-gradient(135deg, var(--coral), var(--coral-hover));
+  height: 96px;
+  background: var(--coral);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='96' viewBox='0 0 240 96'%3E%3Cpath d='M-10 70 H60 a16 16 0 0 0 0-32 H160 a16 16 0 0 1 0 32 H260' stroke='white' stroke-width='3' fill='none' opacity='0.18'/%3E%3Cpath d='M-10 20 H90 a14 14 0 0 1 0 28 H210' stroke='white' stroke-width='2.5' fill='none' opacity='0.14'/%3E%3C/svg%3E");
+  background-size: cover;
 }
 .profile-hero-content {
   padding: 0 24px 24px;
-  margin-top: -40px;
+  margin-top: -32px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -1010,7 +1048,7 @@ button {
 .profile-avatar-lg {
   width: 84px;
   height: 84px;
-  border-radius: 50%;
+  border-radius: 26px;
   border: 4px solid var(--surface);
   object-fit: cover;
   background: var(--sheet-bg);
@@ -1020,6 +1058,14 @@ button {
   font-size: 28px;
   font-weight: 800;
   color: var(--coral);
+}
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.profile-form-grid > .span-2 {
+  grid-column: span 2;
 }
 .profile-pro-banner {
   display: flex;

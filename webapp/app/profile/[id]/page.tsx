@@ -71,7 +71,21 @@ export default function ProfilePage() {
     <div className="app-shell">
       <Sidebar />
       <div className="app-shell-content">
-        <main style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="profile-page-layout">
+          {isOwn && (
+            <nav className="profile-settings-rail">
+              <div className="profile-settings-item" data-active="true">
+                Profile
+              </div>
+              {['Account', 'Notifications', 'Privacy', 'Units & display', 'Plan & billing'].map((item) => (
+                <div key={item} className="profile-settings-item" data-disabled="true" title="Coming soon">
+                  {item}
+                </div>
+              ))}
+            </nav>
+          )}
+
+          <main className="profile-content">
           {loading && <span style={{ color: 'var(--stone)', display: 'block', padding: 32 }}>Loading…</span>}
           {error && <span style={{ color: 'var(--danger)', display: 'block', padding: 32 }}>{error}</span>}
 
@@ -87,73 +101,93 @@ export default function ProfilePage() {
                     <div className="profile-avatar-lg">{profile.username.slice(0, 1).toUpperCase()}</div>
                   )}
 
-                  {editing ? (
-                    <>
-                      <input
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        style={inputStyle}
-                        placeholder="Username"
-                      />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <h1 style={{ fontSize: 21, fontWeight: 800 }}>{profile.username}</h1>
+                    {profile.tier === 'paid' && (
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          letterSpacing: '0.04em',
+                          padding: '3px 8px',
+                          borderRadius: 6,
+                          background: 'var(--coral)',
+                          color: 'var(--white)',
+                        }}
+                      >
+                        PRO
+                      </span>
+                    )}
+                  </div>
+                  {profile.bio && !editing && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{profile.bio}</p>}
+                  <span style={{ fontSize: 12, color: 'var(--mist)' }}>Joined {new Date(profile.createdAt).toLocaleDateString()}</span>
+                  {isOwn && !editing && (
+                    <button onClick={() => setEditing(true)} style={secondaryBtnStyle}>
+                      Edit profile
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="discover-stat-grid">
+                <div className="discover-stat-tile">
+                  <span className="discover-stat-value">{routes.length}</span>
+                  <span className="discover-stat-label">Routes</span>
+                </div>
+                <div className="discover-stat-tile" data-tone="gain">
+                  <span className="discover-stat-value">{routes.reduce((s, r) => s + r.distanceKm, 0).toFixed(0)} km</span>
+                  <span className="discover-stat-label">Distance</span>
+                </div>
+                <div className="discover-stat-tile" data-tone="peak">
+                  <span className="discover-stat-value">{activity.length}</span>
+                  <span className="discover-stat-label">Runs logged</span>
+                </div>
+                <div className="discover-stat-tile" style={{ background: 'var(--sage)' }}>
+                  <span className="discover-stat-value" style={{ color: 'var(--white)' }}>
+                    {routes.reduce((s, r) => s + r.savesCount, 0)}
+                  </span>
+                  <span className="discover-stat-label" style={{ color: 'rgba(255,255,255,.82)' }}>
+                    Saves
+                  </span>
+                </div>
+              </div>
+
+              {isOwn && editing && (
+                <div className="route-detail-card">
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--mist)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Edit profile
+                  </span>
+                  <div className="profile-form-grid" style={{ marginTop: 12 }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--stone)' }}>Username</span>
+                      <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} style={inputStyle} placeholder="Username" />
+                    </label>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--stone)' }}>City</span>
+                      <input type="text" style={{ ...inputStyle, opacity: 0.5 }} placeholder="Coming soon" disabled />
+                    </label>
+                    <label className="span-2" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--stone)' }}>Bio</span>
                       <textarea
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
                         rows={3}
                         style={{ ...inputStyle, resize: 'vertical' }}
-                        placeholder="Bio"
+                        placeholder="Tell other runners about yourself"
                       />
-                      {saveError && <span style={{ fontSize: 13, color: 'var(--danger)' }}>{saveError}</span>}
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <button onClick={handleSave} disabled={saving} style={primaryBtnStyle}>
-                          {saving ? 'Saving…' : 'Save'}
-                        </button>
-                        <button onClick={() => setEditing(false)} style={secondaryBtnStyle}>
-                          Cancel
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <h1 style={{ fontSize: 21, fontWeight: 800 }}>{profile.username}</h1>
-                        {profile.tier === 'paid' && (
-                          <span
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 800,
-                              letterSpacing: '0.04em',
-                              padding: '3px 8px',
-                              borderRadius: 6,
-                              background: 'var(--coral)',
-                              color: 'var(--white)',
-                            }}
-                          >
-                            PRO
-                          </span>
-                        )}
-                      </div>
-                      {profile.bio && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{profile.bio}</p>}
-                      <div style={{ display: 'flex', gap: 16 }}>
-                        <span style={{ fontSize: 12, color: 'var(--mist)' }}>
-                          <strong style={{ color: 'var(--ink)' }}>{routes.length}</strong> routes
-                        </span>
-                        <span style={{ fontSize: 12, color: 'var(--mist)' }}>
-                          <strong style={{ color: 'var(--ink)' }}>{activity.length}</strong> runs logged
-                        </span>
-                        <span style={{ fontSize: 12, color: 'var(--mist)' }}>
-                          Joined {new Date(profile.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {isOwn && (
-                        <button onClick={() => setEditing(true)} style={secondaryBtnStyle}>
-                          Edit profile
-                        </button>
-                      )}
-                    </>
-                  )}
+                    </label>
+                  </div>
+                  {saveError && <span style={{ fontSize: 13, color: 'var(--danger)', display: 'block', marginTop: 10 }}>{saveError}</span>}
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 14 }}>
+                    <button onClick={() => setEditing(false)} style={secondaryBtnStyle}>
+                      Cancel
+                    </button>
+                    <button onClick={handleSave} disabled={saving} style={primaryBtnStyle}>
+                      {saving ? 'Saving…' : 'Save changes'}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {isOwn && profile.tier !== 'paid' && (
                 <div className="profile-pro-banner">
@@ -215,7 +249,8 @@ export default function ProfilePage() {
               </section>
             </div>
           )}
-        </main>
+          </main>
+        </div>
       </div>
     </div>
   );
