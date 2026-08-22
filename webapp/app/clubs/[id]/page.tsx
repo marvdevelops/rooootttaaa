@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import ClubAvatar from '../../../components/ClubAvatar';
 import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
 import { ClubFullError, getClub, joinClub, leaveClub } from '../../../lib/clubsApi';
@@ -76,6 +77,7 @@ export default function ClubDetailPage() {
               height: 'fit-content',
             }}
           >
+            <ClubAvatar club={club} size={64} />
             <h1 style={{ fontSize: 22, fontWeight: 800 }}>{club.name}</h1>
             {club.description && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{club.description}</p>}
             <span style={{ fontSize: 13, color: 'var(--stone)' }}>

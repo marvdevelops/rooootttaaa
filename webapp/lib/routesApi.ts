@@ -110,6 +110,23 @@ export async function listPublicRoutes(filters: PublicRouteFilters = {}): Promis
   return Promise.all((data ?? []).map((row) => toCloudRoute(row as unknown as RouteRow, viewerId)));
 }
 
+/** Public routes owned by a given user, newest first — for their profile page. */
+export async function listRoutesByOwner(ownerId: string): Promise<CloudRoute[]> {
+  const supabase = createClient();
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase
+    .from('routes')
+    .select(ROUTE_SELECT)
+    .eq('owner_id', ownerId)
+    .eq('is_public', true)
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as RouteRow[];
+  return Promise.all(rows.map((row) => toCloudRoute(row, viewerId)));
+}
+
 /** Top-scored routes from the top_routes view, falling back to latest public routes when too few qualify yet (mirrors mobile's fallback). */
 export async function listFeaturedRoutes(limit = 8): Promise<CloudRoute[]> {
   const supabase = createClient();

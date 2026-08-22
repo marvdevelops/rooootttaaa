@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import ClubAvatar from '../../components/ClubAvatar';
 import Sidebar from '../../components/Sidebar';
 import { listNearbyClubs } from '../../lib/clubsApi';
 import { RunClub } from '../../lib/types';
@@ -37,20 +38,23 @@ export default function ClubsPage() {
               href={`/clubs/${club.id}`}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
+                alignItems: 'center',
+                gap: 14,
                 padding: 18,
                 borderRadius: 'var(--radius-md)',
                 background: 'var(--surface)',
                 boxShadow: 'var(--elevation-card)',
               }}
             >
-              <span style={{ fontWeight: 700, fontSize: 15 }}>{club.name}</span>
-              {club.description && <span style={{ fontSize: 13, color: 'var(--stone)' }}>{club.description}</span>}
-              <span style={{ fontSize: 12, color: 'var(--mist)' }}>
-                {club.memberCount} {club.memberCount === 1 ? 'member' : 'members'}
-                {club.city ? ` · ${club.city}` : ''}
-              </span>
+              <ClubAvatar club={club} size={48} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                <span style={{ fontWeight: 700, fontSize: 15 }}>{club.name}</span>
+                {club.description && <span style={{ fontSize: 13, color: 'var(--stone)' }}>{club.description}</span>}
+                <span style={{ fontSize: 12, color: 'var(--mist)' }}>
+                  {club.memberCount} {club.memberCount === 1 ? 'member' : 'members'}
+                  {club.city ? ` · ${club.city}` : ''}
+                </span>
+              </div>
             </Link>
           ))}
         </div>

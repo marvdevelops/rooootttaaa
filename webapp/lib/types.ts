@@ -79,6 +79,13 @@ export interface RouteCompletion {
   source: 'manual' | 'recording' | 'group_run' | 'notification';
 }
 
+export interface RouteCompletionActivityItem extends RouteCompletion {
+  routeName: string;
+  routeDistanceKm: number;
+  routeCity: string | null;
+  groupRunTitle: string | null;
+}
+
 export interface CompletionParticipant {
   id: string;
   username: string;

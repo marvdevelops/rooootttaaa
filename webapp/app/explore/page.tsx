@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import ClubAvatar from '../../components/ClubAvatar';
 import Sidebar from '../../components/Sidebar';
 import { listNearbyClubs } from '../../lib/clubsApi';
 import { listUpcomingGroupRuns } from '../../lib/groupRunsApi';
@@ -76,12 +77,15 @@ export default function ExplorePage() {
 
               <Section title="Run clubs" empty="No clubs yet.">
                 {clubs.map((c) => (
-                  <Link key={c.id} href={`/clubs/${c.id}`} style={cardStyle}>
-                    <span style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</span>
-                    <span style={{ fontSize: 13, color: 'var(--stone)' }}>
-                      {c.memberCount} {c.memberCount === 1 ? 'member' : 'members'}
-                      {c.city ? ` · ${c.city}` : ''}
-                    </span>
+                  <Link key={c.id} href={`/clubs/${c.id}`} style={{ ...cardStyle, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <ClubAvatar club={c} size={40} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                      <span style={{ fontWeight: 700, fontSize: 15 }}>{c.name}</span>
+                      <span style={{ fontSize: 13, color: 'var(--stone)' }}>
+                        {c.memberCount} {c.memberCount === 1 ? 'member' : 'members'}
+                        {c.city ? ` · ${c.city}` : ''}
+                      </span>
+                    </div>
                   </Link>
                 ))}
               </Section>
