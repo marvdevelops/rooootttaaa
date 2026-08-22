@@ -43,6 +43,15 @@ function RunsIcon() {
   );
 }
 
+function MyMapsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M3.5 6L9 4L15 6L20.5 4V18L15 20L9 18L3.5 20V6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M9 4V18M15 6V20" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 function ClubsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -73,6 +82,7 @@ function ChevronIcon() {
 const NAV_ITEMS: NavItem[] = [
   { href: '/', label: 'Discover', icon: <DiscoverIcon /> },
   { href: '/explore', label: 'Explore', icon: <ExploreIcon /> },
+  { href: '/my-maps', label: 'My maps', icon: <MyMapsIcon /> },
   { href: '/runs', label: 'Group runs', icon: <RunsIcon /> },
   { href: '/clubs', label: 'Clubs', icon: <ClubsIcon /> },
 ];

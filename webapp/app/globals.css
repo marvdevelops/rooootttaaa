@@ -782,3 +782,58 @@ button {
     width: 100%;
   }
 }
+
+/* My maps — a 4-column route grid with a dashed "build a route" tile,
+   per the design brief. */
+.mymaps-body {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 32px 48px;
+}
+.mymaps-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+.mymaps-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 14px;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.mymaps-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+.mymaps-thumb {
+  height: 118px;
+  border-radius: var(--radius-sm);
+  background: var(--map-land);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mymaps-add-tile {
+  min-height: 194px;
+  border-radius: var(--radius-lg);
+  border: 1.5px dashed var(--mist);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--stone);
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  background: transparent;
+}
+.mymaps-add-tile:hover {
+  border-color: var(--coral);
+  color: var(--coral);
+}
