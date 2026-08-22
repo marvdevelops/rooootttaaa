@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import Header from '../../components/Header';
+import Sidebar from '../../components/Sidebar';
 import { listUpcomingGroupRuns } from '../../lib/groupRunsApi';
 import { GroupRun } from '../../lib/types';
 
@@ -15,8 +15,9 @@ export default function RunsPage() {
   }, []);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header />
+    <div className="app-shell">
+      <Sidebar />
+      <div className="app-shell-content">
 
       <main style={{ flex: 1, overflowY: 'auto', padding: 32, display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -56,6 +57,7 @@ export default function RunsPage() {
           ))}
         </div>
       </main>
+      </div>
     </div>
   );
 }

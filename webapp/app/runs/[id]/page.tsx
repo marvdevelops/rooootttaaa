@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import Header from '../../../components/Header';
+import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
 import { FreeJoinLimitError, getGroupRun, setGroupRunRsvp } from '../../../lib/groupRunsApi';
 import { GroupRun } from '../../../lib/types';
@@ -49,8 +49,9 @@ export default function RunDetailPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header />
+    <div className="app-shell">
+      <Sidebar />
+      <div className="app-shell-content">
       <main style={{ flex: 1, overflowY: 'auto', padding: 32, display: 'flex', justifyContent: 'center' }}>
         {loading && <span style={{ color: 'var(--stone)' }}>Loading…</span>}
         {error && !run && <span style={{ color: 'var(--danger)' }}>{error}</span>}
@@ -111,6 +112,7 @@ export default function RunDetailPage() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }

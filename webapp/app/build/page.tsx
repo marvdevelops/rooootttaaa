@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import ElevationChart from '../../components/ElevationChart';
-import Header from '../../components/Header';
+import Sidebar from '../../components/Sidebar';
 import RoutePathMap from '../../components/RoutePathMap';
 import { useAuth } from '../../lib/AuthContext';
 import { metersToKm } from '../../lib/distance';
@@ -141,9 +141,9 @@ export default function BuildPage() {
   if (authLoading || !session) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header />
-
+    <div className="app-shell">
+      <Sidebar />
+      <div className="app-shell-content">
       <div className="split-layout">
         <aside className="split-sidebar">
           <h1 style={{ fontSize: 20, fontWeight: 800 }}>Build a route</h1>
@@ -219,6 +219,7 @@ export default function BuildPage() {
         <main className="split-main">
           <RoutePathMap waypoints={waypoints} segments={segments} onMapClick={handleMapClick} />
         </main>
+      </div>
       </div>
     </div>
   );

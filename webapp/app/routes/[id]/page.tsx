@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import ElevationChart from '../../../components/ElevationChart';
-import Header from '../../../components/Header';
+import Sidebar from '../../../components/Sidebar';
 import RoutePathMap from '../../../components/RoutePathMap';
 import RouteSocial from '../../../components/RouteSocial';
 import { useAuth } from '../../../lib/AuthContext';
@@ -82,9 +82,9 @@ export default function RouteDetailPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header />
-
+    <div className="app-shell">
+      <Sidebar />
+      <div className="app-shell-content">
       {loading && (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ color: 'var(--stone)' }}>Loading route…</span>
@@ -165,6 +165,7 @@ export default function RouteDetailPage() {
           </main>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import Header from '../../components/Header';
+import Sidebar from '../../components/Sidebar';
 import { listNearbyClubs } from '../../lib/clubsApi';
 import { listUpcomingGroupRuns } from '../../lib/groupRunsApi';
 import { listFeaturedRoutes, listPublicRoutes } from '../../lib/routesApi';
@@ -40,8 +40,9 @@ export default function ExplorePage() {
   }, []);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Header />
+    <div className="app-shell">
+      <Sidebar />
+      <div className="app-shell-content">
 
       <main style={{ flex: 1, padding: '32px clamp(20px,5vw,64px) 80px', display: 'flex', justifyContent: 'center' }}>
         <div style={{ width: '100%', maxWidth: 1200, display: 'flex', flexDirection: 'column', gap: 48 }}>
@@ -98,6 +99,7 @@ export default function ExplorePage() {
           )}
         </div>
       </main>
+      </div>
     </div>
   );
 }

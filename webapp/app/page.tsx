@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import DiscoverMap from '../components/DiscoverMap';
-import Header from '../components/Header';
+import Sidebar from '../components/Sidebar';
 import RouteListCard from '../components/RouteListCard';
 import { listPublicRoutes } from '../lib/routesApi';
 import { CloudRoute } from '../lib/types';
@@ -28,9 +28,9 @@ export default function Home() {
   }, [routes, query]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header />
-
+    <div className="app-shell">
+      <Sidebar />
+      <div className="app-shell-content">
       <div className="split-layout">
         <aside className="split-sidebar" style={{ padding: 16, gap: 12 }}>
           <input
@@ -68,6 +68,7 @@ export default function Home() {
         <main className="split-main">
           <DiscoverMap routes={filtered} selectedId={selectedId} onSelect={setSelectedId} />
         </main>
+      </div>
       </div>
     </div>
   );

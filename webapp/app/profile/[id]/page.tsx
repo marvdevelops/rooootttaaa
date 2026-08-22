@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import Header from '../../../components/Header';
+import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
 import { getProfile, updateProfile } from '../../../lib/profilesApi';
 import { PublicProfile } from '../../../lib/types';
@@ -47,8 +47,9 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header />
+    <div className="app-shell">
+      <Sidebar />
+      <div className="app-shell-content">
 
       <main style={{ flex: 1, overflowY: 'auto', display: 'flex', justifyContent: 'center', padding: 32 }}>
         {loading && <span style={{ color: 'var(--stone)' }}>Loading…</span>}
@@ -146,6 +147,7 @@ export default function ProfilePage() {
           </div>
         )}
       </main>
+      </div>
     </div>
   );
 }

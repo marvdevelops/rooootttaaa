@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import Header from '../../../components/Header';
+import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
 import { createClub } from '../../../lib/clubsApi';
 
@@ -38,8 +38,9 @@ export default function NewClubPage() {
   if (authLoading || !session) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header />
+    <div className="app-shell">
+      <Sidebar />
+      <div className="app-shell-content">
       <main style={{ flex: 1, overflowY: 'auto', padding: 32, display: 'flex', justifyContent: 'center' }}>
         <form
           onSubmit={handleSubmit}
@@ -78,6 +79,7 @@ export default function NewClubPage() {
           </button>
         </form>
       </main>
+      </div>
     </div>
   );
 }
