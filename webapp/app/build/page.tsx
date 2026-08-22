@@ -40,6 +40,7 @@ function BuildForm() {
   const [segments, setSegments] = useState<RouteSegment[]>([]);
   const [notes, setNotes] = useState<RouteNote[]>([]);
   const [noteMode, setNoteMode] = useState(false);
+  const [snapMode, setSnapMode] = useState<'snap' | 'freehand'>('snap');
   const [routing, setRouting] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -125,6 +126,15 @@ function BuildForm() {
 
     if (!prev) return;
 
+    if (snapMode === 'freehand') {
+      const fallback = straightLineFallback(
+        { latitude: prev.latitude, longitude: prev.longitude },
+        { latitude: newPoint.latitude, longitude: newPoint.longitude },
+      );
+      setSegments((s) => [...s, { fromId: prev.id, toId: newPoint.id, path: fallback.path, distanceMeters: fallback.distanceMeters }]);
+      return;
+    }
+
     setRouting(true);
     try {
       const routed = await routeBetween(
@@ -152,6 +162,30 @@ function BuildForm() {
   function handleUndo() {
     setWaypoints((w) => w.slice(0, -1));
     setSegments((s) => s.slice(0, -1));
+  }
+
+  async function handleCloseLoop() {
+    const first = waypoints[0];
+    const last = waypoints[waypoints.length - 1];
+    if (!first || !last || first.id === last.id) return;
+
+    setRouting(true);
+    try {
+      let bridge: RouteSegment;
+      try {
+        const routed = await routeBetween({ latitude: last.latitude, longitude: last.longitude }, { latitude: first.latitude, longitude: first.longitude });
+        bridge = { fromId: last.id, toId: first.id, path: routed.path, distanceMeters: routed.distanceMeters };
+      } catch {
+        const fallback = straightLineFallback(
+          { latitude: last.latitude, longitude: last.longitude },
+          { latitude: first.latitude, longitude: first.longitude },
+        );
+        bridge = { fromId: last.id, toId: first.id, path: fallback.path, distanceMeters: fallback.distanceMeters };
+      }
+      setSegments((s) => [...s, bridge]);
+    } finally {
+      setRouting(false);
+    }
   }
 
   async function handleRemoveWaypoint(id: string) {
@@ -246,6 +280,16 @@ function BuildForm() {
           <button onClick={() => router.push('/')} className="builder-toolbar-btn">
             Cancel
           </button>
+
+          <div className="discover-segmented" style={{ width: 220 }}>
+            <button className="discover-segmented-item" data-active={snapMode === 'snap'} onClick={() => setSnapMode('snap')}>
+              Snap to roads
+            </button>
+            <button className="discover-segmented-item" data-active={snapMode === 'freehand'} onClick={() => setSnapMode('freehand')}>
+              Freehand
+            </button>
+          </div>
+
           <div className="builder-toolbar-actions">
             <button onClick={() => setNoteMode((v) => !v)} className="builder-toolbar-btn" style={noteMode ? { background: 'var(--coral)', color: 'var(--white)' } : undefined}>
               {noteMode ? 'Adding notes…' : '+ Note'}
@@ -306,6 +350,12 @@ function BuildForm() {
                   </div>
                 ))}
               </div>
+            )}
+
+            {waypoints.length > 2 && (
+              <button onClick={handleCloseLoop} className="builder-toolbar-btn" style={{ width: '100%' }}>
+                Close the loop
+              </button>
             )}
 
             {notes.length > 0 && (
