@@ -1,29 +1,40 @@
 :root {
-  /* Colors — mirrors src/theme/theme.ts colors on mobile. One palette, three runtimes. */
+  /* Colors — per the "Rootah Web App" design brief (handoff-rootah-web). */
   --coral: #e84b2a;
+  --coral-hover: #d4421f;
   --cream: #f2ede5;
   --surface: #ffffff;
-  --sheet-bg: #f7f3ed;
+  --sheet-bg: #f7f3ed; /* "panel" in the brief — right panel, settings rail, inset fields */
+  --panel: #f7f3ed;
   --ink: #1a1614;
   --stone: #8c8078;
   --mist: #b0a898;
-  --map-bg: #e5e0d8;
+  --map-bg: #e5e0d8; /* "map-land" */
+  --map-land: #e5e0d8;
+  --map-road: #d5cfc5;
+  --map-road-minor: #d8d3c9;
+  --map-park: #ccd4bc;
+  --map-water: #c8d5dd;
   --teal: #4babb8;
   --amber: #e8923a;
   --sage: #4bab7a;
   --danger: #e13a3a;
   --white: #ffffff;
+  --segment-track: #e8e3db;
+  --toggle-off: #e0dad2;
 
-  /* Radii — mirrors src/theme/theme.ts radii */
+  /* Radii — per the brief's radius scale */
   --radius-xs: 8px;
   --radius-sm: 12px;
-  --radius-md: 17px;
-  --radius-lg: 23px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 20px;
   --radius-pill: 50px;
   --radius-fab: 18px;
   --radius-icon: 11px;
+  --radius-logo: 11px;
 
-  /* Spacing — mirrors src/theme/theme.ts spacing */
+  /* Spacing — 4px base: 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 26, 32 */
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -41,13 +52,26 @@
   --font-bold: 700;
   --font-extrabold: 800;
 
-  /* Elevation — shadow-only, mirrors theme.ts elevation(), never borders */
-  --elevation-subtle: 0 2px 8px rgba(0, 0, 0, 0.06);
-  --elevation-card: 0 4px 16px rgba(0, 0, 0, 0.07);
+  /* Shadows — per the brief's shadow scale. No borders for elevation, ever
+     (the only borders that remain: 1px hairline dividers, 1.5px coral
+     focused input, 1.5px dashed empty-state tiles). */
+  --shadow-hairline: 0 1px 4px rgba(0, 0, 0, 0.06);
+  --shadow-subtle: 0 1px 5px rgba(0, 0, 0, 0.05), 0 3px 12px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 5px rgba(0, 0, 0, 0.05), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 3px 12px rgba(0, 0, 0, 0.08), 0 10px 30px rgba(0, 0, 0, 0.1);
+  --shadow-raised: 0 3px 12px rgba(0, 0, 0, 0.07), 0 10px 30px rgba(0, 0, 0, 0.08);
+  --shadow-floating: 0 2px 12px rgba(0, 0, 0, 0.11);
+  --shadow-coral: 0 4px 16px rgba(232, 75, 42, 0.32);
+  --shadow-teal: 0 3px 12px rgba(75, 171, 184, 0.25);
+  --shadow-amber: 0 3px 12px rgba(232, 146, 58, 0.25);
+
+  /* Legacy aliases — kept so not-yet-migrated components still compile. */
+  --elevation-subtle: var(--shadow-subtle);
+  --elevation-card: var(--shadow-card);
   --elevation-sheet: 0 -4px 32px rgba(0, 0, 0, 0.11);
-  --elevation-fab: 0 6px 20px rgba(232, 75, 42, 0.45);
-  --elevation-primary-btn: 0 4px 12px rgba(232, 75, 42, 0.3);
-  --elevation-small-cta: 0 3px 10px rgba(232, 75, 42, 0.3);
+  --elevation-fab: var(--shadow-coral);
+  --elevation-primary-btn: var(--shadow-coral);
+  --elevation-small-cta: var(--shadow-coral);
 }
 
 html {
@@ -122,57 +146,193 @@ button {
   height: 100vh;
 }
 
+/* Sidebar — 236px, white, per the design brief. Route detail collapses it
+   to a 72px icon rail (see .sidebar-desktop--collapsed). */
 .sidebar-desktop {
-  width: 76px;
+  width: 236px;
   flex-shrink: 0;
-  background: var(--ink);
+  background: var(--surface);
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.05);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  padding: 22px 12px 16px;
   gap: 6px;
-  padding: 18px 0;
   z-index: 10;
+  overflow-y: auto;
 }
-.sidebar-icon-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-md);
+.sidebar-logo-lockup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px;
+  margin-bottom: 18px;
+}
+.sidebar-wordmark {
+  font-weight: 800;
+  font-size: 19px;
+  letter-spacing: -0.5px;
+  color: var(--ink);
+}
+.sidebar-cta {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(242, 237, 229, 0.55);
-  background: transparent;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--coral);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 13.5px;
+  box-shadow: var(--shadow-coral);
+  transition: background 0.15s ease;
+  margin-bottom: 14px;
+  border: none;
+  cursor: pointer;
+}
+.sidebar-cta:hover {
+  background: var(--coral-hover);
+}
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 13.5px;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.sidebar-icon-btn:hover {
-  color: var(--cream);
-  background: rgba(242, 237, 229, 0.08);
+.sidebar-nav-item svg {
+  color: var(--stone);
+  flex-shrink: 0;
+  transition: color 0.15s ease;
 }
-.sidebar-icon-btn[data-active='true'] {
+.sidebar-nav-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.sidebar-nav-item[data-active='true'] {
+  background: rgba(232, 75, 42, 0.09);
+  color: var(--coral);
+  font-weight: 700;
+}
+.sidebar-nav-item[data-active='true'] svg {
+  color: var(--coral);
+}
+.sidebar-crews {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 18px;
+}
+.sidebar-section-label {
+  padding: 0 12px;
+  margin-bottom: 6px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mist);
+}
+.sidebar-crew-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
   color: var(--ink);
-  background: var(--cream);
+  transition: background 0.15s ease;
+  overflow: hidden;
 }
-.sidebar-icon-btn-accent {
-  color: var(--white);
-  background: var(--coral);
-  margin-top: auto;
+.sidebar-crew-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.sidebar-icon-btn-accent:hover {
-  color: var(--white);
-  background: var(--coral);
-  opacity: 0.9;
+.sidebar-crew-row:hover {
+  background: rgba(0, 0, 0, 0.04);
 }
-.sidebar-avatar {
-  width: 38px;
-  height: 38px;
+.sidebar-spacer {
+  flex: 1;
+}
+.sidebar-account-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  padding-top: 12px;
+}
+.sidebar-account-link {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+.sidebar-account-link:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.sidebar-account-avatar {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
+  background: var(--teal);
+  color: var(--white);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--teal);
-  color: var(--white);
   font-weight: 800;
-  font-size: 14px;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.sidebar-account-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sidebar-account-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-account-plan {
+  font-size: 11px;
+  color: var(--mist);
+}
+.sidebar-account-link svg {
+  color: var(--mist);
+  flex-shrink: 0;
+}
+.sidebar-signout {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--stone);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.sidebar-signout:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--ink);
 }
 
 .sidebar-mobile-header {

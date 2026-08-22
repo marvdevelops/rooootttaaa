@@ -129,6 +129,27 @@ export async function getClub(id: string): Promise<RunClub> {
   return toRunClub(data as ClubRow, viewerId);
 }
 
+/** Clubs the current user actively belongs to — "Your crews" in the sidebar. */
+export async function listMyClubs(): Promise<RunClub[]> {
+  const supabase = createClient();
+  const userId = await currentUserId();
+  if (!userId) return [];
+
+  const { data: memberships, error: membershipError } = await supabase
+    .from('club_memberships')
+    .select('club_id')
+    .eq('user_id', userId)
+    .eq('status', 'active');
+  if (membershipError) throw new Error(membershipError.message);
+
+  const clubIds = (memberships ?? []).map((m) => m.club_id as string);
+  if (clubIds.length === 0) return [];
+
+  const { data, error } = await supabase.from('run_clubs').select('*').in('id', clubIds).order('member_count', { ascending: false });
+  if (error) throw new Error(error.message);
+  return toRunClubBatch((data ?? []) as ClubRow[], userId);
+}
+
 /** Open (non-private) clubs, biggest first — for Discover. */
 export async function listNearbyClubs(city: string | null, limit = 30): Promise<RunClub[]> {
   const supabase = createClient();
