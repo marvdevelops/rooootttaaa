@@ -4,7 +4,8 @@ import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { useEffect, useRef, useState } from 'react';
 import { CloudRoute } from '../lib/types';
-import MapStyleControls, { MapStyleMode } from './MapStyleControls';
+import { MapStyleMode } from './MapStyleControls';
+import MapTools from './MapTools';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 
@@ -58,7 +59,6 @@ export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
       // changes is a known source of internal mapbox-gl promise rejections.
       projection: 'mercator',
     });
-    map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
 
     return () => {
       map.current?.remove();
@@ -134,14 +134,30 @@ export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
     }
   }, [selectedId, routes]);
 
+  function handleRecenter() {
+    const m = map.current;
+    if (!m) return;
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => m.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 13, duration: 600 }),
+        () => m.flyTo({ center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM, duration: 600 }),
+      );
+    } else {
+      m.flyTo({ center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM, duration: 600 });
+    }
+  }
+
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
-      <MapStyleControls
-        mapStyleMode={mapStyleMode}
-        onChangeStyle={setMapStyleMode}
+      <MapTools
+        onZoomIn={() => map.current?.zoomIn({ duration: 200 })}
+        onZoomOut={() => map.current?.zoomOut({ duration: 200 })}
+        onRecenter={handleRecenter}
         is3D={is3D}
         onToggle3D={() => setIs3D((v) => !v)}
+        mapStyleMode={mapStyleMode}
+        onChangeStyle={setMapStyleMode}
       />
     </div>
   );
