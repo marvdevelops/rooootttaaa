@@ -59,6 +59,9 @@ export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
       // changes is a known source of internal mapbox-gl promise rejections.
       projection: 'mercator',
     });
+    // Keyboard panning/zooming isn't needed here and only risks swallowing
+    // keystrokes meant for the search box above the map.
+    map.current.keyboard.disable();
 
     return () => {
       map.current?.remove();
@@ -115,7 +118,20 @@ export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
         el.style.padding = '0';
         el.addEventListener('click', () => onSelect(route.id));
 
-        marker = new mapboxgl.Marker({ element: el }).setLngLat([start.longitude, start.latitude]).addTo(map.current!);
+        const card = document.createElement('div');
+        card.className = 'map-popup-card';
+        const title = document.createElement('span');
+        title.className = 'map-popup-title';
+        title.textContent = route.name;
+        const meta = document.createElement('span');
+        meta.className = 'map-popup-meta';
+        meta.textContent = `${route.distanceKm.toFixed(1)} km${route.city ? ` · ${route.city}` : ''}`;
+        card.appendChild(title);
+        card.appendChild(meta);
+
+        const popup = new mapboxgl.Popup({ closeButton: false, offset: 14, maxWidth: '220px' }).setDOMContent(card);
+
+        marker = new mapboxgl.Marker({ element: el }).setLngLat([start.longitude, start.latitude]).setPopup(popup).addTo(map.current!);
         markers.current.set(route.id, marker);
       }
 

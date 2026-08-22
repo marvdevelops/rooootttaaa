@@ -55,6 +55,13 @@ export default function RoutePathMap({ waypoints, segments, notes = [], interact
   // handler and checked everywhere else instead.
   const loaded = useRef(false);
   const applyGeometryRef = useRef<() => void>(() => {});
+  // Builder mode (onMapClick present) fits the camera once — either to the
+  // very first point, or to prefilled geometry from an edit/fork — and
+  // after that only pans (never re-zooms) to keep newly added points in
+  // view, so dropping a 5th waypoint doesn't yank the view back out to fit
+  // the whole route again.
+  const hasFittedRef = useRef(false);
+  const isBuilderMode = !!onMapClick;
   const [mapStyleMode, setMapStyleMode] = useState<MapStyleMode>('standard');
   const [is3D, setIs3D] = useState(false);
   const is3DRef = useRef(is3D);
@@ -89,6 +96,7 @@ export default function RoutePathMap({ waypoints, segments, notes = [], interact
       projection: 'mercator',
     });
     map.current = m;
+    m.keyboard.disable();
 
     m.on('load', () => {
       setupRouteLayer(m);
@@ -176,13 +184,26 @@ export default function RoutePathMap({ waypoints, segments, notes = [], interact
       });
 
       if (coordinates.length > 0) {
-        const bounds = coordinates.reduce(
-          (b, c) => b.extend(c as [number, number]),
-          new mapboxgl.LngLatBounds(coordinates[0] as [number, number], coordinates[0] as [number, number]),
-        );
-        m.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 400 });
+        if (!isBuilderMode || !hasFittedRef.current) {
+          const bounds = coordinates.reduce(
+            (b, c) => b.extend(c as [number, number]),
+            new mapboxgl.LngLatBounds(coordinates[0] as [number, number], coordinates[0] as [number, number]),
+          );
+          m.fitBounds(bounds, { padding: 60, maxZoom: 16, duration: 400 });
+          hasFittedRef.current = true;
+        } else {
+          const last = coordinates[coordinates.length - 1] as [number, number];
+          if (!m.getBounds()?.contains(last)) {
+            m.panTo(last, { duration: 300 });
+          }
+        }
       } else if (waypoints.length === 1) {
-        m.flyTo({ center: [waypoints[0].longitude, waypoints[0].latitude], zoom: 15 });
+        if (!isBuilderMode || !hasFittedRef.current) {
+          m.flyTo({ center: [waypoints[0].longitude, waypoints[0].latitude], zoom: 15 });
+          hasFittedRef.current = true;
+        }
+      } else {
+        hasFittedRef.current = false;
       }
     };
 

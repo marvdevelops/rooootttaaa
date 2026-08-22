@@ -13,6 +13,9 @@ import {
   leaveClub,
   listClubMembers,
   listClubRoutes,
+  removeClubMember,
+  respondToClubJoinRequest,
+  setClubMemberRole,
   uploadClubAvatar,
   updateClub,
 } from '../../../lib/clubsApi';
@@ -37,12 +40,25 @@ export default function ClubDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [managing, setManaging] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [pending, setPending] = useState<ClubMember[]>([]);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editPrivate, setEditPrivate] = useState(false);
 
   const isAdmin = club?.myRole === 'owner' || club?.myRole === 'admin';
 
   useEffect(() => {
     getClub(id)
-      .then(setClub)
+      .then((c) => {
+        setClub(c);
+        setEditName(c.name);
+        setEditDescription(c.description ?? '');
+        setEditCity(c.city ?? '');
+        setEditPrivate(c.isPrivate);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [id]);
@@ -53,6 +69,49 @@ export default function ClubDetailPage() {
       tab === 'events' ? listClubEvents(id).then(setEvents) : tab === 'routes' ? listClubRoutes(id).then(setRoutes) : listClubMembers(id).then(setMembers);
     load.finally(() => setTabLoading(false));
   }, [id, tab]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    listClubMembers(id, 'pending').then(setPending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isAdmin, tab]);
+
+  async function handleSaveSettings() {
+    if (!club || !editName.trim()) return;
+    setSavingSettings(true);
+    setError(null);
+    try {
+      await updateClub(club.id, { name: editName, description: editDescription, city: editCity, isPrivate: editPrivate });
+      setClub({ ...club, name: editName.trim(), description: editDescription.trim() || null, city: editCity.trim() || null, isPrivate: editPrivate });
+      setManaging(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save changes.');
+    } finally {
+      setSavingSettings(false);
+    }
+  }
+
+  async function handleRespond(userId: string, approve: boolean) {
+    if (!club) return;
+    await respondToClubJoinRequest(club.id, userId, approve);
+    setPending((p) => p.filter((m) => m.userId !== userId));
+    if (approve) setClub({ ...club, memberCount: club.memberCount + 1 });
+    if (tab === 'members') listClubMembers(id).then(setMembers);
+  }
+
+  async function handlePromote(member: ClubMember) {
+    if (!club) return;
+    const nextRole = member.role === 'admin' ? 'member' : 'admin';
+    await setClubMemberRole(club.id, member.userId, nextRole);
+    setMembers((ms) => ms.map((m) => (m.userId === member.userId ? { ...m, role: nextRole } : m)));
+  }
+
+  async function handleRemoveMember(member: ClubMember) {
+    if (!club) return;
+    await removeClubMember(club.id, member.userId);
+    setMembers((ms) => ms.filter((m) => m.userId !== member.userId));
+    setClub({ ...club, memberCount: club.memberCount - 1 });
+  }
 
   async function handleJoin() {
     if (!club) return;
@@ -131,22 +190,74 @@ export default function ClubDetailPage() {
                 </div>
               </div>
 
-              {club.description && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{club.description}</p>}
+              {!managing && club.description && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{club.description}</p>}
 
               {error && <span style={{ fontSize: 13, color: 'var(--danger)' }}>{error}</span>}
 
-              {club.myStatus === 'active' ? (
-                <button onClick={handleLeave} disabled={busy} style={secondaryBtnStyle}>
-                  {club.myRole === 'owner' ? 'You own this club' : 'Leave club'}
-                </button>
-              ) : club.myStatus === 'pending' ? (
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber)' }}>Request pending approval</span>
+              {managing ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <input type="text" placeholder="Club name" value={editName} onChange={(e) => setEditName(e.target.value)} style={inputStyle} />
+                  <textarea
+                    placeholder="Description (optional)"
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={3}
+                    style={{ ...inputStyle, resize: 'vertical' }}
+                  />
+                  <input type="text" placeholder="City (optional)" value={editCity} onChange={(e) => setEditCity(e.target.value)} style={inputStyle} />
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                    <input type="checkbox" checked={editPrivate} onChange={(e) => setEditPrivate(e.target.checked)} />
+                    Private club (members must be approved)
+                  </label>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={handleSaveSettings} disabled={savingSettings || !editName.trim()} style={primaryBtnStyle}>
+                      {savingSettings ? 'Saving…' : 'Save changes'}
+                    </button>
+                    <button onClick={() => setManaging(false)} style={secondaryBtnStyle}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
               ) : (
-                <button onClick={handleJoin} disabled={busy} style={primaryBtnStyle}>
-                  {club.isPrivate ? 'Request to join' : 'Join club'}
-                </button>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  {club.myStatus === 'active' ? (
+                    <button onClick={handleLeave} disabled={busy} style={secondaryBtnStyle}>
+                      {club.myRole === 'owner' ? 'Leave (transfers ownership)' : 'Leave club'}
+                    </button>
+                  ) : club.myStatus === 'pending' ? (
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber)' }}>Request pending approval</span>
+                  ) : (
+                    <button onClick={handleJoin} disabled={busy} style={primaryBtnStyle}>
+                      {club.isPrivate ? 'Request to join' : 'Join club'}
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button onClick={() => setManaging(true)} style={secondaryBtnStyle}>
+                      Manage club
+                    </button>
+                  )}
+                </div>
               )}
             </div>
+
+            {isAdmin && pending.length > 0 && (
+              <div className="route-detail-card" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--mist)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Pending requests
+                </span>
+                {pending.map((member) => (
+                  <div key={member.userId} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13.5, flex: 1 }}>{member.username}</span>
+                    <button onClick={() => handleRespond(member.userId, true)} className="builder-toolbar-btn">
+                      Approve
+                    </button>
+                    <button onClick={() => handleRespond(member.userId, false)} className="builder-toolbar-btn">
+                      Deny
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="club-tabs">
               {(['events', 'routes', 'members'] as Tab[]).map((t) => (
@@ -218,6 +329,28 @@ export default function ClubDetailPage() {
                     {member.role !== 'member' && (
                       <span style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--mist)', textTransform: 'uppercase' }}>{member.role}</span>
                     )}
+                    {isAdmin && member.userId !== session?.user.id && member.role !== 'owner' && (
+                      <div style={{ display: 'flex', gap: 6 }} onClick={(e) => e.preventDefault()}>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handlePromote(member);
+                          }}
+                          className="builder-toolbar-btn"
+                        >
+                          {member.role === 'admin' ? 'Demote' : 'Make admin'}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleRemoveMember(member);
+                          }}
+                          className="builder-toolbar-btn"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
                   </Link>
                 ))}
               </div>
@@ -228,6 +361,15 @@ export default function ClubDetailPage() {
     </div>
   );
 }
+
+const inputStyle: React.CSSProperties = {
+  padding: '11px 14px',
+  borderRadius: 'var(--radius-sm)',
+  border: '1px solid rgba(0,0,0,.1)',
+  fontSize: 14,
+  fontFamily: 'inherit',
+  outline: 'none',
+};
 
 const primaryBtnStyle: React.CSSProperties = {
   padding: '12px 18px',
