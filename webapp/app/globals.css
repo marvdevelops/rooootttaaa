@@ -778,14 +778,41 @@ button {
   gap: 16px;
 }
 .runs-featured-card {
+  display: flex;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: var(--shadow-coral);
+}
+.runs-featured-thumb {
+  width: 200px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--coral-hover), var(--coral));
+  display: none;
+}
+@media (min-width: 760px) {
+  .runs-featured-thumb {
+    display: block;
+  }
+}
+.runs-featured-body {
+  flex: 1;
+  min-width: 0;
   background: var(--coral);
   color: var(--white);
-  border-radius: var(--radius-xl);
   padding: 22px;
-  box-shadow: var(--shadow-coral);
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.runs-attendee-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.18);
 }
 .runs-featured-badge {
   align-self: flex-start;

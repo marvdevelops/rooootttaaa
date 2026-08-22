@@ -51,20 +51,39 @@ export default function RunsPage() {
               </Link>
             </div>
 
+            <div className="discover-segmented" style={{ maxWidth: 340 }}>
+              <button className="discover-segmented-item" data-active="true">
+                Upcoming
+              </button>
+              <span className="discover-segmented-item mymaps-segmented-disabled" title="Coming soon">
+                Hosting
+              </span>
+              <span className="discover-segmented-item mymaps-segmented-disabled" title="Coming soon">
+                Past
+              </span>
+            </div>
+
             {loading && <span style={{ color: 'var(--stone)' }}>Loading…</span>}
             {!loading && runs.length === 0 && <span style={{ color: 'var(--stone)' }}>No upcoming group runs yet.</span>}
 
             {featured && (
               <Link href={`/runs/${featured.id}`} className="runs-featured-card">
-                <span className="runs-featured-badge">{isToday(featured.scheduledAt) ? 'Happening today' : 'Next up'}</span>
-                <span style={{ fontWeight: 800, fontSize: 19 }}>{featured.title}</span>
-                <span style={{ fontSize: 13.5, opacity: 0.92 }}>
-                  {new Date(featured.scheduledAt).toLocaleString()} · {featured.routeName} ({featured.routeDistanceKm.toFixed(1)} km)
-                </span>
-                <span style={{ fontSize: 12.5, opacity: 0.8 }}>
-                  Hosted by {featured.hostUsername} · {featured.rsvpCount}
-                  {featured.maxParticipants ? `/${featured.maxParticipants}` : ''} going
-                </span>
+                <div className="runs-featured-thumb" />
+                <div className="runs-featured-body">
+                  <span className="runs-featured-badge">{isToday(featured.scheduledAt) ? 'Happening today' : 'Next up'}</span>
+                  <span style={{ fontWeight: 800, fontSize: 19 }}>{featured.title}</span>
+                  <span style={{ fontSize: 13.5, opacity: 0.92 }}>
+                    {new Date(featured.scheduledAt).toLocaleString()} · {featured.routeName} ({featured.routeDistanceKm.toFixed(1)} km)
+                  </span>
+                  <span style={{ fontSize: 12.5, opacity: 0.8 }}>Hosted by {featured.hostUsername}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 4 }}>
+                    <span className="runs-attendee-badge">
+                      {featured.rsvpCount}
+                      {featured.maxParticipants ? `/${featured.maxParticipants}` : ''} going
+                    </span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700 }}>{featured.isRsvpedByMe ? 'Manage run →' : 'Join run →'}</span>
+                  </div>
+                </div>
               </Link>
             )}
 
@@ -74,12 +93,23 @@ export default function RunsPage() {
                 <span style={{ fontSize: 12.5, color: 'var(--stone)' }}>
                   {new Date(run.scheduledAt).toLocaleString()} · {run.routeName} ({run.routeDistanceKm.toFixed(1)} km)
                 </span>
-                <span style={{ fontSize: 11.5, color: 'var(--mist)' }}>
-                  Hosted by {run.hostUsername} · {run.rsvpCount}
-                  {run.maxParticipants ? `/${run.maxParticipants}` : ''} going
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
+                  <span style={{ fontSize: 11.5, color: 'var(--mist)' }}>
+                    Hosted by {run.hostUsername} · {run.rsvpCount}
+                    {run.maxParticipants ? `/${run.maxParticipants}` : ''} going
+                  </span>
+                  {run.isRsvpedByMe && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--sage)' }}>Joined</span>
+                  )}
+                </div>
               </Link>
             ))}
+
+            {!loading && runs.length > 0 && (
+              <Link href="/explore" className="mymaps-add-tile" style={{ minHeight: 64, flexDirection: 'row', gap: 8 }}>
+                Find more runs near you
+              </Link>
+            )}
           </div>
 
           <div className="runs-rail">
