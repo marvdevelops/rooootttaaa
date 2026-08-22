@@ -428,3 +428,175 @@ button {
     min-height: 60vh;
   }
 }
+
+/* Discover page — full-bleed map with a floating search bar (top-left) and
+   a 392px right route panel, per the design brief. */
+.discover-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.discover-map {
+  flex: 1;
+  position: relative;
+  min-height: 320px;
+}
+.discover-search {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  max-width: 420px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  z-index: 5;
+}
+.discover-search-input {
+  flex: 1;
+  min-width: 220px;
+  padding: 12px 16px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--surface);
+  box-shadow: var(--shadow-floating);
+  font-size: 13.5px;
+  font-family: inherit;
+  outline: none;
+  color: var(--ink);
+}
+.discover-search-input::placeholder {
+  color: var(--mist);
+}
+.discover-panel {
+  width: 392px;
+  flex-shrink: 0;
+  background: var(--panel);
+  box-shadow: -1px 0 0 rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.discover-panel-header {
+  padding: 20px 20px 14px;
+}
+.discover-panel-title {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  color: var(--ink);
+}
+.discover-panel-subtitle {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--stone);
+}
+.discover-segmented {
+  display: flex;
+  gap: 2px;
+  margin: 14px 20px 4px;
+  padding: 3px;
+  background: var(--segment-track);
+  border-radius: var(--radius-pill);
+}
+.discover-segmented-item {
+  flex: 1;
+  text-align: center;
+  padding: 8px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--stone);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  border: none;
+  background: transparent;
+}
+.discover-segmented-item[data-active='true'] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-hairline);
+}
+.discover-panel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 20px 24px;
+}
+.discover-selected-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+  margin: 4px 20px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.discover-stat-grid {
+  display: flex;
+  gap: 8px;
+}
+.discover-stat-tile {
+  flex: 1;
+  background: var(--sheet-bg);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.discover-stat-value {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.discover-stat-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--stone);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.discover-run-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--coral);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 13.5px;
+  box-shadow: var(--shadow-coral);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.discover-run-btn:hover {
+  background: var(--coral-hover);
+}
+.discover-section-label {
+  padding: 0 20px;
+  margin-top: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mist);
+}
+
+@media (max-width: 720px) {
+  .discover-layout {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .discover-map {
+    min-height: 55vh;
+  }
+  .discover-panel {
+    width: 100%;
+  }
+}
