@@ -720,3 +720,65 @@ button {
   justify-content: center;
   flex-shrink: 0;
 }
+
+/* Group runs — a wide page body with a main feed + a 280px right column
+   for the "Your clubs" and stat cards, per the design brief. */
+.runs-page-body {
+  display: flex;
+  gap: 24px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 28px 32px 48px;
+}
+.runs-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.runs-rail {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.runs-featured-card {
+  background: var(--coral);
+  color: var(--white);
+  border-radius: var(--radius-xl);
+  padding: 22px;
+  box-shadow: var(--shadow-coral);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.runs-featured-badge {
+  align-self: flex-start;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.2);
+}
+.runs-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+@media (max-width: 900px) {
+  .runs-page-body {
+    flex-direction: column;
+    padding: 20px;
+  }
+  .runs-rail {
+    width: 100%;
+  }
+}

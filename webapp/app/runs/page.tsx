@@ -2,71 +2,119 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import ClubAvatar from '../../components/ClubAvatar';
 import Sidebar from '../../components/Sidebar';
+import { useAuth } from '../../lib/AuthContext';
+import { listMyClubs } from '../../lib/clubsApi';
 import { listUpcomingGroupRuns } from '../../lib/groupRunsApi';
-import { GroupRun } from '../../lib/types';
+import { GroupRun, RunClub } from '../../lib/types';
+
+function isToday(ts: number): boolean {
+  const d = new Date(ts);
+  const now = new Date();
+  return d.toDateString() === now.toDateString();
+}
 
 export default function RunsPage() {
+  const { session } = useAuth();
   const [runs, setRuns] = useState<GroupRun[]>([]);
+  const [myClubs, setMyClubs] = useState<RunClub[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     listUpcomingGroupRuns().then(setRuns).finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (session) listMyClubs().then(setMyClubs);
+    else setMyClubs([]);
+  }, [session]);
+
+  const featured = runs.find((r) => isToday(r.scheduledAt)) ?? runs[0] ?? null;
+  const rest = featured ? runs.filter((r) => r.id !== featured.id) : runs;
+  const thisMonthCount = runs.filter((r) => {
+    const d = new Date(r.scheduledAt);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
   return (
     <div className="app-shell">
       <Sidebar />
-      <div className="app-shell-content">
+      <div className="app-shell-content" style={{ overflowY: 'auto' }}>
+        <div className="runs-page-body">
+          <div className="runs-main">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800 }}>Group runs</h1>
+              <Link href="/runs/new" className="discover-run-btn" style={{ width: 'auto', padding: '10px 18px' }}>
+                Schedule a run
+              </Link>
+            </div>
 
-      <main style={{ flex: 1, overflowY: 'auto', padding: 32, display: 'flex', justifyContent: 'center' }}>
-        <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800 }}>Group runs</h1>
-            <Link href="/runs/new" style={primaryBtnStyle}>
-              Schedule a run
-            </Link>
+            {loading && <span style={{ color: 'var(--stone)' }}>Loading…</span>}
+            {!loading && runs.length === 0 && <span style={{ color: 'var(--stone)' }}>No upcoming group runs yet.</span>}
+
+            {featured && (
+              <Link href={`/runs/${featured.id}`} className="runs-featured-card">
+                <span className="runs-featured-badge">{isToday(featured.scheduledAt) ? 'Happening today' : 'Next up'}</span>
+                <span style={{ fontWeight: 800, fontSize: 19 }}>{featured.title}</span>
+                <span style={{ fontSize: 13.5, opacity: 0.92 }}>
+                  {new Date(featured.scheduledAt).toLocaleString()} · {featured.routeName} ({featured.routeDistanceKm.toFixed(1)} km)
+                </span>
+                <span style={{ fontSize: 12.5, opacity: 0.8 }}>
+                  Hosted by {featured.hostUsername} · {featured.rsvpCount}
+                  {featured.maxParticipants ? `/${featured.maxParticipants}` : ''} going
+                </span>
+              </Link>
+            )}
+
+            {rest.map((run) => (
+              <Link key={run.id} href={`/runs/${run.id}`} className="runs-row">
+                <span style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)' }}>{run.title}</span>
+                <span style={{ fontSize: 12.5, color: 'var(--stone)' }}>
+                  {new Date(run.scheduledAt).toLocaleString()} · {run.routeName} ({run.routeDistanceKm.toFixed(1)} km)
+                </span>
+                <span style={{ fontSize: 11.5, color: 'var(--mist)' }}>
+                  Hosted by {run.hostUsername} · {run.rsvpCount}
+                  {run.maxParticipants ? `/${run.maxParticipants}` : ''} going
+                </span>
+              </Link>
+            ))}
           </div>
 
-          {loading && <span style={{ color: 'var(--stone)' }}>Loading…</span>}
-          {!loading && runs.length === 0 && <span style={{ color: 'var(--stone)' }}>No upcoming group runs yet.</span>}
+          <div className="runs-rail">
+            {session && (
+              <div className="route-detail-card">
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--mist)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  This month
+                </span>
+                <div style={{ marginTop: 8, fontSize: 26, fontWeight: 800, color: 'var(--ink)' }}>{thisMonthCount}</div>
+                <span style={{ fontSize: 12.5, color: 'var(--stone)' }}>group runs scheduled</span>
+              </div>
+            )}
 
-          {runs.map((run) => (
-            <Link
-              key={run.id}
-              href={`/runs/${run.id}`}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                padding: 18,
-                borderRadius: 'var(--radius-md)',
-                background: 'var(--surface)',
-                boxShadow: 'var(--elevation-card)',
-              }}
-            >
-              <span style={{ fontWeight: 700, fontSize: 15 }}>{run.title}</span>
-              <span style={{ fontSize: 13, color: 'var(--stone)' }}>
-                {new Date(run.scheduledAt).toLocaleString()} · {run.routeName} ({run.routeDistanceKm.toFixed(1)} km)
-              </span>
-              <span style={{ fontSize: 12, color: 'var(--mist)' }}>
-                Hosted by {run.hostUsername} · {run.rsvpCount}
-                {run.maxParticipants ? `/${run.maxParticipants}` : ''} going
-              </span>
-            </Link>
-          ))}
+            {session && myClubs.length > 0 && (
+              <div className="route-detail-card">
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--mist)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Your clubs
+                </span>
+                <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {myClubs.slice(0, 5).map((club) => (
+                    <Link
+                      key={club.id}
+                      href={`/clubs/${club.id}`}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}
+                    >
+                      <ClubAvatar club={club} size={30} />
+                      {club.name}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </main>
       </div>
     </div>
   );
 }
-
-const primaryBtnStyle: React.CSSProperties = {
-  padding: '10px 18px',
-  borderRadius: 'var(--radius-pill)',
-  background: 'var(--coral)',
-  color: 'var(--white)',
-  fontWeight: 700,
-  fontSize: 13,
-};
