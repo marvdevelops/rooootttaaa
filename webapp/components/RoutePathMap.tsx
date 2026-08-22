@@ -2,12 +2,20 @@
 
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { RouteSegment, Waypoint } from '../lib/types';
+import MapStyleControls, { MapStyleMode } from './MapStyleControls';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 
 const DEFAULT_CENTER: [number, number] = [121.774, 12.8797];
+const DEM_SOURCE_ID = 'rootah-terrain-dem';
+const TILT_PITCH = 60;
+
+const STYLE_URLS: Record<MapStyleMode, string> = {
+  standard: 'mapbox://styles/mapbox/light-v11',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+};
 
 interface Props {
   waypoints: Waypoint[];
@@ -18,6 +26,19 @@ interface Props {
 
 const SOURCE_ID = 'route-line';
 const LAYER_ID = 'route-line-layer';
+
+function applyTerrain(map: mapboxgl.Map, is3D: boolean) {
+  if (is3D) {
+    if (!map.getSource(DEM_SOURCE_ID)) {
+      map.addSource(DEM_SOURCE_ID, { type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1', tileSize: 512 });
+    }
+    map.setTerrain({ source: DEM_SOURCE_ID, exaggeration: 1.5 });
+    map.setPitch(TILT_PITCH);
+  } else {
+    map.setTerrain(null);
+    map.setPitch(0);
+  }
+}
 
 export default function RoutePathMap({ waypoints, segments, interactive = true, onMapClick }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -32,20 +53,16 @@ export default function RoutePathMap({ waypoints, segments, interactive = true, 
   // handler and checked everywhere else instead.
   const loaded = useRef(false);
   const applyGeometryRef = useRef<() => void>(() => {});
+  const [mapStyleMode, setMapStyleMode] = useState<MapStyleMode>('standard');
+  const [is3D, setIs3D] = useState(false);
+  const is3DRef = useRef(is3D);
+  is3DRef.current = is3D;
 
-  useEffect(() => {
-    if (!mapContainer.current || map.current) return;
-    const m = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
-      center: DEFAULT_CENTER,
-      zoom: 5,
-      interactive,
-    });
-    map.current = m;
-
-    m.on('load', () => {
+  function setupRouteLayer(m: mapboxgl.Map) {
+    if (!m.getSource(SOURCE_ID)) {
       m.addSource(SOURCE_ID, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    }
+    if (!m.getLayer(LAYER_ID)) {
       m.addLayer({
         id: LAYER_ID,
         type: 'line',
@@ -53,6 +70,26 @@ export default function RoutePathMap({ waypoints, segments, interactive = true, 
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: { 'line-color': '#E84B2A', 'line-width': 4 },
       });
+    }
+  }
+
+  useEffect(() => {
+    if (!mapContainer.current || map.current) return;
+    const m = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: STYLE_URLS.standard,
+      center: DEFAULT_CENTER,
+      zoom: 5,
+      interactive,
+      // Mercator, not the v3 default globe projection — routes never need a
+      // globe view, and combining globe projection with terrain/pitch
+      // changes is a known source of internal mapbox-gl promise rejections.
+      projection: 'mercator',
+    });
+    map.current = m;
+
+    m.on('load', () => {
+      setupRouteLayer(m);
       loaded.current = true;
       applyGeometryRef.current();
     });
@@ -68,6 +105,31 @@ export default function RoutePathMap({ waypoints, segments, interactive = true, 
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !loaded.current) return;
+    m.setStyle(STYLE_URLS[mapStyleMode]);
+    m.setProjection('mercator');
+    m.once('style.load', () => {
+      setupRouteLayer(m);
+      applyGeometryRef.current();
+      // Deferred a tick — calling setTerrain/easeTo synchronously inside
+      // 'style.load' can fire before mapbox-gl's internal style managers
+      // (projection/terrain) finish initializing for the new style,
+      // throwing "Cannot read properties of undefined" from inside the library.
+      requestAnimationFrame(() => applyTerrain(m, is3DRef.current));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapStyleMode]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    if (m.isStyleLoaded()) requestAnimationFrame(() => applyTerrain(m, is3D));
+    else m.once('style.load', () => requestAnimationFrame(() => applyTerrain(m, is3D)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [is3D]);
 
   useEffect(() => {
     const m = map.current;
@@ -111,5 +173,15 @@ export default function RoutePathMap({ waypoints, segments, interactive = true, 
     if (loaded.current) applyGeometry();
   }, [waypoints, segments]);
 
-  return <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />;
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+      <MapStyleControls
+        mapStyleMode={mapStyleMode}
+        onChangeStyle={setMapStyleMode}
+        is3D={is3D}
+        onToggle3D={() => setIs3D((v) => !v)}
+      />
+    </div>
+  );
 }

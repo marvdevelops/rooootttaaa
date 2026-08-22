@@ -2,8 +2,9 @@
 
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CloudRoute } from '../lib/types';
+import MapStyleControls, { MapStyleMode } from './MapStyleControls';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 
@@ -11,6 +12,13 @@ mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 // same fallback view as the mobile app's MapScreen.
 const DEFAULT_CENTER: [number, number] = [121.774, 12.8797];
 const DEFAULT_ZOOM = 5;
+const DEM_SOURCE_ID = 'rootah-terrain-dem';
+const TILT_PITCH = 60;
+
+const STYLE_URLS: Record<MapStyleMode, string> = {
+  standard: 'mapbox://styles/mapbox/light-v11',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+};
 
 interface Props {
   routes: CloudRoute[];
@@ -18,18 +26,37 @@ interface Props {
   onSelect: (id: string) => void;
 }
 
+function applyTerrain(map: mapboxgl.Map, is3D: boolean) {
+  if (is3D) {
+    if (!map.getSource(DEM_SOURCE_ID)) {
+      map.addSource(DEM_SOURCE_ID, { type: 'raster-dem', url: 'mapbox://mapbox.mapbox-terrain-dem-v1', tileSize: 512 });
+    }
+    map.setTerrain({ source: DEM_SOURCE_ID, exaggeration: 1.5 });
+    map.setPitch(TILT_PITCH);
+  } else {
+    map.setTerrain(null);
+    map.setPitch(0);
+  }
+}
+
 export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<Map<string, mapboxgl.Marker>>(new Map());
+  const [mapStyleMode, setMapStyleMode] = useState<MapStyleMode>('standard');
+  const [is3D, setIs3D] = useState(false);
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/light-v11',
+      style: STYLE_URLS.standard,
       center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
+      // Mercator, not the v3 default globe projection — routes never need a
+      // globe view, and combining globe projection with terrain/pitch
+      // changes is a known source of internal mapbox-gl promise rejections.
+      projection: 'mercator',
     });
     map.current.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'bottom-right');
 
@@ -38,6 +65,27 @@ export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
       map.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    m.setStyle(STYLE_URLS[mapStyleMode]);
+    m.setProjection('mercator');
+    // Deferred a tick — calling setTerrain/easeTo synchronously inside
+    // 'style.load' can fire before mapbox-gl's internal style managers
+    // (projection/terrain) finish initializing for the new style, throwing
+    // "Cannot read properties of undefined" from inside the library.
+    m.once('style.load', () => requestAnimationFrame(() => applyTerrain(m, is3D)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapStyleMode]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m) return;
+    if (m.isStyleLoaded()) requestAnimationFrame(() => applyTerrain(m, is3D));
+    else m.once('style.load', () => requestAnimationFrame(() => applyTerrain(m, is3D)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [is3D]);
 
   useEffect(() => {
     if (!map.current) return;
@@ -86,5 +134,15 @@ export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
     }
   }, [selectedId, routes]);
 
-  return <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />;
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
+      <MapStyleControls
+        mapStyleMode={mapStyleMode}
+        onChangeStyle={setMapStyleMode}
+        is3D={is3D}
+        onToggle3D={() => setIs3D((v) => !v)}
+      />
+    </div>
+  );
 }
