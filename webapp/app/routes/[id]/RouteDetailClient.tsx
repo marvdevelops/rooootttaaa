@@ -8,9 +8,10 @@ import Sidebar from '../../../components/Sidebar';
 import RoutePathMap from '../../../components/RoutePathMap';
 import RouteSocial from '../../../components/RouteSocial';
 import { useAuth } from '../../../lib/AuthContext';
+import { listRouteCompletions } from '../../../lib/completionsApi';
 import { buildElevationProfile } from '../../../lib/elevationProfile';
 import { getRoute, toggleLike, toggleSave } from '../../../lib/routesApi';
-import { CloudRoute } from '../../../lib/types';
+import { CloudRoute, CompletionParticipant } from '../../../lib/types';
 
 const ACTIVITY_LABEL: Record<string, string> = {
   run: 'Run',
@@ -39,6 +40,7 @@ export default function RouteDetailClient({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [finishers, setFinishers] = useState<CompletionParticipant[]>([]);
 
   useEffect(() => {
     getRoute(id)
@@ -51,6 +53,7 @@ export default function RouteDetailClient({ id }: { id: string }) {
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+    listRouteCompletions(id, 8).then(setFinishers);
   }, [id]);
 
   async function handleLike() {
@@ -121,6 +124,22 @@ export default function RouteDetailClient({ id }: { id: string }) {
             <div className="route-detail-body">
               <div className="route-detail-main">
                 <div>
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      fontSize: 9,
+                      fontWeight: 800,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                      padding: '4px 10px',
+                      borderRadius: 8,
+                      background: 'rgba(0,0,0,.06)',
+                      color: 'var(--ink)',
+                      marginBottom: 8,
+                    }}
+                  >
+                    {ACTIVITY_LABEL[route.activityType] ?? route.activityType}
+                  </span>
                   <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: '-0.4px' }}>{route.name}</h1>
                   <span style={{ fontSize: 13, color: 'var(--stone)' }}>
                     By{' '}
@@ -136,15 +155,17 @@ export default function RouteDetailClient({ id }: { id: string }) {
                     <span className="discover-stat-value">{route.distanceKm.toFixed(1)} km</span>
                     <span className="discover-stat-label">Distance</span>
                   </div>
-                  <div className="discover-stat-tile">
+                  <div className="discover-stat-tile" data-tone="gain">
                     <span className="discover-stat-value">+{Math.round(route.elevationGainM)}m</span>
                     <span className="discover-stat-label">Gain</span>
                   </div>
-                  <div className="discover-stat-tile">
-                    <span className="discover-stat-value">{ACTIVITY_LABEL[route.activityType] ?? route.activityType}</span>
-                    <span className="discover-stat-label">Type</span>
-                  </div>
-                  <div className="discover-stat-tile">
+                  {profile && (
+                    <div className="discover-stat-tile" data-tone="peak">
+                      <span className="discover-stat-value">{Math.round(profile.maxElevation)}m</span>
+                      <span className="discover-stat-label">Peak</span>
+                    </div>
+                  )}
+                  <div className="discover-stat-tile" data-tone="neutral">
                     <span className="discover-stat-value">{formatEstTime(route.distanceKm)}</span>
                     <span className="discover-stat-label">Est. time</span>
                   </div>
@@ -153,9 +174,13 @@ export default function RouteDetailClient({ id }: { id: string }) {
                 {profile && (
                   <div className="route-detail-card">
                     <ElevationChart path={route.elevationProfile} height={100} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                      <span style={{ fontSize: 11.5, color: 'var(--stone)', fontWeight: 600 }}>Low {Math.round(profile.minElevation)} m</span>
-                      <span style={{ fontSize: 11.5, color: 'var(--stone)', fontWeight: 600 }}>Peak {Math.round(profile.maxElevation)} m</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 10 }}>
+                      <LegendDot color="#2ecc71" label="Flat" />
+                      <LegendDot color="#f39c12" label="Rolling" />
+                      <LegendDot color="#e74c3c" label="Climb" />
+                      <span style={{ marginLeft: 'auto', fontSize: 11.5, color: 'var(--stone)', fontWeight: 600 }}>
+                        Low {Math.round(profile.minElevation)}m · Peak {Math.round(profile.maxElevation)}m
+                      </span>
                     </div>
                   </div>
                 )}
@@ -199,12 +224,71 @@ export default function RouteDetailClient({ id }: { id: string }) {
                 )}
 
                 <RouteSocial routeId={route.id} onLogged={() => setRoute({ ...route, completionCount: route.completionCount + 1 })} />
+
+                {finishers.length > 0 && (
+                  <div>
+                    <span
+                      style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--mist)' }}
+                    >
+                      Recent finishers
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                      {finishers.map((f) => (
+                        <div key={f.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {f.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={f.avatarUrl} alt={f.username} style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
+                          ) : (
+                            <div
+                              style={{
+                                width: 34,
+                                height: 34,
+                                borderRadius: '50%',
+                                background: 'var(--sheet-bg)',
+                                color: 'var(--coral)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontWeight: 800,
+                                fontSize: 13,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {f.username.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>{f.username}</span>
+                            <span style={{ fontSize: 11.5, color: 'var(--stone)' }}>{relativeTime(f.completedAt)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function relativeTime(ms: number): string {
+  const diffDays = Math.floor((Date.now() - ms) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 600, color: 'var(--stone)' }}>
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
+      {label}
+    </span>
   );
 }
 

@@ -92,10 +92,18 @@ export default function Home() {
                     <span className="discover-stat-value">{selected.distanceKm.toFixed(1)} km</span>
                     <span className="discover-stat-label">Distance</span>
                   </div>
-                  <div className="discover-stat-tile">
+                  <div className="discover-stat-tile" data-tone="gain">
                     <span className="discover-stat-value">+{Math.round(selected.elevationGainM)}m</span>
                     <span className="discover-stat-label">Gain</span>
                   </div>
+                  {selected.elevationProfile.length > 0 && (
+                    <div className="discover-stat-tile" data-tone="peak">
+                      <span className="discover-stat-value">
+                        {Math.round(Math.max(...selected.elevationProfile.map((p) => p.elevation ?? 0)))}m
+                      </span>
+                      <span className="discover-stat-label">Peak</span>
+                    </div>
+                  )}
                 </div>
 
                 {selected.elevationProfile.length > 1 && <ElevationSparkline profile={selected.elevationProfile} />}

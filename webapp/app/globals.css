@@ -547,17 +547,31 @@ button {
 }
 .discover-stat-tile {
   flex: 1;
-  background: var(--sheet-bg);
+  background: #ede8df;
   border-radius: var(--radius-sm);
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
+.discover-stat-tile[data-tone='gain'] {
+  background: var(--teal);
+}
+.discover-stat-tile[data-tone='peak'] {
+  background: var(--amber);
+}
+.discover-stat-tile[data-tone='neutral'] {
+  background: var(--white);
+  box-shadow: var(--shadow-hairline);
+}
 .discover-stat-value {
   font-size: 15px;
   font-weight: 800;
   color: var(--ink);
+}
+.discover-stat-tile[data-tone='gain'] .discover-stat-value,
+.discover-stat-tile[data-tone='peak'] .discover-stat-value {
+  color: var(--white);
 }
 .discover-stat-label {
   font-size: 10.5px;
@@ -565,6 +579,10 @@ button {
   color: var(--stone);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+.discover-stat-tile[data-tone='gain'] .discover-stat-label,
+.discover-stat-tile[data-tone='peak'] .discover-stat-label {
+  color: rgba(255, 255, 255, 0.82);
 }
 .discover-run-btn {
   display: flex;
