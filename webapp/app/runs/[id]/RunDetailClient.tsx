@@ -110,7 +110,7 @@ export default function RunDetailClient({ id }: { id: string }) {
                 ← Group runs
               </Link>
               {route ? (
-                <RoutePathMap waypoints={route.waypoints} segments={route.segments} notes={route.notes} interactive />
+                <RoutePathMap waypoints={route.waypoints} segments={route.segments} notes={route.notes} />
               ) : (
                 <div style={{ width: '100%', height: '100%', background: 'var(--map-land)' }} />
               )}
