@@ -8,9 +8,16 @@ import RoutePathMap from '../../../components/RoutePathMap';
 import ShareButton from '../../../components/ShareButton';
 import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
-import { FreeJoinLimitError, getGroupRun, incrementGroupRunShareCount, setGroupRunRsvp } from '../../../lib/groupRunsApi';
+import {
+  FreeJoinLimitError,
+  getGroupRun,
+  incrementGroupRunShareCount,
+  listGroupRunParticipants,
+  respondToJoinRequest,
+  setGroupRunRsvp,
+} from '../../../lib/groupRunsApi';
 import { getRoute } from '../../../lib/routesApi';
-import { CloudRoute, GroupRun } from '../../../lib/types';
+import { CloudRoute, GroupRun, GroupRunParticipant } from '../../../lib/types';
 
 const ACTIVITY_LABEL: Record<string, string> = {
   run: 'Run',
@@ -29,6 +36,7 @@ export default function RunDetailClient({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<GroupRunParticipant[]>([]);
 
   useEffect(() => {
     getGroupRun(id)
@@ -41,21 +49,27 @@ export default function RunDetailClient({ id }: { id: string }) {
       .finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!run?.isHostedByMe) return;
+    listGroupRunParticipants(id).then((all) => setPending(all.filter((p) => p.status === 'pending')));
+  }, [id, run?.isHostedByMe]);
+
   async function handleRsvp() {
     if (!run) return;
     if (!session) {
       router.push(`/login?next=/runs/${id}`);
       return;
     }
+    const wasActive = run.myRsvpStatus === 'pending' || run.myRsvpStatus === 'approved';
     setBusy(true);
     setError(null);
     try {
-      await setGroupRunRsvp(run.id, !run.isRsvpedByMe);
+      await setGroupRunRsvp(run.id, !wasActive);
       setRun({
         ...run,
-        isRsvpedByMe: !run.isRsvpedByMe,
-        myRsvpStatus: run.isRsvpedByMe ? null : 'approved',
-        rsvpCount: run.rsvpCount + (run.isRsvpedByMe ? -1 : 1),
+        isRsvpedByMe: false,
+        myRsvpStatus: wasActive ? null : 'pending',
+        rsvpCount: run.rsvpCount + (run.myRsvpStatus === 'approved' && wasActive ? -1 : 0),
       });
     } catch (err) {
       if (err instanceof FreeJoinLimitError) setError(err.message);
@@ -63,6 +77,13 @@ export default function RunDetailClient({ id }: { id: string }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleRespond(userId: string, approve: boolean) {
+    if (!run) return;
+    await respondToJoinRequest(run.id, userId, approve);
+    setPending((p) => p.filter((r) => r.userId !== userId));
+    if (approve) setRun({ ...run, rsvpCount: run.rsvpCount + 1 });
   }
 
   return (
@@ -172,9 +193,43 @@ export default function RunDetailClient({ id }: { id: string }) {
                     You&apos;re hosting this run
                   </span>
                 ) : (
-                  <button onClick={handleRsvp} disabled={busy} className="discover-run-btn" style={{ background: run.isRsvpedByMe ? 'var(--sage)' : 'var(--coral)' }}>
-                    {run.isRsvpedByMe ? "I'm going ✓" : 'RSVP'}
+                  <button
+                    onClick={handleRsvp}
+                    disabled={busy || run.myRsvpStatus === 'pending'}
+                    className="discover-run-btn"
+                    style={{ background: run.myRsvpStatus === 'approved' ? 'var(--sage)' : run.myRsvpStatus === 'pending' ? 'var(--mist)' : 'var(--coral)' }}
+                  >
+                    {run.myRsvpStatus === 'approved' ? "I'm going ✓" : run.myRsvpStatus === 'pending' ? 'Request pending approval' : 'RSVP'}
                   </button>
+                )}
+
+                {run.isHostedByMe && pending.length > 0 && (
+                  <div className="route-detail-card">
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--mist)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      Pending requests
+                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                      {pending.map((p) => (
+                        <div key={p.userId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600 }}>{p.username}</span>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <button
+                              onClick={() => handleRespond(p.userId, true)}
+                              style={{ fontSize: 12, fontWeight: 700, color: 'var(--sage)', background: 'none', border: 'none', cursor: 'pointer' }}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRespond(p.userId, false)}
+                              style={{ fontSize: 12, fontWeight: 700, color: 'var(--stone)', background: 'none', border: 'none', cursor: 'pointer' }}
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 <ShareButton

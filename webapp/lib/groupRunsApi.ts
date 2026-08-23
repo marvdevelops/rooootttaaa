@@ -1,5 +1,5 @@
 import { createClient } from './supabase/client';
-import { CreateGroupRunInput, GroupRun, GroupRunStatus, RsvpStatus } from './types';
+import { CreateGroupRunInput, GroupRun, GroupRunParticipant, GroupRunStatus, RsvpStatus } from './types';
 
 interface GroupRunRow {
   id: string;
@@ -208,4 +208,51 @@ export async function setGroupRunRsvp(groupRunId: string, rsvped: boolean): Prom
 export async function incrementGroupRunShareCount(runId: string): Promise<void> {
   const supabase = createClient();
   await supabase.rpc('increment_group_run_share_count', { run_id: runId });
+}
+
+/** Host-only: approve or decline a pending (or previously-decided) join request. */
+export async function respondToJoinRequest(groupRunId: string, userId: string, approve: boolean): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('group_run_rsvps')
+    .update({ status: approve ? 'approved' : 'declined' })
+    .eq('group_run_id', groupRunId)
+    .eq('user_id', userId);
+  if (error) {
+    if (error.message.includes('at capacity')) throw new Error('This run is at capacity.');
+    throw new Error(error.message);
+  }
+}
+
+interface ParticipantRow {
+  user_id: string;
+  status: RsvpStatus;
+  created_at: string;
+  profiles: { username: string; avatar_url: string | null } | { username: string; avatar_url: string | null }[] | null;
+}
+
+/**
+ * Everyone who's requested/joined a run. RLS scopes what comes back: the
+ * host sees every status (for the approve/decline queue), a regular viewer
+ * only sees approved rows plus their own pending/declined request.
+ */
+export async function listGroupRunParticipants(groupRunId: string): Promise<GroupRunParticipant[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from('group_run_rsvps')
+    .select('user_id, status, created_at, profiles(username, avatar_url)')
+    .eq('group_run_id', groupRunId)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown as ParticipantRow[]).map((row) => {
+    const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
+    return {
+      userId: row.user_id,
+      username: profile?.username ?? 'unknown',
+      avatarUrl: profile?.avatar_url ?? null,
+      status: row.status,
+      requestedAt: new Date(row.created_at).getTime(),
+    };
+  });
 }

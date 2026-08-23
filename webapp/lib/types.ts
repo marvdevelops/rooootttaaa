@@ -160,6 +160,14 @@ export interface CreateGroupRunInput {
   clubId?: string | null;
 }
 
+export interface GroupRunParticipant {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  status: RsvpStatus;
+  requestedAt: number;
+}
+
 export interface GroupRunComment {
   id: string;
   groupRunId: string;
