@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import PaywallModal from '../../../components/PaywallModal';
 import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
 import { listCompletionActivity } from '../../../lib/completionsApi';
@@ -36,6 +37,7 @@ export default function ProfileClient({ id }: { id: string }) {
   const [bio, setBio] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   useEffect(() => {
     getProfile(id)
@@ -188,7 +190,11 @@ export default function ProfileClient({ id }: { id: string }) {
               )}
 
               {isOwn && profile.tier !== 'paid' && (
-                <div className="profile-pro-banner">
+                <button
+                  onClick={() => setShowPaywall(true)}
+                  className="profile-pro-banner"
+                  style={{ border: 'none', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                >
                   <div>
                     <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--ink)' }}>Go Pro</span>
                     <p style={{ margin: '2px 0 0', fontSize: 12.5, color: 'var(--stone)' }}>Unlock GPX import, unlimited group runs, and more.</p>
@@ -196,8 +202,10 @@ export default function ProfileClient({ id }: { id: string }) {
                   <span className="discover-run-btn" style={{ width: 'auto', padding: '9px 16px' }}>
                     Upgrade
                   </span>
-                </div>
+                </button>
               )}
+
+              {showPaywall && <PaywallModal onClose={() => setShowPaywall(false)} />}
 
               <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <h2 style={{ fontSize: 16, fontWeight: 800 }}>Routes</h2>

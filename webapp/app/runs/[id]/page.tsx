@@ -26,7 +26,16 @@ export async function generateMetadata({ params }: PageProps<'/runs/[id]'>): Pro
   if (!run) return { title: 'Group run not found' };
 
   const route = Array.isArray(run.routes) ? run.routes[0] : run.routes;
-  const when = new Date(run.scheduled_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  // Server rendering has no request-local timezone to go by (Railway's container
+  // clock is UTC, ~8h off), so pin to Manila — where the userbase actually is —
+  // rather than silently drifting off the event's real local start time.
+  const when = new Date(run.scheduled_at).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Manila',
+  });
   const title = `${run.title} — ${when}`;
   const description =
     run.description?.trim() ||

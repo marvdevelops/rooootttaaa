@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import GroupRunComments from '../../../components/GroupRunComments';
+import PaywallModal from '../../../components/PaywallModal';
 import RoutePathMap from '../../../components/RoutePathMap';
 import ShareButton from '../../../components/ShareButton';
 import Sidebar from '../../../components/Sidebar';
@@ -37,6 +38,7 @@ export default function RunDetailClient({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<GroupRunParticipant[]>([]);
+  const [showPaywall, setShowPaywall] = useState(false);
 
   useEffect(() => {
     getGroupRun(id)
@@ -72,7 +74,7 @@ export default function RunDetailClient({ id }: { id: string }) {
         rsvpCount: run.rsvpCount + (run.myRsvpStatus === 'approved' && wasActive ? -1 : 0),
       });
     } catch (err) {
-      if (err instanceof FreeJoinLimitError) setError(err.message);
+      if (err instanceof FreeJoinLimitError) setShowPaywall(true);
       else setError(err instanceof Error ? err.message : 'Failed to RSVP.');
     } finally {
       setBusy(false);
@@ -249,6 +251,7 @@ export default function RunDetailClient({ id }: { id: string }) {
           </div>
         )}
       </div>
+      {showPaywall && <PaywallModal trigger="group_run_join_limit" onClose={() => setShowPaywall(false)} />}
     </div>
   );
 }

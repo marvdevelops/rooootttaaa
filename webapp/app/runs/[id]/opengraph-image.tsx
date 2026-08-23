@@ -64,7 +64,13 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
   }
 
   const when = run
-    ? new Date(run.scheduled_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    ? new Date(run.scheduled_at).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'Asia/Manila',
+      })
     : '';
 
   return new ImageResponse(
