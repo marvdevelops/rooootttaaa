@@ -140,6 +140,25 @@ export async function listFeaturedRoutes(limit = 8): Promise<CloudRoute[]> {
   return Promise.all(rows.map((row) => toCloudRoute(row, viewerId)));
 }
 
+/** Routes the current user has saved from other people — for the sidebar's "Saved routes" list. */
+export async function listSavedRoutes(limit = 20): Promise<CloudRoute[]> {
+  const supabase = createClient();
+  const viewerId = await currentUserId();
+  if (!viewerId) return [];
+
+  const { data, error } = await supabase
+    .from('route_saves')
+    .select(`created_at, routes(${ROUTE_SELECT})`)
+    .eq('user_id', viewerId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as { routes: RouteRow | RouteRow[] | null }[];
+  const validRows = rows.map((r) => (Array.isArray(r.routes) ? r.routes[0] : r.routes)).filter((r): r is RouteRow => !!r);
+  return Promise.all(validRows.map((row) => toCloudRoute(row, viewerId)));
+}
+
 export async function getRoute(id: string): Promise<CloudRoute | null> {
   const supabase = createClient();
   const viewerId = await currentUserId();

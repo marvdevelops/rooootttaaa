@@ -5,9 +5,12 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import ClubAvatar from './ClubAvatar';
 import Logo from './Logo';
+import RouteThumb from './RouteThumb';
 import { useAuth } from '../lib/AuthContext';
 import { listMyClubs } from '../lib/clubsApi';
-import { RunClub } from '../lib/types';
+import { listUpcomingGroupRuns } from '../lib/groupRunsApi';
+import { listSavedRoutes } from '../lib/routesApi';
+import { CloudRoute, GroupRun, RunClub } from '../lib/types';
 
 interface NavItem {
   href: string;
@@ -92,10 +95,22 @@ export default function Sidebar() {
   const { session, loading, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [myClubs, setMyClubs] = useState<RunClub[]>([]);
+  const [savedRoutes, setSavedRoutes] = useState<CloudRoute[]>([]);
+  const [upcomingRun, setUpcomingRun] = useState<GroupRun | null>(null);
 
   useEffect(() => {
-    if (session) listMyClubs().then(setMyClubs);
-    else setMyClubs([]);
+    if (!session) {
+      setMyClubs([]);
+      setSavedRoutes([]);
+      setUpcomingRun(null);
+      return;
+    }
+    listMyClubs().then(setMyClubs);
+    listSavedRoutes(5).then(setSavedRoutes);
+    listUpcomingGroupRuns(50).then((runs) => {
+      const mine = runs.find((r) => r.isRsvpedByMe || r.isHostedByMe);
+      setUpcomingRun(mine ?? null);
+    });
   }, [session]);
 
   return (
@@ -133,6 +148,28 @@ export default function Sidebar() {
               <Link key={club.id} href={`/clubs/${club.id}`} className="sidebar-crew-row">
                 <ClubAvatar club={club} size={26} />
                 <span>{club.name}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {session && upcomingRun && (
+          <div className="sidebar-crews">
+            <span className="sidebar-section-label">Upcoming event</span>
+            <Link href={`/runs/${upcomingRun.id}`} className="sidebar-upcoming-run">
+              <span className="sidebar-upcoming-run-title">{upcomingRun.title}</span>
+              <span className="sidebar-upcoming-run-meta">{new Date(upcomingRun.scheduledAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+            </Link>
+          </div>
+        )}
+
+        {session && savedRoutes.length > 0 && (
+          <div className="sidebar-crews">
+            <span className="sidebar-section-label">Saved routes</span>
+            {savedRoutes.map((route) => (
+              <Link key={route.id} href={`/routes/${route.id}`} className="sidebar-crew-row">
+                <RouteThumb waypoints={route.waypoints} className="sidebar-saved-route-thumb" />
+                <span>{route.name}</span>
               </Link>
             ))}
           </div>

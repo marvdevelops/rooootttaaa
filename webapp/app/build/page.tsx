@@ -35,6 +35,7 @@ function BuildForm() {
   const searchParams = useSearchParams();
   const editRouteId = searchParams.get('edit');
   const fromRouteId = searchParams.get('from');
+  const returnTo = searchParams.get('returnTo');
 
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [segments, setSegments] = useState<RouteSegment[]>([]);
@@ -262,7 +263,7 @@ function BuildForm() {
         city: null,
       };
       const route = editRouteId ? await updateRoute(editRouteId, input) : await createRoute(input);
-      router.push(`/routes/${route.id}`);
+      router.push(returnTo ? `${returnTo}?routeId=${route.id}` : `/routes/${route.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save route.');
     } finally {

@@ -1,11 +1,13 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
+import DiscoverMap from '../../../components/DiscoverMap';
 import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
 import { createGroupRun } from '../../../lib/groupRunsApi';
-import { listPublicRoutes } from '../../../lib/routesApi';
+import { getRoute, listPublicRoutes } from '../../../lib/routesApi';
 import { CloudRoute } from '../../../lib/types';
 
 export default function NewRunPage() {
@@ -38,7 +40,18 @@ function NewRunForm() {
   }, [authLoading, session, router]);
 
   useEffect(() => {
-    if (!routeIdParam) listPublicRoutes({ limit: 100 }).then(setRoutes);
+    listPublicRoutes({ limit: 100 }).then(setRoutes);
+  }, []);
+
+  // A route just created via /build?returnTo=/runs/new may not be in the
+  // first 100 public routes yet (or may be brand new) — fetch it directly
+  // so the "selected route" summary and map still show it.
+  useEffect(() => {
+    if (!routeIdParam) return;
+    setRouteId(routeIdParam);
+    getRoute(routeIdParam).then((r) => {
+      if (r) setRoutes((rs) => (rs.some((existing) => existing.id === r.id) ? rs : [r, ...rs]));
+    });
   }, [routeIdParam]);
 
   const filteredRoutes = useMemo(() => {
@@ -95,15 +108,26 @@ function NewRunForm() {
         >
           <h1 style={{ fontSize: 20, fontWeight: 800 }}>Schedule a group run</h1>
 
-          {!routeIdParam && !selectedRoute && (
+          {!selectedRoute && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <input
-                type="text"
-                placeholder="Search routes…"
-                value={routeQuery}
-                onChange={(e) => setRouteQuery(e.target.value)}
-                style={inputStyle}
-              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="Search routes…"
+                  value={routeQuery}
+                  onChange={(e) => setRouteQuery(e.target.value)}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <Link href="/build?returnTo=/runs/new" style={{ ...secondaryBtnStyle, whiteSpace: 'nowrap' }}>
+                  + Create a route
+                </Link>
+              </div>
+
+              <div style={{ height: 220, borderRadius: 'var(--radius-md)', overflow: 'hidden', position: 'relative' }}>
+                <DiscoverMap routes={filteredRoutes} selectedId={routeId || null} onSelect={setRouteId} />
+              </div>
+
+              <span style={{ fontSize: 11.5, color: 'var(--stone)' }}>Pick a route from the map, or the list below.</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 200, overflowY: 'auto' }}>
                 {filteredRoutes.map((r) => (
                   <button
@@ -130,11 +154,9 @@ function NewRunForm() {
           {selectedRoute && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--sheet-bg)' }}>
               <span style={{ fontSize: 13, fontWeight: 700 }}>{selectedRoute.name}</span>
-              {!routeIdParam && (
-                <button type="button" onClick={() => setRouteId('')} style={{ background: 'none', border: 'none', color: 'var(--coral)', fontSize: 12, cursor: 'pointer' }}>
-                  Change
-                </button>
-              )}
+              <button type="button" onClick={() => setRouteId('')} style={{ background: 'none', border: 'none', color: 'var(--coral)', fontSize: 12, cursor: 'pointer' }}>
+                Change
+              </button>
             </div>
           )}
 
@@ -177,6 +199,19 @@ const inputStyle: React.CSSProperties = {
   fontSize: 14,
   fontFamily: 'inherit',
   outline: 'none',
+};
+
+const secondaryBtnStyle: React.CSSProperties = {
+  padding: '11px 16px',
+  borderRadius: 'var(--radius-sm)',
+  border: '1px solid rgba(0,0,0,.1)',
+  background: 'var(--surface)',
+  color: 'var(--ink)',
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
 };
 
 const primaryBtnStyle: React.CSSProperties = {
