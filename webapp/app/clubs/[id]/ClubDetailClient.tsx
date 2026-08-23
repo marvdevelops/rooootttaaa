@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import ClubAvatar from '../../../components/ClubAvatar';
+import ShareButton from '../../../components/ShareButton';
 import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
 import {
   ClubFullError,
   getClub,
+  incrementClubShareCount,
   joinClub,
   leaveClub,
   listClubMembers,
@@ -235,6 +237,17 @@ export default function ClubDetailClient({ id }: { id: string }) {
                       Manage club
                     </button>
                   )}
+                  <ShareButton
+                    title={club.name}
+                    text={`${club.name}${club.city ? ` — ${club.city}` : ''} run club on Rootah`}
+                    url={typeof window !== 'undefined' ? window.location.href : `https://app.rootah.com/clubs/${club.id}`}
+                    count={club.shareCount}
+                    onShare={() => {
+                      incrementClubShareCount(club.id);
+                      setClub({ ...club, shareCount: club.shareCount + 1 });
+                    }}
+                    style={secondaryBtnStyle}
+                  />
                 </div>
               )}
             </div>

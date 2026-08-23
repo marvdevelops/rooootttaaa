@@ -51,7 +51,7 @@ export default function Home() {
                 className="discover-search-input"
               />
             </div>
-            <DiscoverMap routes={filtered} selectedId={selectedId} onSelect={setSelectedId} />
+            <DiscoverMap routes={filtered} selectedId={selectedId} onSelect={setSelectedId} fitToResults={query.trim().length > 0} />
           </main>
 
           <aside className="discover-panel">
@@ -75,7 +75,9 @@ export default function Home() {
             {loading && <span style={{ padding: '4px 20px', fontSize: 13, color: 'var(--stone)' }}>Loading routes…</span>}
             {error && <span style={{ padding: '4px 20px', fontSize: 13, color: 'var(--danger)' }}>{error}</span>}
             {!loading && !error && filtered.length === 0 && (
-              <span style={{ padding: '4px 20px', fontSize: 13, color: 'var(--stone)' }}>No routes found.</span>
+              <span style={{ padding: '4px 20px', fontSize: 13, color: 'var(--stone)' }}>
+                {query.trim() ? `No routes found for "${query.trim()}".` : 'No routes found.'}
+              </span>
             )}
 
             {selected && (

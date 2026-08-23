@@ -11,6 +11,7 @@ interface ClubRow {
   cover_url: string | null;
   is_private: boolean;
   member_count: number;
+  share_count: number;
   created_by: string;
   created_at: string;
 }
@@ -32,6 +33,7 @@ function buildRunClub(row: ClubRow, myRole: ClubRole | null, myStatus: ClubMembe
     coverUrl: row.cover_url,
     isPrivate: row.is_private,
     memberCount: row.member_count,
+    shareCount: row.share_count ?? 0,
     createdBy: row.created_by,
     createdAt: new Date(row.created_at).getTime(),
     myRole,
@@ -326,4 +328,10 @@ export async function removeClubRoute(clubId: string, routeId: string): Promise<
   const supabase = createClient();
   const { error } = await supabase.from('club_routes').delete().eq('club_id', clubId).eq('route_id', routeId);
   if (error) throw new Error(error.message);
+}
+
+/** Fire-and-forget — called whenever the Share button is used, anonymous or signed in. */
+export async function incrementClubShareCount(clubId: string): Promise<void> {
+  const supabase = createClient();
+  await supabase.rpc('increment_club_share_count', { club_id: clubId });
 }

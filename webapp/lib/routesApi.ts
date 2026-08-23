@@ -22,13 +22,14 @@ interface RouteRow {
   city: string | null;
   created_at: string;
   completion_count: number;
+  share_count: number;
   profiles: OwnerProfile | OwnerProfile[] | null;
   saves: { count: number }[] | null;
   likes: { count: number }[] | null;
 }
 
 const ROUTE_SELECT =
-  'id, owner_id, name, description, activity_type, is_trail, waypoints, segments, notes, distance_km, elevation_gain_m, elevation_profile, city, created_at, completion_count, profiles!owner_id(username, avatar_url), saves:route_saves(count), likes:route_likes(count)';
+  'id, owner_id, name, description, activity_type, is_trail, waypoints, segments, notes, distance_km, elevation_gain_m, elevation_profile, city, created_at, completion_count, share_count, profiles!owner_id(username, avatar_url), saves:route_saves(count), likes:route_likes(count)';
 
 function ownerProfile(row: RouteRow): OwnerProfile {
   const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
@@ -75,6 +76,7 @@ async function toCloudRoute(row: RouteRow, viewerId: string | null): Promise<Clo
     city: row.city,
     savesCount: row.saves?.[0]?.count ?? 0,
     likesCount: row.likes?.[0]?.count ?? 0,
+    shareCount: row.share_count,
     completionCount: row.completion_count,
     isOwnedByMe: viewerId === row.owner_id,
     isSavedByMe,
@@ -245,4 +247,10 @@ export async function toggleSave(routeId: string, isSaved: boolean): Promise<voi
   } else {
     await supabase.from('route_saves').insert({ route_id: routeId, user_id: userId });
   }
+}
+
+/** Fire-and-forget — called whenever the Share button is used, anonymous or signed in. */
+export async function incrementRouteShareCount(routeId: string): Promise<void> {
+  const supabase = createClient();
+  await supabase.rpc('increment_route_share_count', { route_id: routeId });
 }

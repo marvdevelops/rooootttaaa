@@ -21,7 +21,7 @@ function LoginForm() {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(searchParams.get('error'));
   const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

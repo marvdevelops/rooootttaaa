@@ -25,6 +25,10 @@ interface Props {
   routes: CloudRoute[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** True while a search/filter query is active — fits the camera to the
+   * result set so typing a city visibly moves the map instead of only
+   * updating the side list, which reads as "search does nothing". */
+  fitToResults?: boolean;
 }
 
 function applyTerrain(map: mapboxgl.Map, is3D: boolean) {
@@ -40,7 +44,7 @@ function applyTerrain(map: mapboxgl.Map, is3D: boolean) {
   }
 }
 
-export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
+export default function DiscoverMap({ routes, selectedId, onSelect, fitToResults }: Props) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<Map<string, mapboxgl.Marker>>(new Map());
@@ -149,6 +153,26 @@ export default function DiscoverMap({ routes, selectedId, onSelect }: Props) {
       map.current.flyTo({ center: [start.longitude, start.latitude], zoom: 13, duration: 600 });
     }
   }, [selectedId, routes]);
+
+  useEffect(() => {
+    const m = map.current;
+    if (!m || !fitToResults || selectedId) return;
+    const starts = routes.map((r) => r.waypoints[0]).filter((p): p is NonNullable<typeof p> => !!p);
+    if (starts.length === 0) return;
+
+    if (starts.length === 1) {
+      m.flyTo({ center: [starts[0].longitude, starts[0].latitude], zoom: 12, duration: 600 });
+      return;
+    }
+    const bounds = starts.reduce(
+      (b, p) => b.extend([p.longitude, p.latitude] as [number, number]),
+      new mapboxgl.LngLatBounds([starts[0].longitude, starts[0].latitude], [starts[0].longitude, starts[0].latitude]),
+    );
+    m.fitBounds(bounds, { padding: 80, maxZoom: 13, duration: 600 });
+    // Only re-fit when the actual set of results changes, not on every
+    // selectedId/routes reference change from unrelated re-renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitToResults, routes.map((r) => r.id).join(',')]);
 
   function handleRecenter() {
     const m = map.current;

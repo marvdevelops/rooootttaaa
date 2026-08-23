@@ -13,6 +13,7 @@ interface GroupRunRow {
   city: string | null;
   max_participants: number | null;
   approved_count: number;
+  share_count: number;
   club_id: string | null;
   series_id: string | null;
   routes: { name: string; distance_km: number } | { name: string; distance_km: number }[] | null;
@@ -49,6 +50,7 @@ function buildGroupRun(row: GroupRunRow, viewerId: string | null, myRsvpStatus: 
     city: row.city,
     maxParticipants: row.max_participants,
     rsvpCount: row.approved_count ?? 0,
+    shareCount: row.share_count ?? 0,
     isHostedByMe: row.host_id === viewerId,
     isRsvpedByMe: myRsvpStatus === 'approved',
     myRsvpStatus,
@@ -200,4 +202,10 @@ export async function setGroupRunRsvp(groupRunId: string, rsvped: boolean): Prom
     const { error } = await supabase.from('group_run_rsvps').delete().eq('group_run_id', groupRunId).eq('user_id', userId);
     if (error) throw new Error(error.message);
   }
+}
+
+/** Fire-and-forget — called whenever the Share button is used, anonymous or signed in. */
+export async function incrementGroupRunShareCount(runId: string): Promise<void> {
+  const supabase = createClient();
+  await supabase.rpc('increment_group_run_share_count', { run_id: runId });
 }

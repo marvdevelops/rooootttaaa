@@ -11,7 +11,7 @@ import ShareButton from '../../../components/ShareButton';
 import { useAuth } from '../../../lib/AuthContext';
 import { listRouteCompletions } from '../../../lib/completionsApi';
 import { buildElevationProfile } from '../../../lib/elevationProfile';
-import { getRoute, toggleLike, toggleSave } from '../../../lib/routesApi';
+import { getRoute, incrementRouteShareCount, toggleLike, toggleSave } from '../../../lib/routesApi';
 import { CloudRoute, CompletionParticipant } from '../../../lib/types';
 
 const ACTIVITY_LABEL: Record<string, string> = {
@@ -208,6 +208,11 @@ export default function RouteDetailClient({ id }: { id: string }) {
                     title={route.name}
                     text={`${route.distanceKm.toFixed(1)}km ${route.activityType} route${route.city ? ` in ${route.city}` : ''} on Rootah`}
                     url={typeof window !== 'undefined' ? window.location.href : `https://app.rootah.com/routes/${route.id}`}
+                    count={route.shareCount}
+                    onShare={() => {
+                      incrementRouteShareCount(route.id);
+                      setRoute({ ...route, shareCount: route.shareCount + 1 });
+                    }}
                     style={pillBtnStyle(false)}
                   />
                 </div>

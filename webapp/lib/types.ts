@@ -52,6 +52,7 @@ export interface CloudRoute {
   city: string | null;
   savesCount: number;
   likesCount: number;
+  shareCount: number;
   completionCount: number;
   isOwnedByMe: boolean;
   isSavedByMe: boolean;
@@ -140,6 +141,7 @@ export interface GroupRun {
   city: string | null;
   maxParticipants: number | null;
   rsvpCount: number;
+  shareCount: number;
   isHostedByMe: boolean;
   isRsvpedByMe: boolean;
   myRsvpStatus: RsvpStatus | null;
@@ -171,6 +173,7 @@ export interface RunClub {
   coverUrl: string | null;
   isPrivate: boolean;
   memberCount: number;
+  shareCount: number;
   createdBy: string;
   createdAt: number;
   myRole: ClubRole | null;
