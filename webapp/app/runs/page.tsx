@@ -15,14 +15,17 @@ function isToday(ts: number): boolean {
   return d.toDateString() === now.toDateString();
 }
 
+const PAGE_SIZE = 20;
+
 export default function RunsPage() {
   const { session } = useAuth();
   const [runs, setRuns] = useState<GroupRun[]>([]);
   const [myClubs, setMyClubs] = useState<RunClub[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
-    listUpcomingGroupRuns().then(setRuns).finally(() => setLoading(false));
+    listUpcomingGroupRuns(200).then(setRuns).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -87,7 +90,7 @@ export default function RunsPage() {
               </Link>
             )}
 
-            {rest.map((run) => (
+            {rest.slice(0, visibleCount).map((run) => (
               <Link key={run.id} href={`/runs/${run.id}`} className="runs-row">
                 <span style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--ink)' }}>{run.title}</span>
                 <span style={{ fontSize: 12.5, color: 'var(--stone)' }}>
@@ -104,6 +107,12 @@ export default function RunsPage() {
                 </div>
               </Link>
             ))}
+
+            {rest.length > visibleCount && (
+              <button onClick={() => setVisibleCount((c) => c + PAGE_SIZE)} className="builder-toolbar-btn">
+                Load more ({rest.length - visibleCount} more)
+              </button>
+            )}
 
             {!loading && runs.length > 0 && (
               <Link href="/explore" className="mymaps-add-tile" style={{ minHeight: 64, flexDirection: 'row', gap: 8 }}>

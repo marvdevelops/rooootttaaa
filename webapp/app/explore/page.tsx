@@ -21,6 +21,7 @@ const ACTIVITY_LABEL: Record<string, string> = {
 };
 
 type FilterChip = 'all' | 'run' | 'bike' | 'short';
+const LATEST_PAGE_SIZE = 6;
 
 function isLoop(route: CloudRoute): boolean {
   const start = route.waypoints[0];
@@ -48,6 +49,7 @@ export default function ExplorePage() {
   const [chip, setChip] = useState<FilterChip>('all');
   const [city, setCity] = useState('all');
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [visibleLatest, setVisibleLatest] = useState(LATEST_PAGE_SIZE);
 
   useEffect(() => {
     Promise.all([listPublicRoutes({ limit: 200 }), listNearbyClubs(null, 30), listUpcomingGroupRuns(6)])
@@ -74,7 +76,12 @@ export default function ExplorePage() {
   }, [routes, query, chip, city]);
 
   const featured = [...filtered].sort((a, b) => b.savesCount - a.savesCount).slice(0, 5);
-  const latest = [...filtered].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
+  const latestAll = useMemo(() => [...filtered].sort((a, b) => b.createdAt - a.createdAt), [filtered]);
+  const latest = latestAll.slice(0, visibleLatest);
+
+  useEffect(() => {
+    setVisibleLatest(LATEST_PAGE_SIZE);
+  }, [query, chip, city]);
 
   async function handleJoin(club: RunClub) {
     setJoiningId(club.id);
@@ -169,6 +176,11 @@ export default function ExplorePage() {
                     <LatestRow key={r.id} route={r} />
                   ))}
                 </Section>
+                {latestAll.length > visibleLatest && (
+                  <button onClick={() => setVisibleLatest((c) => c + LATEST_PAGE_SIZE)} className="explore-filter-chip" style={{ alignSelf: 'flex-start' }}>
+                    Load more ({latestAll.length - visibleLatest} more)
+                  </button>
+                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 32, alignItems: 'flex-start' }}>
                   <section style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

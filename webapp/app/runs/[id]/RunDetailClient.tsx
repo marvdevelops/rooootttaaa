@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import GroupRunComments from '../../../components/GroupRunComments';
 import RoutePathMap from '../../../components/RoutePathMap';
 import ShareButton from '../../../components/ShareButton';
 import Sidebar from '../../../components/Sidebar';
@@ -157,6 +158,10 @@ export default function RunDetailClient({ id }: { id: string }) {
                     <p style={{ marginTop: 8, fontSize: 14, color: 'var(--ink)', lineHeight: 1.6 }}>{run.description}</p>
                   </div>
                 )}
+
+                <div className="route-detail-card">
+                  <GroupRunComments groupRunId={run.id} />
+                </div>
               </div>
 
               <div className="route-detail-rail">

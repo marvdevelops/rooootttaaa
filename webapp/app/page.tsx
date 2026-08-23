@@ -10,6 +10,7 @@ import { listPublicRoutes } from '../lib/routesApi';
 import { CloudRoute } from '../lib/types';
 
 type PanelTab = 'routes' | 'runs';
+const PAGE_SIZE = 20;
 
 export default function Home() {
   const [routes, setRoutes] = useState<CloudRoute[]>([]);
@@ -18,6 +19,7 @@ export default function Home() {
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<PanelTab>('routes');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
     listPublicRoutes()
@@ -34,7 +36,12 @@ export default function Home() {
 
   const selected = filtered.find((r) => r.id === selectedId) ?? null;
   const rest = selected ? filtered.filter((r) => r.id !== selected.id) : filtered;
+  const visibleRest = rest.slice(0, visibleCount);
   const city = selected?.city ?? filtered.find((r) => r.city)?.city ?? null;
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [query]);
 
   return (
     <div className="app-shell">
@@ -119,9 +126,14 @@ export default function Home() {
             {rest.length > 0 && <span className="discover-section-label">{selected ? 'More in this area' : 'All routes'}</span>}
 
             <div className="discover-panel-list">
-              {rest.map((route) => (
+              {visibleRest.map((route) => (
                 <RouteListCard key={route.id} route={route} active={route.id === selectedId} onClick={() => setSelectedId(route.id)} />
               ))}
+              {rest.length > visibleCount && (
+                <button onClick={() => setVisibleCount((c) => c + PAGE_SIZE)} className="builder-toolbar-btn" style={{ width: '100%' }}>
+                  Load more ({rest.length - visibleCount} more)
+                </button>
+              )}
             </div>
           </aside>
         </div>

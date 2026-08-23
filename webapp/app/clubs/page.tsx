@@ -7,12 +7,15 @@ import Sidebar from '../../components/Sidebar';
 import { listNearbyClubs } from '../../lib/clubsApi';
 import { RunClub } from '../../lib/types';
 
+const PAGE_SIZE = 20;
+
 export default function ClubsPage() {
   const [clubs, setClubs] = useState<RunClub[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
-    listNearbyClubs(null).then(setClubs).finally(() => setLoading(false));
+    listNearbyClubs(null, 200).then(setClubs).finally(() => setLoading(false));
   }, []);
 
   return (
@@ -32,7 +35,7 @@ export default function ClubsPage() {
           {loading && <span style={{ color: 'var(--stone)' }}>Loading…</span>}
           {!loading && clubs.length === 0 && <span style={{ color: 'var(--stone)' }}>No clubs yet.</span>}
 
-          {clubs.map((club) => (
+          {clubs.slice(0, visibleCount).map((club) => (
             <Link
               key={club.id}
               href={`/clubs/${club.id}`}
@@ -57,6 +60,12 @@ export default function ClubsPage() {
               </div>
             </Link>
           ))}
+
+          {clubs.length > visibleCount && (
+            <button onClick={() => setVisibleCount((c) => c + PAGE_SIZE)} className="builder-toolbar-btn">
+              Load more ({clubs.length - visibleCount} more)
+            </button>
+          )}
         </div>
       </main>
       </div>

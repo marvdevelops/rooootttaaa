@@ -160,6 +160,21 @@ export interface CreateGroupRunInput {
   clubId?: string | null;
 }
 
+export interface GroupRunComment {
+  id: string;
+  groupRunId: string;
+  authorId: string;
+  authorUsername: string;
+  authorAvatarUrl: string | null;
+  parentCommentId: string | null;
+  /** 0 = top-level, 1 = reply, 2 = reply-to-reply (max depth). */
+  depth: number;
+  body: string;
+  createdAt: number;
+  isOwnedByMe: boolean;
+  replies: GroupRunComment[];
+}
+
 export type ClubRole = 'member' | 'admin' | 'owner';
 export type ClubMembershipStatus = 'active' | 'pending' | 'removed';
 

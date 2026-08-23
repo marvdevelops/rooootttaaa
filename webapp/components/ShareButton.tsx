@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Props {
   title: string;
@@ -12,35 +12,93 @@ interface Props {
   style?: React.CSSProperties;
 }
 
-/** Native share sheet where supported (mobile/Safari), clipboard-copy fallback everywhere else. */
+/** Share menu with the major social platforms, plus native share (mobile) and copy-link. */
 export default function ShareButton({ title, text, url, count, onShare, className, style }: Props) {
+  const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  async function handleShare() {
-    if (navigator.share) {
-      try {
-        await navigator.share({ title, text, url });
-        onShare?.();
-      } catch {
-        // user cancelled the native share sheet — no count, no-op
-      }
-      return;
+  useEffect(() => {
+    if (!open) return;
+    function onClickAway(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     }
+    document.addEventListener('mousedown', onClickAway);
+    return () => document.removeEventListener('mousedown', onClickAway);
+  }, [open]);
+
+  function openShareWindow(shareUrl: string) {
+    window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=500');
+    onShare?.();
+    setOpen(false);
+  }
+
+  const shareText = text ?? title;
+  const encodedUrl = encodeURIComponent(url);
+  const encodedText = encodeURIComponent(shareText);
+
+  const socialLinks = [
+    { label: 'Facebook', href: `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`, icon: '📘' },
+    { label: 'X', href: `https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, icon: '𝕏' },
+    { label: 'WhatsApp', href: `https://wa.me/?text=${encodeURIComponent(`${shareText} ${url}`)}`, icon: '💬' },
+    { label: 'Messenger', href: `https://www.facebook.com/dialog/send?link=${encodedUrl}&app_id=966242223397117&redirect_uri=${encodedUrl}`, icon: '✉️' },
+  ];
+
+  async function handleNativeShare() {
+    if (typeof navigator.share !== 'function') return false;
+    try {
+      await navigator.share({ title, text, url });
+      onShare?.();
+      setOpen(false);
+      return true;
+    } catch {
+      return true; // user cancelled — still handled, don't fall through to the menu
+    }
+  }
+
+  async function handleCopy() {
     try {
       await navigator.clipboard.writeText(url);
       onShare?.();
       setStatus('copied');
     } catch {
-      // clipboard permission denied/unavailable — surface it instead of
-      // failing silently with no feedback and no counted share.
       setStatus('error');
     }
     setTimeout(() => setStatus('idle'), 2000);
+    setOpen(false);
+  }
+
+  async function handleToggle() {
+    // On a phone/OS with a native share sheet, prefer that — it already
+    // lists the same social apps plus Messages/Mail/AirDrop.
+    if (typeof navigator.share === 'function' && (await handleNativeShare())) return;
+    setOpen((v) => !v);
   }
 
   return (
-    <button onClick={handleShare} className={className} style={style}>
-      {status === 'copied' ? 'Link copied ✓' : status === 'error' ? "Couldn't copy" : count !== undefined ? `Share · ${count}` : 'Share'}
-    </button>
+    <div ref={rootRef} style={{ position: 'relative', display: 'inline-flex', flex: style?.flex }}>
+      <button onClick={handleToggle} className={className} style={{ width: '100%', ...style }}>
+        {status === 'copied' ? 'Link copied ✓' : status === 'error' ? "Couldn't copy" : count !== undefined ? `Share · ${count}` : 'Share'}
+      </button>
+
+      {open && (
+        <div className="share-menu">
+          {socialLinks.map((s) => (
+            <button key={s.label} onClick={() => openShareWindow(s.href)} className="share-menu-item">
+              <span aria-hidden style={{ fontSize: 16 }}>
+                {s.icon}
+              </span>
+              {s.label}
+            </button>
+          ))}
+          <button onClick={handleCopy} className="share-menu-item">
+            <span aria-hidden style={{ fontSize: 16 }}>
+              🔗
+            </span>
+            Copy link
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

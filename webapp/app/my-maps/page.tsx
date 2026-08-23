@@ -19,6 +19,7 @@ const ACTIVITY_OPTIONS: { value: ActivityType | 'all'; label: string }[] = [
 ];
 
 type SortMode = 'recent' | 'distance' | 'name';
+const PAGE_SIZE = 24;
 
 export default function MyMapsPage() {
   const { session, loading: authLoading } = useAuth();
@@ -28,6 +29,7 @@ export default function MyMapsPage() {
   const [query, setQuery] = useState('');
   const [activityFilter, setActivityFilter] = useState<ActivityType | 'all'>('all');
   const [sort, setSort] = useState<SortMode>('recent');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
   useEffect(() => {
     if (!authLoading && !session) router.push('/login?next=/my-maps');
@@ -51,6 +53,10 @@ export default function MyMapsPage() {
     if (sort === 'name') return [...result].sort((a, b) => a.name.localeCompare(b.name));
     return result;
   }, [routes, query, activityFilter, sort]);
+
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [query, activityFilter, sort]);
 
   if (authLoading || !session) return null;
 
@@ -119,7 +125,7 @@ export default function MyMapsPage() {
               Build a route
             </Link>
 
-            {filtered.map((route) => (
+            {filtered.slice(0, visibleCount).map((route) => (
               <Link key={route.id} href={`/routes/${route.id}`} className="mymaps-card">
                 <RouteThumb waypoints={route.waypoints} />
                 <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink)' }}>{route.name}</span>
@@ -129,6 +135,12 @@ export default function MyMapsPage() {
               </Link>
             ))}
           </div>
+
+          {filtered.length > visibleCount && (
+            <button onClick={() => setVisibleCount((c) => c + PAGE_SIZE)} className="builder-toolbar-btn" style={{ marginTop: 16 }}>
+              Load more ({filtered.length - visibleCount} more)
+            </button>
+          )}
         </div>
       </div>
     </div>
