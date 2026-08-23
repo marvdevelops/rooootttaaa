@@ -45,15 +45,13 @@ export default function ShareButton({ title, text, url, count, onShare, classNam
   ];
 
   async function handleNativeShare() {
-    if (typeof navigator.share !== 'function') return false;
     try {
       await navigator.share({ title, text, url });
       onShare?.();
-      setOpen(false);
-      return true;
     } catch {
-      return true; // user cancelled — still handled, don't fall through to the menu
+      // user cancelled the device share sheet — no-op
     }
+    setOpen(false);
   }
 
   async function handleCopy() {
@@ -68,16 +66,11 @@ export default function ShareButton({ title, text, url, count, onShare, classNam
     setOpen(false);
   }
 
-  async function handleToggle() {
-    // On a phone/OS with a native share sheet, prefer that — it already
-    // lists the same social apps plus Messages/Mail/AirDrop.
-    if (typeof navigator.share === 'function' && (await handleNativeShare())) return;
-    setOpen((v) => !v);
-  }
+  const hasNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 
   return (
     <div ref={rootRef} style={{ position: 'relative', display: 'inline-flex', flex: style?.flex }}>
-      <button onClick={handleToggle} className={className} style={{ width: '100%', ...style }}>
+      <button onClick={() => setOpen((v) => !v)} className={className} style={{ width: '100%', ...style }}>
         {status === 'copied' ? 'Link copied ✓' : status === 'error' ? "Couldn't copy" : count !== undefined ? `Share · ${count}` : 'Share'}
       </button>
 
@@ -97,6 +90,14 @@ export default function ShareButton({ title, text, url, count, onShare, classNam
             </span>
             Copy link
           </button>
+          {hasNativeShare && (
+            <button onClick={handleNativeShare} className="share-menu-item">
+              <span aria-hidden style={{ fontSize: 16 }}>
+                📤
+              </span>
+              More options…
+            </button>
+          )}
         </div>
       )}
     </div>
