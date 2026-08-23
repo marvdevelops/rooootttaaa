@@ -1064,6 +1064,12 @@ button {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--ink);
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
 }
 .profile-settings-item[data-active='true'] {
   background: var(--surface);

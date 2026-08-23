@@ -11,6 +11,7 @@ interface AuthContextValue {
   signUp: (email: string, password: string) => Promise<{ error: string | null; needsConfirmation: boolean }>;
   signInWithGoogle: (next?: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -63,8 +64,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    if (!session) return { error: 'Not signed in.' };
+    const userId = session.user.id;
+
+    // Storage objects aren't covered by the DB cascade the RPC relies on —
+    // clear the user's avatar folder first while the session is still valid.
+    try {
+      const { data: files } = await supabase.storage.from('avatars').list(userId);
+      if (files && files.length > 0) {
+        await supabase.storage.from('avatars').remove(files.map((f) => `${userId}/${f.name}`));
+      }
+    } catch {
+      // Non-fatal — a leftover, unlinked avatar file isn't worth blocking account deletion over.
+    }
+
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) return { error: error.message };
+
+    await supabase.auth.signOut();
+    return { error: null };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
   return (
-    <AuthContext.Provider value={{ session, loading, signInWithPassword, signUp, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ session, loading, signInWithPassword, signUp, signInWithGoogle, signOut, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   );

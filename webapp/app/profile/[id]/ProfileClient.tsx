@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import AccountSettingsPanel, { SettingsTab } from '../../../components/AccountSettingsPanel';
 import PaywallModal from '../../../components/PaywallModal';
 import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
@@ -38,6 +39,7 @@ export default function ProfileClient({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showPaywall, setShowPaywall] = useState(false);
+  const [activeTab, setActiveTab] = useState<SettingsTab | 'profile'>('profile');
 
   useEffect(() => {
     getProfile(id)
@@ -74,14 +76,24 @@ export default function ProfileClient({ id }: { id: string }) {
         <div className="profile-page-layout">
           {isOwn && (
             <nav className="profile-settings-rail">
-              <div className="profile-settings-item" data-active="true">
+              <button className="profile-settings-item" data-active={activeTab === 'profile'} onClick={() => setActiveTab('profile')}>
                 Profile
-              </div>
-              {['Account', 'Notifications', 'Privacy', 'Units & display', 'Plan & billing'].map((item) => (
-                <div key={item} className="profile-settings-item" data-disabled="true" title="Coming soon">
-                  {item}
-                </div>
+              </button>
+              {(
+                [
+                  ['account', 'Account'],
+                  ['notifications', 'Notifications'],
+                  ['privacy', 'Privacy'],
+                  ['plan', 'Plan & billing'],
+                ] as [SettingsTab, string][]
+              ).map(([key, label]) => (
+                <button key={key} className="profile-settings-item" data-active={activeTab === key} onClick={() => setActiveTab(key)}>
+                  {label}
+                </button>
               ))}
+              <div className="profile-settings-item" data-disabled="true" title="Coming soon">
+                Units & display
+              </div>
             </nav>
           )}
 
@@ -89,7 +101,13 @@ export default function ProfileClient({ id }: { id: string }) {
           {loading && <span style={{ color: 'var(--stone)', display: 'block', padding: 32 }}>Loading…</span>}
           {error && <span style={{ color: 'var(--danger)', display: 'block', padding: 32 }}>{error}</span>}
 
-          {profile && (
+          {profile && isOwn && activeTab !== 'profile' && (
+            <div className="profile-body">
+              <AccountSettingsPanel tab={activeTab} profile={profile} />
+            </div>
+          )}
+
+          {profile && (isOwn === false || activeTab === 'profile') && (
             <div className="profile-body">
               <div className="profile-hero">
                 <div className="profile-banner" />

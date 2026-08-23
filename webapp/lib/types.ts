@@ -219,6 +219,20 @@ export interface ClubMember {
   joinedAt: number;
 }
 
+export interface NotificationPreferences {
+  likesEnabled: boolean;
+  rsvpsEnabled: boolean;
+  commentsEnabled: boolean;
+  repliesEnabled: boolean;
+}
+
+export interface BlockedUser {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+  blockedAt: number;
+}
+
 export interface ClubRouteSummary {
   id: string;
   name: string;
