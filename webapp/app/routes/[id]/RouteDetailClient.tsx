@@ -7,6 +7,7 @@ import ElevationChart from '../../../components/ElevationChart';
 import Sidebar from '../../../components/Sidebar';
 import RoutePathMap from '../../../components/RoutePathMap';
 import RouteSocial from '../../../components/RouteSocial';
+import ShareButton from '../../../components/ShareButton';
 import { useAuth } from '../../../lib/AuthContext';
 import { listRouteCompletions } from '../../../lib/completionsApi';
 import { buildElevationProfile } from '../../../lib/elevationProfile';
@@ -203,18 +204,30 @@ export default function RouteDetailClient({ id }: { id: string }) {
                   <button onClick={handleSave} disabled={busy} style={pillBtnStyle(route.isSavedByMe)}>
                     {route.isSavedByMe ? 'Saved' : 'Save'} · {route.savesCount}
                   </button>
+                  <ShareButton
+                    title={route.name}
+                    text={`${route.distanceKm.toFixed(1)}km ${route.activityType} route${route.city ? ` in ${route.city}` : ''} on Rootah`}
+                    url={typeof window !== 'undefined' ? window.location.href : `https://app.rootah.com/routes/${route.id}`}
+                    style={pillBtnStyle(false)}
+                  />
                 </div>
 
                 {route.isOwnedByMe ? (
                   <Link href={`/build?edit=${route.id}`} className="discover-run-btn" style={{ textAlign: 'center' }}>
                     Edit route
                   </Link>
+                ) : session ? (
+                  <Link href={`/build?from=${route.id}`} className="discover-run-btn" style={{ textAlign: 'center' }}>
+                    Save your own copy
+                  </Link>
                 ) : (
-                  session && (
-                    <Link href={`/build?from=${route.id}`} className="discover-run-btn" style={{ textAlign: 'center' }}>
-                      Save your own copy
+                  <div className="route-detail-card" style={{ background: 'var(--panel)', textAlign: 'center', gap: 8, display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Like this route?</span>
+                    <span style={{ fontSize: 12.5, color: 'var(--stone)' }}>Sign up free to save it, log your runs, and build your own.</span>
+                    <Link href={`/login?next=/routes/${route.id}`} className="discover-run-btn" style={{ textAlign: 'center' }}>
+                      Sign up free
                     </Link>
-                  )
+                  </div>
                 )}
 
                 {route.completionCount > 0 && (
