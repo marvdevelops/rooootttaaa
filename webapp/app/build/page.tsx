@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import ElevationChart from '../../components/ElevationChart';
 import Sidebar from '../../components/Sidebar';
 import RoutePathMap from '../../components/RoutePathMap';
@@ -9,6 +9,7 @@ import { useAuth } from '../../lib/AuthContext';
 import { metersToKm } from '../../lib/distance';
 import { annotateElevation } from '../../lib/elevation';
 import { downsampleForStorage } from '../../lib/elevationProfile';
+import { PlaceResult, searchPlaces } from '../../lib/geocoding';
 import { createRoute, getRoute, updateRoute } from '../../lib/routesApi';
 import { routeBetween, straightLineFallback } from '../../lib/routing';
 import { ActivityType, PathPoint, RouteNote, RouteSegment, Waypoint } from '../../lib/types';
@@ -52,6 +53,20 @@ function BuildForm() {
   const [elevationGainM, setElevationGainM] = useState(0);
   const [elevationLoading, setElevationLoading] = useState(false);
   const [prefilling, setPrefilling] = useState(!!(editRouteId || fromRouteId));
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
+  const [placeSearching, setPlaceSearching] = useState(false);
+  const [showPlaceResults, setShowPlaceResults] = useState(false);
+  const placeSearchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showPlaceResults) return;
+    function onClickAway(e: MouseEvent) {
+      if (placeSearchRef.current && !placeSearchRef.current.contains(e.target as Node)) setShowPlaceResults(false);
+    }
+    document.addEventListener('mousedown', onClickAway);
+    return () => document.removeEventListener('mousedown', onClickAway);
+  }, [showPlaceResults]);
 
   useEffect(() => {
     if (!authLoading && !session) router.push('/login?next=/build');
@@ -114,6 +129,34 @@ function BuildForm() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [segments]);
+
+  useEffect(() => {
+    if (placeQuery.trim().length < 2) {
+      setPlaceResults([]);
+      return;
+    }
+    let cancelled = false;
+    setPlaceSearching(true);
+    const timer = setTimeout(() => {
+      searchPlaces(placeQuery)
+        .then((results) => {
+          if (!cancelled) setPlaceResults(results);
+        })
+        .finally(() => {
+          if (!cancelled) setPlaceSearching(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [placeQuery]);
+
+  function handleSelectPlace(place: PlaceResult) {
+    setPlaceQuery(place.name);
+    setShowPlaceResults(false);
+    handleMapClick({ lat: place.latitude, lng: place.longitude });
+  }
 
   async function handleMapClick(point: { lat: number; lng: number }) {
     if (noteMode) {
@@ -306,6 +349,57 @@ function BuildForm() {
 
         <div className="split-layout">
           <aside className="split-sidebar">
+            <div ref={placeSearchRef} style={{ position: 'relative' }}>
+              <input
+                type="text"
+                placeholder="Search a place to plot the start…"
+                value={placeQuery}
+                onChange={(e) => {
+                  setPlaceQuery(e.target.value);
+                  setShowPlaceResults(true);
+                }}
+                onFocus={() => setShowPlaceResults(true)}
+                style={inputStyle}
+              />
+              {showPlaceResults && (placeResults.length > 0 || placeSearching) && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    right: 0,
+                    zIndex: 20,
+                    background: 'var(--panel, #fff)',
+                    borderRadius: 'var(--radius-sm)',
+                    boxShadow: 'var(--shadow-card, 0 4px 16px rgba(0,0,0,.15))',
+                    overflow: 'hidden',
+                  }}
+                >
+                  {placeSearching && <div style={{ padding: '10px 14px', fontSize: 12.5, color: 'var(--stone)' }}>Searching…</div>}
+                  {placeResults.map((place) => (
+                    <button
+                      key={place.id}
+                      onClick={() => handleSelectPlace(place)}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        textAlign: 'left',
+                        padding: '10px 14px',
+                        border: 'none',
+                        background: 'none',
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        fontFamily: 'inherit',
+                      }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{place.name}</div>
+                      <div style={{ fontSize: 11.5, color: 'var(--stone)' }}>{place.fullName}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="route-detail-card" style={{ padding: 14 }}>
               <h1 style={{ fontSize: 17, fontWeight: 800 }}>{editRouteId ? 'Edit route' : 'Build a route'}</h1>
               <p style={{ marginTop: 6, fontSize: 12.5, color: 'var(--stone)', lineHeight: 1.5 }}>

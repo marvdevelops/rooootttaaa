@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import AccountSettingsPanel, { SettingsTab } from '../../../components/AccountSettingsPanel';
 import PaywallModal from '../../../components/PaywallModal';
+import ShareButton from '../../../components/ShareButton';
 import Sidebar from '../../../components/Sidebar';
 import { useAuth } from '../../../lib/AuthContext';
 import { listCompletionActivity } from '../../../lib/completionsApi';
@@ -139,11 +140,19 @@ export default function ProfileClient({ id }: { id: string }) {
                   </div>
                   {profile.bio && !editing && <p style={{ fontSize: 14, color: 'var(--stone)', lineHeight: 1.5 }}>{profile.bio}</p>}
                   <span style={{ fontSize: 12, color: 'var(--mist)' }}>Joined {new Date(profile.createdAt).toLocaleDateString()}</span>
-                  {isOwn && !editing && (
-                    <button onClick={() => setEditing(true)} style={secondaryBtnStyle}>
-                      Edit profile
-                    </button>
-                  )}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    {isOwn && !editing && (
+                      <button onClick={() => setEditing(true)} style={secondaryBtnStyle}>
+                        Edit profile
+                      </button>
+                    )}
+                    <ShareButton
+                      title={`${profile.username} on Rootah`}
+                      text={`Check out ${profile.username}'s profile on Rootah`}
+                      url={typeof window !== 'undefined' ? window.location.href : `https://app.rootah.com/profile/${profile.id}`}
+                      style={secondaryBtnStyle}
+                    />
+                  </div>
                 </div>
               </div>
 

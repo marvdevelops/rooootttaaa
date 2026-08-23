@@ -27,8 +27,8 @@ export async function generateMetadata({ params }: PageProps<'/profile/[id]'>): 
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { title: `${title} | Rootah`, description, url, type: 'profile', images: profile.avatar_url ? [{ url: profile.avatar_url }] : undefined },
-    twitter: { card: 'summary', title: `${title} | Rootah`, description },
+    openGraph: { title: `${title} | Rootah`, description, url, type: 'profile' },
+    twitter: { card: 'summary_large_image', title: `${title} | Rootah`, description },
   };
 }
 
