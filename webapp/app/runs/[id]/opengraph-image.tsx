@@ -16,6 +16,7 @@ interface RunRouteSegment {
 interface RunRoute {
   name: string;
   distance_km: number;
+  elevation_gain_m: number;
   segments: RunRouteSegment[];
 }
 
@@ -23,6 +24,8 @@ interface RunOgRow {
   title: string;
   scheduled_at: string;
   city: string | null;
+  approved_count: number;
+  max_participants: number | null;
   routes: RunRoute | RunRoute[] | null;
 }
 
@@ -31,7 +34,7 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
   const supabase = await createClient();
   const { data } = await supabase
     .from('group_runs')
-    .select('title, scheduled_at, city, routes(name, distance_km, segments)')
+    .select('title, scheduled_at, city, approved_count, max_participants, routes(name, distance_km, elevation_gain_m, segments)')
     .eq('id', id)
     .maybeSingle();
   const run = data as unknown as RunOgRow | null;
@@ -86,16 +89,33 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
           <div style={{ display: 'flex', fontSize: 48, fontWeight: 800, color: '#1A1614', lineHeight: 1.1, letterSpacing: -1.5, marginBottom: 20 }}>
             {run?.title ?? 'A Rootah group run'}
           </div>
-          {route && <div style={{ display: 'flex', fontSize: 20, color: '#8C8078', marginBottom: 30 }}>{route.name}</div>}
+          <div style={{ display: 'flex', fontSize: 20, color: '#8C8078', marginBottom: 30 }}>
+            {[route?.name, run?.city].filter(Boolean).join(' · ')}
+          </div>
 
-          {route && (
-            <div style={{ display: 'flex', gap: 14 }}>
+          <div style={{ display: 'flex', gap: 14 }}>
+            {route && (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', background: '#EDE8DF', borderRadius: 16, padding: '16px 22px' }}>
+                  <div style={{ display: 'flex', fontSize: 30, fontWeight: 800, color: '#1A1614' }}>{route.distance_km.toFixed(1)} km</div>
+                  <div style={{ display: 'flex', fontSize: 13, fontWeight: 700, color: '#8C8078', textTransform: 'uppercase' }}>Distance</div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', background: '#4BABB8', borderRadius: 16, padding: '16px 22px' }}>
+                  <div style={{ display: 'flex', fontSize: 30, fontWeight: 800, color: 'white' }}>+{Math.round(route.elevation_gain_m ?? 0)}m</div>
+                  <div style={{ display: 'flex', fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,.85)', textTransform: 'uppercase' }}>Gain</div>
+                </div>
+              </>
+            )}
+            {run && (
               <div style={{ display: 'flex', flexDirection: 'column', background: '#EDE8DF', borderRadius: 16, padding: '16px 22px' }}>
-                <div style={{ display: 'flex', fontSize: 30, fontWeight: 800, color: '#1A1614' }}>{route.distance_km.toFixed(1)} km</div>
-                <div style={{ display: 'flex', fontSize: 13, fontWeight: 700, color: '#8C8078', textTransform: 'uppercase' }}>Distance</div>
+                <div style={{ display: 'flex', fontSize: 30, fontWeight: 800, color: '#1A1614' }}>
+                  {run.approved_count}
+                  {run.max_participants ? `/${run.max_participants}` : ''}
+                </div>
+                <div style={{ display: 'flex', fontSize: 13, fontWeight: 700, color: '#8C8078', textTransform: 'uppercase' }}>Going</div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', width: 540, height: '100%', background: '#E5E0D8', alignItems: 'center', justifyContent: 'center' }}>
