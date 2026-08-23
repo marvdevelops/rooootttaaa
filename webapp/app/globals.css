@@ -1109,3 +1109,140 @@ button {
   border-radius: var(--radius-lg);
   padding: 16px 20px;
 }
+
+/* Explore — stat pills, filter chips, featured/latest route cards with map
+   thumbnails, run clubs, and a dark "schedule a run" CTA. */
+.explore-stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 76px;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.explore-stat-pill-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: -0.4px;
+}
+.explore-stat-pill-value.tone-teal {
+  color: var(--teal);
+}
+.explore-stat-pill-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--stone);
+}
+.explore-filter-chip {
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-hairline);
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.explore-filter-chip[data-active='true'] {
+  background: var(--coral);
+  color: var(--white);
+  font-weight: 700;
+  box-shadow: var(--shadow-coral);
+}
+.explore-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.explore-card:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+.explore-card-thumb {
+  position: relative;
+  height: 130px;
+  background: var(--map-land);
+}
+.explore-card-badge {
+  position: absolute;
+  top: 10px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--ink);
+}
+.explore-card-badge.tone-loop {
+  background: var(--amber);
+  color: var(--white);
+}
+.explore-card-badge.tone-trail {
+  background: var(--sage);
+  color: var(--white);
+}
+.explore-card-body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.explore-list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.explore-list-thumb {
+  width: 64px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xs);
+  background: var(--map-land);
+  overflow: hidden;
+}
+.explore-club-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+.explore-cta-card {
+  background: var(--ink);
+  color: var(--white);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.explore-cta-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
+  background: var(--coral);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
