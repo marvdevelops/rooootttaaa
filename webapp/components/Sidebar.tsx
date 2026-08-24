@@ -183,9 +183,21 @@ export default function Sidebar() {
           rel="noreferrer"
           className="sidebar-nav-item"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M16.5 1c.1 1.2-.4 2.4-1.1 3.3-.8.9-2 1.6-3.2 1.5-.1-1.1.4-2.3 1.1-3.1.8-.9 2.1-1.6 3.2-1.7zm3.9 16.5c-.6 1.3-.9 1.9-1.7 3.1-1.1 1.6-2.6 3.6-4.5 3.6-1.7 0-2.1-1.1-4.3-1.1-2.2 0-2.7 1.1-4.4 1.1-1.9 0-3.3-1.8-4.4-3.4-3-4.4-3.3-9.5-1.5-12.2 1.3-1.9 3.3-3.1 5.2-3.1 1.9 0 3.1 1.1 4.7 1.1 1.5 0 2.4-1.1 4.6-1.1 1.7 0 3.5.9 4.8 2.5-4.2 2.3-3.5 8.3 1.5 9.5z" />
-          </svg>
+          <span
+            style={{
+              width: 18,
+              height: 18,
+              borderRadius: '50%',
+              background: 'var(--ink)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- small static icon, not worth next/image's overhead */}
+            <img src="/icons/apple-logo-white.png" alt="" width={11} height={11} />
+          </span>
           <span>Get the iOS app</span>
         </a>
 
