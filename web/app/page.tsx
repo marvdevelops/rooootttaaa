@@ -28,6 +28,7 @@ export const metadata: Metadata = {
 };
 
 const NAV_LINK_STYLE: React.CSSProperties = { fontWeight: 600, fontSize: 15, color: '#1A1614' };
+const APP_STORE_URL = 'https://apps.apple.com/us/app/rootah-map-it-run-it/id6799631983';
 
 function Logo({ size = 40 }: { size?: number }) {
   return (
@@ -60,23 +61,13 @@ function Logo({ size = 40 }: { size?: number }) {
   );
 }
 
-function ComingSoonBadge({ dark = false, platform }: { dark?: boolean; platform: 'ios' | 'android' }) {
+function DownloadBadge({ dark = false, platform, href }: { dark?: boolean; platform: 'ios' | 'android'; href?: string }) {
   const bg = dark ? '#1A1614' : '#FFFFFF';
   const fg = dark ? '#F2EDE5' : '#1A1614';
   const iconBg = platform === 'ios' ? '#E84B2A' : '#4BABB8';
 
-  return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        background: bg,
-        borderRadius: 50,
-        boxShadow: dark ? '0 4px 16px rgba(0,0,0,.28)' : '0 2px 12px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06)',
-        padding: '10px 20px 10px 10px',
-      }}
-    >
+  const inner = (
+    <>
       <div
         style={{
           width: 32,
@@ -101,14 +92,35 @@ function ComingSoonBadge({ dark = false, platform }: { dark?: boolean; platform:
       </div>
       <span style={{ color: fg, lineHeight: 1.15, textAlign: 'left' }}>
         <span style={{ display: 'block', fontSize: 10, fontWeight: 600, opacity: 0.65, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          Coming soon on
+          {href ? 'Download on the' : 'Coming soon on'}
         </span>
         <span style={{ display: 'block', fontSize: 15, fontWeight: 800, letterSpacing: '-0.2px' }}>
           {platform === 'ios' ? 'the App Store' : 'Google Play'}
         </span>
       </span>
-    </div>
+    </>
   );
+
+  const style: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    background: bg,
+    borderRadius: 50,
+    boxShadow: dark ? '0 4px 16px rgba(0,0,0,.28)' : '0 2px 12px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.06)',
+    padding: '10px 20px 10px 10px',
+    textDecoration: 'none',
+  };
+
+  if (href) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer" style={style}>
+        {inner}
+      </a>
+    );
+  }
+
+  return <div style={style}>{inner}</div>;
 }
 
 const CREDIBILITY_ITEMS = [
@@ -290,7 +302,7 @@ export default function LandingPage() {
           <a href="#clubs" className="nav-link" style={NAV_LINK_STYLE}>For clubs</a>
           <a href="/explore" className="nav-link" style={NAV_LINK_STYLE}>Explore</a>
           <a href="https://app.rootah.com" className="nav-link" style={NAV_LINK_STYLE}>Sign in</a>
-          <PillButton href="#download">DOWNLOAD</PillButton>
+          <PillButton href={APP_STORE_URL}>DOWNLOAD</PillButton>
         </div>
       </div>
 
@@ -315,8 +327,8 @@ export default function LandingPage() {
             and elevation as you go. No more estimating. No more switching apps.
           </p>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8 }}>
-            <ComingSoonBadge dark platform="ios" />
-            <ComingSoonBadge dark platform="android" />
+            <DownloadBadge dark platform="ios" href={APP_STORE_URL} />
+            <DownloadBadge dark platform="android" />
           </div>
           <span style={{ fontSize: 13, color: '#8C8078', fontWeight: 500 }}>
             The first route planning app launched in the Philippines.
@@ -619,8 +631,8 @@ export default function LandingPage() {
               Free to download. Works on iOS and Android. Your first route takes under a minute.
             </p>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
-              <ComingSoonBadge platform="ios" />
-              <ComingSoonBadge platform="android" />
+              <DownloadBadge platform="ios" href={APP_STORE_URL} />
+              <DownloadBadge platform="android" />
             </div>
             <a
               href="https://app.rootah.com"

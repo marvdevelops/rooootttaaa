@@ -177,6 +177,18 @@ export default function Sidebar() {
           </div>
         )}
 
+        <a
+          href="https://apps.apple.com/us/app/rootah-map-it-run-it/id6799631983"
+          target="_blank"
+          rel="noreferrer"
+          className="sidebar-nav-item"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M16.5 1c.1 1.2-.4 2.4-1.1 3.3-.8.9-2 1.6-3.2 1.5-.1-1.1.4-2.3 1.1-3.1.8-.9 2.1-1.6 3.2-1.7zm3.9 16.5c-.6 1.3-.9 1.9-1.7 3.1-1.1 1.6-2.6 3.6-4.5 3.6-1.7 0-2.1-1.1-4.3-1.1-2.2 0-2.7 1.1-4.4 1.1-1.9 0-3.3-1.8-4.4-3.4-3-4.4-3.3-9.5-1.5-12.2 1.3-1.9 3.3-3.1 5.2-3.1 1.9 0 3.1 1.1 4.7 1.1 1.5 0 2.4-1.1 4.6-1.1 1.7 0 3.5.9 4.8 2.5-4.2 2.3-3.5 8.3 1.5 9.5z" />
+          </svg>
+          <span>Get the iOS app</span>
+        </a>
+
         <div className="sidebar-spacer" />
 
         {!loading &&
@@ -232,6 +244,15 @@ export default function Sidebar() {
               {item.label}
             </Link>
           ))}
+          <a
+            href="https://apps.apple.com/us/app/rootah-map-it-run-it/id6799631983"
+            target="_blank"
+            rel="noreferrer"
+            className="sidebar-mobile-link"
+            onClick={() => setMenuOpen(false)}
+          >
+            Get the iOS app
+          </a>
           {!loading &&
             (session ? (
               <>
