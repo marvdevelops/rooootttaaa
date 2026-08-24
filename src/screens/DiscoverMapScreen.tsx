@@ -1,9 +1,11 @@
 import { Camera, MapView, MarkerView, StyleURL } from '@rnmapbox/maps';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,11 +16,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, SearchIcon, UserIcon, UsersIcon } from '../components/icons';
+import { BellIcon, CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, SearchIcon, TrophyIcon, UserIcon, UsersIcon } from '../components/icons';
 import Logo from '../components/Logo';
+import ProBadge from '../components/ProBadge';
 import TopRoutesStrip from '../components/TopRoutesStrip';
 import { useUserTier } from '../hooks/useUserTier';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute, GroupRun, LatLng } from '../types/route';
 import { clusterRoutesByStart, RouteCluster } from '../utils/clusterRoutes';
 import { haversineDistance } from '../utils/distance';
@@ -127,14 +130,37 @@ function RunsNearYouStrip({ onOpenGroupRun, mapCenter, radiusKm, userLocation, r
   );
 }
 
-// Cluster taps step through these fixed stops — roughly 1500km (the whole
-// Philippines), 500km, 100km, 10km, then all the way to street level —
-// instead of a fixed zoom delta, so a tap always lands on a predictable,
-// meaningful view. Routes keep spreading apart as this goes on; the list
-// fallback only kicks in once we're at the very last stop and routes are
-// still grouped, meaning they truly share a start point and no further
-// zoom will separate them.
-const CLUSTER_ZOOM_TIERS = [4.5, 6, 8, 12, 14, 16, 18] as const;
+// Below this span (in degrees, ~30m), a cluster's members are basically on
+// top of each other — fitBounds on a near-zero box zooms to an absurd
+// level, so treat it as "truly overlapping" and just show the list instead.
+const CLUSTER_MIN_SPAN_DEG = 0.0003;
+
+function latToMercatorY(lat: number): number {
+  const sin = Math.sin((lat * Math.PI) / 180);
+  return Math.log((1 + sin) / (1 - sin)) / 2;
+}
+
+/**
+ * Standard "zoom to fit bounds" estimate (Google Maps' well-known formula,
+ * adapted for Mapbox's 256px tiles) — lets a cluster tap update `zoom`
+ * (and therefore re-cluster) in the same tick as the fitBounds() camera
+ * call below, instead of waiting ~500ms for onMapIdle to fire once the
+ * animation settles.
+ */
+function estimateZoomForBounds(minLat: number, minLng: number, maxLat: number, maxLng: number, paddingPx: number): number {
+  const { width, height } = Dimensions.get('window');
+  const mapWidth = Math.max(1, width - paddingPx * 2);
+  const mapHeight = Math.max(1, height - paddingPx * 2);
+
+  const latFraction = (latToMercatorY(maxLat) - latToMercatorY(minLat)) / Math.PI;
+  let lngDiff = maxLng - minLng;
+  if (lngDiff < 0) lngDiff += 360;
+  const lngFraction = lngDiff / 360;
+
+  const zoomForDim = (pxSize: number, fraction: number) => Math.log2(pxSize / 256 / Math.max(fraction, 1e-9));
+  const zoom = Math.min(zoomForDim(mapHeight, latFraction), zoomForDim(mapWidth, lngFraction));
+  return Math.max(1, Math.min(20, zoom));
+}
 
 interface Props {
   onOpenDetail: (route: CloudRoute) => void;
@@ -142,6 +168,8 @@ interface Props {
   onOpenGroupRuns: () => void;
   onOpenGroupRun: (groupRunId: string) => void;
   onOpenClubs: () => void;
+  onOpenNotifications: () => void;
+  unreadNotificationCount: number;
   onCreateRoute: () => void;
   onImportGpx: () => void;
   onCreateEvent: () => void;
@@ -166,6 +194,13 @@ function FadeInPin({ children }: { children: React.ReactNode }) {
 // below; this is only what shows before/without that.
 const DEFAULT_CENTER: [number, number] = [121.774, 12.8797];
 const COUNTRY_ZOOM_FALLBACK = 4.5;
+
+const SHOW_TOP_ROUTES_KEY = 'rootah_show_top_routes';
+
+// No safe-area-inset library wired into the app — this is a fixed
+// approximation of the home-indicator / gesture-nav inset so the FAB
+// actually sits in the bottom-right corner instead of crowding the edge.
+const BOTTOM_SAFE_PAD = Platform.OS === 'ios' ? 34 : 16;
 
 // A single center+zoom can't guarantee the whole archipelago fits on
 // screen — the Philippines is tall and narrow (~1850km N-S, much less
@@ -199,6 +234,8 @@ export default function DiscoverMapScreen({
   onOpenGroupRuns,
   onOpenGroupRun,
   onOpenClubs,
+  onOpenNotifications,
+  unreadNotificationCount,
   onCreateRoute,
   onImportGpx,
   onCreateEvent,
@@ -211,6 +248,23 @@ export default function DiscoverMapScreen({
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  // Off by default — an always-visible "most run" strip covering the map
+  // read as obtrusive. Remembered per-device once toggled.
+  const [showTopRoutes, setShowTopRoutes] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(SHOW_TOP_ROUTES_KEY).then((v) => {
+      if (v === '1') setShowTopRoutes(true);
+    });
+  }, []);
+
+  const toggleTopRoutes = useCallback(() => {
+    setShowTopRoutes((prev) => {
+      const next = !prev;
+      AsyncStorage.setItem(SHOW_TOP_ROUTES_KEY, next ? '1' : '0').catch(() => {});
+      return next;
+    });
+  }, []);
   const [zoom, setZoom] = useState(COUNTRY_ZOOM_FALLBACK);
   const [openCluster, setOpenCluster] = useState<RouteCluster | null>(null);
 
@@ -374,33 +428,40 @@ export default function DiscoverMapScreen({
 
   const clusters = useMemo(() => clusterRoutesByStart(routes, zoom), [routes, zoom]);
 
-  // Zoom in on tap so nearby-but-distinct routes spread into their own pins,
-  // the way most map apps handle clusters — jump straight to the next fixed
-  // tier rather than an arbitrary delta, and only fall back to a list once
-  // we're already at the last tier (routes truly overlapping).
-  const handleClusterPress = useCallback(
-    (cluster: RouteCluster) => {
-      const nextTier = CLUSTER_ZOOM_TIERS.find((tier) => tier > zoom + 0.1);
-      if (!nextTier) {
-        setOpenCluster(cluster);
-        return;
-      }
-      // Pins re-cluster and fade in immediately below, independent of this
-      // animation, so easing the camera here no longer brings back the
-      // "pins lag behind the zoom" problem — it can just look good.
-      cameraRef.current?.setCamera({
-        centerCoordinate: [cluster.center.longitude, cluster.center.latitude],
-        zoomLevel: nextTier,
-        animationDuration: 350,
-        animationMode: 'easeTo',
-      });
-      // Re-cluster immediately instead of waiting for onMapIdle — that
-      // native event only fires once the camera+tiles settle, which would
-      // otherwise lag behind the animation above.
-      setZoom(nextTier);
-    },
-    [zoom],
-  );
+  // Fits the camera to the bounding box of every route start in the
+  // cluster, so a tap always brings every member into view in one go —
+  // picking a zoom level centered on the old centroid (the previous
+  // approach) could leave newly-split-apart pins scattered outside the
+  // viewport if they were geographically far from each other, making the
+  // tap look like it did nothing. onMapIdle (already wired below) re-syncs
+  // `zoom` and re-clusters once the camera settles.
+  const handleClusterPress = useCallback((cluster: RouteCluster) => {
+    const starts = cluster.routes.map((r) => r.waypoints[0]).filter((w): w is NonNullable<typeof w> => !!w);
+    if (starts.length <= 1) {
+      setOpenCluster(cluster);
+      return;
+    }
+
+    const lats = starts.map((s) => s.latitude);
+    const lngs = starts.map((s) => s.longitude);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+
+    if (Math.max(maxLat - minLat, maxLng - minLng) < CLUSTER_MIN_SPAN_DEG) {
+      // Truly overlapping — no useful bounds to fit, further zoom won't help.
+      setOpenCluster(cluster);
+      return;
+    }
+
+    const PADDING_PX = 80;
+    cameraRef.current?.fitBounds([maxLng, maxLat], [minLng, minLat], PADDING_PX, 500);
+    // Re-cluster immediately instead of waiting for onMapIdle — that native
+    // event only fires once the camera+tiles settle, which felt like a
+    // ~1s delay before the split-apart pins appeared.
+    setZoom(estimateZoomForBounds(minLat, minLng, maxLat, maxLng, PADDING_PX));
+  }, []);
 
   const activeFilterCount = useMemo(
     () => [appliedFilters.minDistanceKm, appliedFilters.maxDistanceKm, appliedFilters.maxElevationGainM, appliedFilters.city, appliedFilters.activityType].filter(
@@ -528,13 +589,24 @@ export default function DiscoverMapScreen({
 
       <View style={styles.topOverlay}>
         <View style={styles.brandRow}>
-          <Logo size={36} />
+          <View style={styles.brandGroup}>
+            <Logo size={36} />
+            {tier === 'paid' && <ProBadge />}
+          </View>
           <View style={styles.topButtons}>
             <Pressable style={styles.groupRunsButton} onPress={onOpenGroupRuns}>
               <CalendarIcon size={16} />
             </Pressable>
             <Pressable style={styles.groupRunsButton} onPress={onOpenClubs}>
               <UsersIcon size={16} />
+            </Pressable>
+            <Pressable style={styles.groupRunsButton} onPress={onOpenNotifications}>
+              <BellIcon size={16} />
+              {unreadNotificationCount > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>{unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}</Text>
+                </View>
+              )}
             </Pressable>
             <Pressable style={styles.profileButton} onPress={onOpenProfile}>
               <UserIcon size={18} />
@@ -544,18 +616,18 @@ export default function DiscoverMapScreen({
 
         <View style={styles.searchRow}>
           <View style={styles.searchInputWrap}>
-            <SearchIcon size={14} color={colors.muted} />
+            <SearchIcon size={14} color={colors.stone} />
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search routes..."
-              placeholderTextColor={colors.mutedLight}
+              placeholderTextColor={colors.mist}
               style={styles.searchInput}
               returnKeyType="search"
             />
             {searchQuery.length > 0 && (
               <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-                <CloseIcon size={14} color={colors.muted} />
+                <CloseIcon size={14} color={colors.stone} />
               </Pressable>
             )}
           </View>
@@ -564,7 +636,7 @@ export default function DiscoverMapScreen({
         {searchQuery.trim().length > 0 && (
           <View style={styles.searchResultsWrap}>
             {searchLoading ? (
-              <ActivityIndicator color={colors.rust} style={{ marginTop: 20 }} />
+              <ActivityIndicator color={colors.coral} style={{ marginTop: 20 }} />
             ) : searchResults.length === 0 ? (
               <Text style={styles.searchEmptyText}>No routes match &quot;{searchQuery.trim()}&quot;</Text>
             ) : (
@@ -585,12 +657,23 @@ export default function DiscoverMapScreen({
           </View>
         )}
 
-        <Pressable style={styles.filterButton} onPress={() => setShowFilters(true)}>
-          <FilterIcon size={14} />
-          <Text style={styles.filterButtonText}>
-            {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : 'Filters'}
-          </Text>
-        </Pressable>
+        <View style={styles.topFilterRow}>
+          <Pressable style={styles.filterButton} onPress={() => setShowFilters(true)}>
+            <FilterIcon size={14} />
+            <Text style={styles.filterButtonText}>
+              {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : 'Filters'}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.filterButton, showTopRoutes && styles.filterButtonActive]}
+            onPress={toggleTopRoutes}
+          >
+            <TrophyIcon size={14} color={showTopRoutes ? colors.white : colors.ink} />
+            <Text style={[styles.filterButtonText, showTopRoutes && styles.filterButtonTextActive]}>
+              Popular
+            </Text>
+          </Pressable>
+        </View>
 
         {error && (
           <View style={styles.errorBanner}>
@@ -604,13 +687,15 @@ export default function DiscoverMapScreen({
           </View>
         )}
 
-        <TopRoutesStrip
-          routes={topRoutes}
-          city={topRoutesCity}
-          isFallback={topRoutesIsFallback}
-          onOpenRoute={onOpenDetail}
-          onSeeAll={() => onOpenTopRoutes(topRoutesCity)}
-        />
+        {showTopRoutes && (
+          <TopRoutesStrip
+            routes={topRoutes}
+            city={topRoutesCity}
+            isFallback={topRoutesIsFallback}
+            onOpenRoute={onOpenDetail}
+            onSeeAll={() => onOpenTopRoutes(topRoutesCity)}
+          />
+        )}
       </View>
 
       {!loading && routes.length === 0 && !error && (
@@ -665,7 +750,7 @@ export default function DiscoverMapScreen({
             >
               <ImportIcon size={16} color={colors.ink} />
               <Text style={styles.addMenuItemText}>Import GPX</Text>
-              {tier === 'free' && <LockIcon size={14} color={colors.muted} />}
+              {tier === 'free' && <LockIcon size={14} color={colors.stone} />}
             </Pressable>
             <Pressable
               style={styles.addMenuItem}
@@ -726,7 +811,7 @@ export default function DiscoverMapScreen({
                   value={minDistance}
                   onChangeText={setMinDistance}
                   placeholder="Min"
-                  placeholderTextColor={colors.mutedLight}
+                  placeholderTextColor={colors.mist}
                   keyboardType="numeric"
                   style={[styles.filterInput, styles.filterInputHalf]}
                 />
@@ -734,7 +819,7 @@ export default function DiscoverMapScreen({
                   value={maxDistance}
                   onChangeText={setMaxDistance}
                   placeholder="Max"
-                  placeholderTextColor={colors.mutedLight}
+                  placeholderTextColor={colors.mist}
                   keyboardType="numeric"
                   style={[styles.filterInput, styles.filterInputHalf]}
                 />
@@ -747,7 +832,7 @@ export default function DiscoverMapScreen({
                 value={maxElevation}
                 onChangeText={setMaxElevation}
                 placeholder="e.g. 300"
-                placeholderTextColor={colors.mutedLight}
+                placeholderTextColor={colors.mist}
                 keyboardType="numeric"
                 style={styles.filterInput}
               />
@@ -759,7 +844,7 @@ export default function DiscoverMapScreen({
                 value={city}
                 onChangeText={setCity}
                 placeholder="Search by city"
-                placeholderTextColor={colors.mutedLight}
+                placeholderTextColor={colors.mist}
                 autoCapitalize="words"
                 style={styles.filterInput}
               />
@@ -837,20 +922,18 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 8,
-    backgroundColor: colors.rust,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    backgroundColor: colors.coral,
+    ...elevation('subtle'),
   },
   pinLabel: {
-    backgroundColor: colors.sand,
-    borderWidth: 2,
-    borderColor: colors.ink,
+    backgroundColor: colors.surface,
     borderRadius: 8,
     paddingVertical: 2,
     paddingHorizontal: 6,
+    ...elevation('subtle'),
   },
   pinLabelText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 10,
     color: colors.ink,
   },
@@ -860,6 +943,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink,
     marginTop: -1,
     marginLeft: 8.5,
+    opacity: 0.25,
   },
   clusterPin: {
     alignItems: 'center',
@@ -872,16 +956,15 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 10,
-    backgroundColor: colors.rust,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('smallCta'),
   },
   clusterDotText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 13,
-    color: colors.sand,
+    color: colors.sheetBg,
   },
   clusterBackdrop: {
     flex: 1,
@@ -889,14 +972,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   clusterSheet: {
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
+    backgroundColor: colors.sheetBg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '70%',
     paddingTop: 26,
     paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+    ...elevation('sheet'),
   },
   clusterHeaderRow: {
     flexDirection: 'row',
@@ -906,19 +988,19 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   clusterTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 18,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   clusterCloseButton: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   clusterList: {
     paddingHorizontal: 22,
@@ -926,20 +1008,20 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   clusterRow: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 12,
-    ...brutalShadow(2),
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: 14,
+    ...elevation('card'),
   },
   clusterRowTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 15,
     color: colors.ink,
   },
   clusterRowMeta: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
     marginTop: 2,
   },
   topOverlay: {
@@ -954,6 +1036,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  brandGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   topButtons: {
     flexDirection: 'row',
     gap: 10,
@@ -961,22 +1048,37 @@ const styles = StyleSheet.create({
   groupRunsButton: {
     width: 36,
     height: 36,
-    borderRadius: 11,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 8,
+    backgroundColor: colors.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  notificationBadgeText: {
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    color: colors.white,
   },
   profileButton: {
     width: 36,
     height: 36,
-    borderRadius: 11,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: 18,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   searchRow: {
     marginBottom: 8,
@@ -985,33 +1087,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.white,
-    ...brutalShadow(3),
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 42,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: radii.pill,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    ...elevation('subtle'),
   },
   searchInput: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
-    height: '100%',
   },
   searchResultsWrap: {
-    backgroundColor: colors.white,
-    ...brutalShadow(3),
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
     marginBottom: 8,
     maxHeight: 280,
+    ...elevation('card'),
   },
   searchResultsList: {
     paddingVertical: 4,
   },
   searchEmptyText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     padding: 16,
     textAlign: 'center',
   },
@@ -1019,48 +1120,59 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: colors.sand,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
   },
   searchResultName: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
   searchResultMeta: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
     marginTop: 1,
+  },
+  topFilterRow: {
+    flexDirection: 'row',
+    alignSelf: 'flex-start',
+    gap: 8,
   },
   filterButton: {
     flexDirection: 'row',
     alignSelf: 'flex-start',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.sand,
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    ...brutalShadow(3),
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    ...elevation('subtle'),
+  },
+  filterButtonActive: {
+    backgroundColor: colors.coral,
   },
   filterButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.ink,
   },
+  filterButtonTextActive: {
+    color: colors.white,
+  },
   errorBanner: {
-    backgroundColor: colors.rustDark,
+    backgroundColor: colors.danger,
     borderRadius: 8,
     padding: 10,
   },
   errorText: {
     color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   loadingBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
     borderRadius: 10,
     padding: 6,
   },
@@ -1073,22 +1185,22 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   emptyTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 16,
     color: colors.ink,
     textAlign: 'center',
   },
   emptyBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     lineHeight: 19,
   },
   emptyLink: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.rust,
+    color: colors.coral,
     textAlign: 'center',
     marginTop: 4,
     textDecorationLine: 'underline',
@@ -1105,11 +1217,11 @@ const styles = StyleSheet.create({
   },
   runCard: {
     width: 190,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: 12,
     gap: 2,
-    ...brutalShadow(3),
+    ...elevation('card'),
   },
   runCardWhenRow: {
     flexDirection: 'row',
@@ -1117,32 +1229,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 6,
-    paddingVertical: 2,
-    paddingHorizontal: 6,
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     marginBottom: 2,
   },
   runCardWhen: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 9,
-    color: colors.ink,
+    color: colors.surface,
+    textTransform: 'uppercase',
   },
   runCardTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 13,
     color: colors.ink,
   },
   runCardRoute: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 11,
-    color: colors.muted,
+    color: colors.stone,
   },
   runCardHost: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 10,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   runCardFooter: {
     flexDirection: 'row',
@@ -1151,43 +1262,43 @@ const styles = StyleSheet.create({
   },
   runCardMeta: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 10,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 40,
-    width: 60,
-    height: 60,
-    borderRadius: 18,
-    backgroundColor: colors.rust,
+    bottom: 40 + BOTTOM_SAFE_PAD,
+    width: 52,
+    height: 52,
+    borderRadius: radii.fab,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(4),
+    ...elevation('fab'),
   },
   addMenu: {
     position: 'absolute',
     right: 20,
-    bottom: 110,
+    bottom: 110 + BOTTOM_SAFE_PAD,
     gap: 10,
   },
   addMenuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.sand,
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    ...brutalShadow(3),
+    ...elevation('card'),
   },
   addMenuItemLocked: {
     opacity: 0.6,
   },
   addMenuItemText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
@@ -1197,14 +1308,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   filterSheet: {
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
+    backgroundColor: colors.sheetBg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 22,
     paddingBottom: 40,
     gap: 14,
+    ...elevation('sheet'),
   },
   filterHeaderRow: {
     flexDirection: 'row',
@@ -1212,25 +1322,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   filterTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   filterCloseButton: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   filterLabel: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.stone,
     marginBottom: 6,
   },
   filterRow: {
@@ -1243,34 +1354,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   activityFilterChip: {
-    borderWidth: 2,
-    borderColor: colors.ink,
     borderRadius: 20,
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 12,
-    backgroundColor: colors.white,
+    backgroundColor: 'rgba(0,0,0,0.06)',
   },
   activityFilterChipActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   activityFilterChipText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
+    fontFamily: fonts.semiBold,
+    fontSize: 11,
     color: colors.ink,
   },
   activityFilterChipTextActive: {
-    color: colors.sand,
+    color: colors.surface,
   },
   filterInput: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 12,
     paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   filterInputHalf: {
     flex: 1,
@@ -1283,30 +1391,29 @@ const styles = StyleSheet.create({
   filterClearButton: {
     flex: 1,
     height: 52,
-    borderRadius: 14,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    backgroundColor: colors.white,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   filterClearButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
   filterApplyButton: {
     flex: 1.4,
     height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   filterApplyButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.surface,
   },
 });

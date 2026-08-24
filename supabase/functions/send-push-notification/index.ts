@@ -120,6 +120,7 @@ async function buildRsvpDecisionNotification(
 
 interface FanOutNotification {
   recipientIds: string[];
+  actorId: string;
   title: string;
   body: string;
   data: Record<string, unknown>;
@@ -147,6 +148,7 @@ async function buildClubNewRunNotification(record: Record<string, unknown>): Pro
 
   return {
     recipientIds,
+    actorId: hostId,
     title: 'New club run',
     body: `${club.name} has a new run — ${title}`,
     data: { type: 'club_new_run', run_id: record.id as string, club_id: clubId },
@@ -177,6 +179,7 @@ async function buildClubJoinRequestNotification(record: Record<string, unknown>)
 
   return {
     recipientIds,
+    actorId: requesterId,
     title: 'New join request',
     body: `${requester?.username ?? 'Someone'} wants to join ${club.name}`,
     data: { type: 'club_join_request', club_id: clubId },
@@ -205,6 +208,18 @@ async function isPreferenceEnabled(
     .maybeSingle();
   // No row (shouldn't happen — a trigger creates one per profile) defaults to enabled.
   return data ? (data as Record<string, boolean>)[column] !== false : true;
+}
+
+/** Populates the in-app notification feed — separate from push delivery, so it still shows even without a registered push token. */
+async function insertNotification(
+  recipientId: string,
+  actorId: string | null,
+  type: string,
+  title: string,
+  body: string,
+  data: Record<string, unknown>,
+) {
+  await supabase.from('notifications').insert({ recipient_id: recipientId, actor_id: actorId, type, title, body, data });
 }
 
 async function sendAndCleanup(recipientId: string, title: string, body: string, data: Record<string, unknown>) {
@@ -260,7 +275,9 @@ serve(async (req) => {
     const fanOut = await buildClubNewRunNotification(payload.record);
     if (fanOut) {
       for (const recipientId of fanOut.recipientIds) {
+        if (await isBlocked(recipientId, fanOut.actorId)) continue;
         if (await isPreferenceEnabled(recipientId, fanOut.prefColumn)) {
+          await insertNotification(recipientId, fanOut.actorId, fanOut.data.type as string, fanOut.title, fanOut.body, fanOut.data);
           await sendAndCleanup(recipientId, fanOut.title, fanOut.body, fanOut.data);
         }
       }
@@ -272,7 +289,9 @@ serve(async (req) => {
     const fanOut = await buildClubJoinRequestNotification(payload.record);
     if (fanOut) {
       for (const recipientId of fanOut.recipientIds) {
+        if (await isBlocked(recipientId, fanOut.actorId)) continue;
         if (await isPreferenceEnabled(recipientId, fanOut.prefColumn)) {
+          await insertNotification(recipientId, fanOut.actorId, fanOut.data.type as string, fanOut.title, fanOut.body, fanOut.data);
           await sendAndCleanup(recipientId, fanOut.title, fanOut.body, fanOut.data);
         }
       }
@@ -298,6 +317,7 @@ serve(async (req) => {
     return new Response('OK (opted out)', { status: 200 });
   }
 
+  await insertNotification(target.recipientId, target.actorId, target.data.type as string, target.title, target.body, target.data);
   await sendAndCleanup(target.recipientId, target.title, target.body, target.data);
   return new Response('OK', { status: 200 });
 });

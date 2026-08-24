@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import ClubAvatar from './ClubAvatar';
 import Logo from './Logo';
+import NotificationBell from './NotificationBell';
 import RouteThumb from './RouteThumb';
 import { useAuth } from '../lib/AuthContext';
 import { listMyClubs } from '../lib/clubsApi';
@@ -130,6 +131,7 @@ export default function Sidebar() {
         )}
 
         <nav className="sidebar-nav">
+          {session && <NotificationBell />}
           {NAV_ITEMS.map((item) => {
             const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
             return (

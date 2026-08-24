@@ -1,5 +1,10 @@
-import { ArchivoBlack_400Regular } from '@expo-google-fonts/archivo-black';
-import { SpaceGrotesk_500Medium, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
@@ -12,6 +17,7 @@ import AuthScreen from './src/screens/AuthScreen';
 import BlockedUsersScreen from './src/screens/BlockedUsersScreen';
 import ClubAdminScreen from './src/screens/ClubAdminScreen';
 import ClubProfileScreen from './src/screens/ClubProfileScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 import ClubsListScreen from './src/screens/ClubsListScreen';
 import CreateClubScreen from './src/screens/CreateClubScreen';
 import CreateEventScreen from './src/screens/CreateEventScreen';
@@ -39,6 +45,7 @@ import { useUserTier } from './src/hooks/useUserTier';
 import { colors, fonts } from './src/theme/theme';
 import { CloudRoute } from './src/types/route';
 import { countMyActiveGroupRuns, createGroupRun } from './src/utils/groupRunsApi';
+import { countUnreadNotifications } from './src/utils/notificationsApi';
 import { getRoute } from './src/utils/routesApi';
 import { RecurrenceInput } from './src/components/ScheduleGroupRunModal';
 import { createSeries, getFirstUpcomingOccurrence } from './src/utils/recurringSeriesApi';
@@ -67,6 +74,7 @@ type Overlay =
   | 'clubProfile'
   | 'clubAdmin'
   | 'createClub'
+  | 'notifications'
   | null;
 
 interface AuthedAppProps {
@@ -74,9 +82,18 @@ interface AuthedAppProps {
   onConsumePendingRoute: () => void;
   pendingGroupRunId: string | null;
   onConsumePendingGroupRun: () => void;
+  pendingProfileId: string | null;
+  onConsumePendingProfile: () => void;
 }
 
-function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, onConsumePendingGroupRun }: AuthedAppProps) {
+function AuthedApp({
+  pendingRouteId,
+  onConsumePendingRoute,
+  pendingGroupRunId,
+  onConsumePendingGroupRun,
+  pendingProfileId,
+  onConsumePendingProfile,
+}: AuthedAppProps) {
   const { session } = useAuth();
   const tier = useUserTier();
   const notificationPrePermission = useNotificationPrePermission();
@@ -114,12 +131,23 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
   // the normal "route created" handling into "now finish the event details"
   // instead of opening the route's detail page.
   const [creatingEventForNewRoute, setCreatingEventForNewRoute] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(t);
   }, [toast]);
+
+  useEffect(() => {
+    const refreshUnread = () => countUnreadNotifications().then(setUnreadNotificationCount).catch(() => {});
+    refreshUnread();
+    const poll = setInterval(refreshUnread, 30_000);
+    return () => clearInterval(poll);
+    // Also refetch whenever the notifications screen closes, so the badge
+    // clears immediately after a "mark all read" instead of waiting for the
+    // next poll tick.
+  }, [overlay]);
 
   const navigateTo = useCallback(
     (next: Overlay) => {
@@ -300,6 +328,13 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
     onConsumePendingGroupRun();
   }, [pendingGroupRunId, onConsumePendingGroupRun, openGroupRunDetail]);
 
+  // Deep link from the shared web profile page (rootah://profile/{id}).
+  useEffect(() => {
+    if (!pendingProfileId) return;
+    openProfile(pendingProfileId);
+    onConsumePendingProfile();
+  }, [pendingProfileId, onConsumePendingProfile, openProfile]);
+
   return (
     <View style={styles.container}>
       <DiscoverMapScreen
@@ -308,6 +343,8 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
         onOpenGroupRuns={() => setOverlay('groupRuns')}
         onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
         onOpenClubs={() => setOverlay('clubs')}
+        onOpenNotifications={() => navigateTo('notifications')}
+        unreadNotificationCount={unreadNotificationCount}
         onCreateRoute={() => setOverlay('builder')}
         onImportGpx={() => (tier === 'paid' ? setOverlay('importGpx') : openPaywall('gpx_import'))}
         onCreateEvent={handleTapCreateEvent}
@@ -446,6 +483,17 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
         </View>
       )}
 
+      {overlay === 'notifications' && (
+        <View style={StyleSheet.absoluteFill}>
+          <NotificationsScreen
+            onClose={() => navigateBack()}
+            onOpenRoute={(routeId) => openDetailById(routeId)}
+            onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
+            onOpenClub={(clubId) => openClubProfile(clubId)}
+          />
+        </View>
+      )}
+
       {overlay === 'clubAdmin' && selectedClubId && (
         <View style={StyleSheet.absoluteFill}>
           <ClubAdminScreen
@@ -530,6 +578,7 @@ function AuthedApp({ pendingRouteId, onConsumePendingRoute, pendingGroupRunId, o
             onClose={() => navigateBack()}
             onOpenRoute={(routeId) => openDetailById(routeId)}
             onRequirePaywall={() => openPaywall('group_run_join_limit')}
+            onOpenProfile={openProfile}
           />
         </View>
       )}
@@ -630,6 +679,7 @@ function Root() {
   const { session, loading, needsUsernameSetup } = useAuth();
   const [pendingRouteId, setPendingRouteId] = useState<string | null>(null);
   const [pendingGroupRunId, setPendingGroupRunId] = useState<string | null>(null);
+  const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
   const [passwordResetDone, setPasswordResetDone] = useState(false);
 
   // Captured here (above the auth gate) so a link tapped while signed out
@@ -643,7 +693,12 @@ function Root() {
         return;
       }
       const routeMatch = url.match(/routes\/([^/?#]+)/);
-      if (routeMatch) setPendingRouteId(routeMatch[1]);
+      if (routeMatch) {
+        setPendingRouteId(routeMatch[1]);
+        return;
+      }
+      const profileMatch = url.match(/profile\/([^/?#]+)/);
+      if (profileMatch) setPendingProfileId(profileMatch[1]);
       // Sent by rootah.com/reset-password after a successful password
       // reset — the user resets on the web, then taps through back here.
       if (/login\?.*reset=success/.test(url)) setPasswordResetDone(true);
@@ -704,6 +759,8 @@ function Root() {
       onConsumePendingRoute={() => setPendingRouteId(null)}
       pendingGroupRunId={pendingGroupRunId}
       onConsumePendingGroupRun={() => setPendingGroupRunId(null)}
+      pendingProfileId={pendingProfileId}
+      onConsumePendingProfile={() => setPendingProfileId(null)}
     />
   ) : (
     <AuthScreen passwordResetDone={passwordResetDone} onConsumePasswordResetDone={() => setPasswordResetDone(false)} />
@@ -712,9 +769,11 @@ function Root() {
 
 export default function App() {
   const [fontsLoaded] = useFonts({
-    ArchivoBlack_400Regular,
-    SpaceGrotesk_500Medium,
-    SpaceGrotesk_700Bold,
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
   });
 
   const onLayout = useCallback(() => {

@@ -233,6 +233,19 @@ export interface BlockedUser {
   blockedAt: number;
 }
 
+export interface AppNotification {
+  id: string;
+  actorId: string | null;
+  actorUsername: string | null;
+  actorAvatarUrl: string | null;
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+  isRead: boolean;
+  createdAt: number;
+}
+
 export interface ClubRouteSummary {
   id: string;
   name: string;
