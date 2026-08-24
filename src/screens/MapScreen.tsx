@@ -4,30 +4,48 @@ import { File, Paths } from 'expo-file-system';
 import * as Location from 'expo-location';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import BuilderTutorial, { TutorialStep } from '../components/BuilderTutorial';
 import ExportSheet from '../components/ExportSheet';
-import { CloseIcon, ExportIcon, LoopIcon, SaveIcon, UndoIcon } from '../components/icons';
+import { CloseIcon, ExportIcon, LoopIcon, SaveIcon, SearchIcon, UndoIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import RouteMap, { MapStyleMode } from '../components/RouteMap';
+import RouteNotesModal from '../components/RouteNotesModal';
 import RouteStatsBar from '../components/RouteStatsBar';
 import SaveRouteModal from '../components/SaveRouteModal';
 import WaypointListModal from '../components/WaypointListModal';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ROUTE_LIMITS } from '../constants/routeLimits';
 import { useUserTier } from '../hooks/useUserTier';
-import { ActivityType, CloudRoute, LatLng, PathPoint, RouteSegment, Waypoint } from '../types/route';
-import { haversineDistance, kilometerMarkers, metersToKm, totalRouteDistance } from '../utils/distance';
+import { ActivityType, CloudRoute, LatLng, PathPoint, RouteNote, RouteSegment, Waypoint } from '../types/route';
+import { haversineDistance, kilometerMarkers, metersToKm, pathDistance, totalRouteDistance } from '../utils/distance';
 import { annotateElevation } from '../utils/elevation';
 import { buildGpx } from '../utils/gpx';
+import { findNearestPointOnPath } from '../utils/nearestPointOnPath';
 import { RoutedSegment, routeBetween, straightLineFallback } from '../utils/routing';
 import { colorSegmentsByGrade } from '../utils/routeColor';
 import { downsampleForStorage } from '../utils/elevationProfile';
-import { reverseGeocodeCity } from '../utils/geocoding';
+import { PlaceResult, reverseGeocodeCity, searchPlaces } from '../utils/geocoding';
 import { countMyRoutes, createRoute, updateRoute } from '../utils/routesApi';
 import { TrailInfoInput, upsertTrailInfo } from '../utils/trailInfoApi';
 
+// The app doesn't have react-native-safe-area-context wired in (adding it
+// requires a native rebuild, which we're avoiding mid-OTA-cycle) — this is a
+// fixed approximation of the home-indicator / gesture-nav inset so the
+// bottom-anchored builder controls don't crowd the edge of the screen.
+const BOTTOM_SAFE_PAD = Platform.OS === 'ios' ? 34 : 16;
+
 const ELEVATION_DEBOUNCE_MS = 1200;
+// A tap this close to the existing route line is treated as "insert a
+// point here" instead of "append a new leg at the end" — lets users drop a
+// note-carrying waypoint anywhere along an already-built or GPX-imported
+// route. Loose enough to land reliably on a phone screen at the builder's
+// usual zoom, tight enough that a tap meant to extend the route past its
+// last point rarely lands inside this radius of an earlier leg.
+const INSERT_WAYPOINT_TOLERANCE_METERS = 20;
+// Skip inserting if the tap's nearest point on the line is basically on top
+// of an existing waypoint already — avoids creating a near-zero-length leg.
+const INSERT_WAYPOINT_MIN_DISTANCE_FROM_NEIGHBOR_METERS = 5;
 const CAMERA_ZOOM = 15;
 const TUTORIAL_STORAGE_KEY = 'rootah_seen_builder_tutorial_v1';
 const LAST_ACTIVITY_TYPE_KEY = 'rootah_last_activity_type';
@@ -38,6 +56,10 @@ const DEFAULT_CENTER: LatLng = {
   latitude: 12.8797,
   longitude: 121.774,
 };
+// RouteMap's own default zoom (15, street-level) is fine once centered on
+// the user, but on the PH-centroid fallback it just showed a tight, mostly
+// empty patch of ocean. Zoom out enough to see the whole archipelago instead.
+const PH_OVERVIEW_ZOOM = 5;
 
 let nextId = 1;
 function makeId() {
@@ -66,6 +88,13 @@ export default function MapScreen({
   const [center, setCenter] = useState<LatLng>(DEFAULT_CENTER);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
   const [segments, setSegments] = useState<RouteSegment[]>([]);
+  const [notes, setNotes] = useState<RouteNote[]>([]);
+  // True right after tapping "Tap the map to add a note" — the next map tap
+  // places a note instead of doing whatever it'd normally do (insert/append
+  // a waypoint). Notes are a separate entity from waypoints, so this never
+  // touches the route's geometry.
+  const [placingNote, setPlacingNote] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
   const [isRouting, setIsRouting] = useState(false);
   const [isFetchingElevation, setIsFetchingElevation] = useState(false);
   const [elevationGainM, setElevationGainM] = useState(0);
@@ -78,6 +107,10 @@ export default function MapScreen({
   const [checkingRouteLimit, setCheckingRouteLimit] = useState(false);
   const [isSavingRoute, setIsSavingRoute] = useState(false);
   const [mapStyleMode, setMapStyleMode] = useState<MapStyleMode>('standard');
+  const [showPlaceSearch, setShowPlaceSearch] = useState(false);
+  const [placeQuery, setPlaceQuery] = useState('');
+  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
+  const [placeSearching, setPlaceSearching] = useState(false);
   const [is3D, setIs3D] = useState(false);
   const [showPointsModal, setShowPointsModal] = useState(false);
   const [editingRoute, setEditingRoute] = useState<CloudRoute | null>(null);
@@ -136,8 +169,16 @@ export default function MapScreen({
     if (status !== 'granted') {
       // Building a route never requires location — denial here (including
       // the initial silent mount-time prompt) just means the map stays on
-      // its default center, no error shown. The explicit "locate me" button
-      // still surfaces a message so the user knows why nothing happened.
+      // its default center. But that default is RouteMap's street-level
+      // zoom on the PH centroid — a tight, mostly-empty patch of ocean —
+      // so explicitly zoom out to show the whole country instead. The
+      // explicit "locate me" button still surfaces a message so the user
+      // knows why nothing happened.
+      cameraRef.current?.setCamera({
+        centerCoordinate: [DEFAULT_CENTER.longitude, DEFAULT_CENTER.latitude],
+        zoomLevel: PH_OVERVIEW_ZOOM,
+        animationDuration: animate ? 500 : 0,
+      });
       if (!silent) setError('Location permission denied — enable it in Settings to center the map on you.');
       return;
     }
@@ -158,6 +199,11 @@ export default function MapScreen({
         animationDuration: animate ? 500 : 0,
       });
     } catch {
+      cameraRef.current?.setCamera({
+        centerCoordinate: [DEFAULT_CENTER.longitude, DEFAULT_CENTER.latitude],
+        zoomLevel: PH_OVERVIEW_ZOOM,
+        animationDuration: animate ? 500 : 0,
+      });
       if (!silent) setError('Could not determine your current location.');
     }
   }, []);
@@ -190,16 +236,20 @@ export default function MapScreen({
     AsyncStorage.setItem(TUTORIAL_STORAGE_KEY, '1').catch(() => {});
   }, []);
 
+  const dismissHint = useCallback(() => {
+    setHintDismissed((already) => {
+      if (already) return already;
+      Animated.timing(hintOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+      return true;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (hintDismissed) return;
-    const timer = setTimeout(() => {
-      Animated.timing(hintOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start(() => {
-        setHintDismissed(true);
-      });
-    }, 10_000);
+    const timer = setTimeout(dismissHint, 10_000);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hintDismissed]);
+  }, [hintDismissed, dismissHint]);
 
   useEffect(() => {
     if (tutorialStep === null) return;
@@ -220,6 +270,7 @@ export default function MapScreen({
     if (!routeToLoad) return;
     setWaypoints(routeToLoad.waypoints);
     setSegments(routeToLoad.segments);
+    setNotes(routeToLoad.notes);
     setHistory([]);
     // Only treat this as an edit-in-place if it's the viewer's own route —
     // opening someone else's route on the map is for viewing/exporting, and
@@ -344,8 +395,110 @@ export default function MapScreen({
     setWaypoints((prev) => prev.map((wp) => (wp.id === id ? { ...wp, ...point } : wp)));
   }, []);
 
+  // Splits the segment the tap landed on into two, with a brand-new
+  // waypoint at the tapped point — geometry is split in place (no
+  // Mapbox Directions re-route), so an imported GPX track's original
+  // recorded shape is preserved exactly rather than replaced with a guess.
+  const handleInsertWaypoint = useCallback(
+    (segmentIndex: number, pathIndex: number, point: LatLng) => {
+      const segment = segments[segmentIndex];
+      const beforeId = segment.fromId;
+      const afterId = segment.toId;
+      const insertAt = waypoints.findIndex((wp) => wp.id === afterId);
+      if (insertAt === -1) return;
+
+      pushHistory();
+      const newWaypoint: Waypoint = { id: makeId(), ...point };
+
+      const pathBefore = [...segment.path.slice(0, pathIndex + 1), point];
+      const pathAfter = [point, ...segment.path.slice(pathIndex + 1)];
+
+      const segBefore: RouteSegment = {
+        fromId: beforeId,
+        toId: newWaypoint.id,
+        path: pathBefore,
+        distanceMeters: pathDistance(pathBefore),
+      };
+      const segAfter: RouteSegment = {
+        fromId: newWaypoint.id,
+        toId: afterId,
+        path: pathAfter,
+        distanceMeters: pathDistance(pathAfter),
+      };
+
+      setWaypoints((prev) => [...prev.slice(0, insertAt), newWaypoint, ...prev.slice(insertAt)]);
+      setSegments((prev) => [...prev.slice(0, segmentIndex), segBefore, segAfter, ...prev.slice(segmentIndex + 1)]);
+    },
+    [segments, waypoints, pushHistory],
+  );
+
+  // Places a note at (or snapped onto, if close enough) the current route
+  // line — a standalone pin, not a Waypoint, so it never touches the
+  // route's geometry/segments.
+  const handlePlaceNote = useCallback(
+    (coord: LatLng) => {
+      let point = coord;
+      if (segments.length > 0) {
+        const nearest = findNearestPointOnPath(coord, segments);
+        if (nearest && nearest.distanceMeters <= INSERT_WAYPOINT_TOLERANCE_METERS) {
+          point = nearest.point;
+        }
+      }
+      const newNote: RouteNote = { id: makeId(), ...point, text: '' };
+      setNotes((prev) => [...prev, newNote]);
+      setPlacingNote(false);
+      setShowNotesModal(true);
+    },
+    [segments],
+  );
+
+  useEffect(() => {
+    if (placeQuery.trim().length < 2) {
+      setPlaceResults([]);
+      return;
+    }
+    let cancelled = false;
+    setPlaceSearching(true);
+    const timer = setTimeout(() => {
+      const currentWaypoints = currentStateRef.current.waypoints;
+      const lastWaypoint = currentWaypoints[currentWaypoints.length - 1];
+      searchPlaces(placeQuery, lastWaypoint)
+        .then((results) => {
+          if (!cancelled) setPlaceResults(results);
+        })
+        .finally(() => {
+          if (!cancelled) setPlaceSearching(false);
+        });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [placeQuery]);
+
   const handleMapPress = useCallback(
     async (coord: LatLng) => {
+      if (placingNote) {
+        handlePlaceNote(coord);
+        return;
+      }
+
+      if (segments.length > 0) {
+        const nearest = findNearestPointOnPath(coord, segments);
+        if (nearest && nearest.distanceMeters <= INSERT_WAYPOINT_TOLERANCE_METERS) {
+          const segment = segments[nearest.segmentIndex];
+          const beforeWp = waypoints.find((wp) => wp.id === segment.fromId);
+          const afterWp = waypoints.find((wp) => wp.id === segment.toId);
+          const tooCloseToNeighbor =
+            (beforeWp && haversineDistance(nearest.point, beforeWp) < INSERT_WAYPOINT_MIN_DISTANCE_FROM_NEIGHBOR_METERS) ||
+            (afterWp && haversineDistance(nearest.point, afterWp) < INSERT_WAYPOINT_MIN_DISTANCE_FROM_NEIGHBOR_METERS);
+          if (!tooCloseToNeighbor) {
+            handleInsertWaypoint(nearest.segmentIndex, nearest.pathIndex, nearest.point);
+            return;
+          }
+        }
+      }
+
       const previous = waypoints[waypoints.length - 1];
 
       if (previous) {
@@ -390,7 +543,30 @@ export default function MapScreen({
         }
       }
     },
-    [waypoints, routeSegment, snapWaypoint, validateLeg, distanceKm, pushHistory],
+    [
+      waypoints,
+      segments,
+      routeSegment,
+      snapWaypoint,
+      validateLeg,
+      distanceKm,
+      pushHistory,
+      handleInsertWaypoint,
+      placingNote,
+      handlePlaceNote,
+    ],
+  );
+
+  const handleSelectPlace = useCallback(
+    (place: PlaceResult) => {
+      const coord: LatLng = { latitude: place.latitude, longitude: place.longitude };
+      setShowPlaceSearch(false);
+      setPlaceQuery('');
+      setPlaceResults([]);
+      cameraRef.current?.setCamera({ centerCoordinate: [coord.longitude, coord.latitude], zoomLevel: 15, animationDuration: 600 });
+      handleMapPress(coord);
+    },
+    [handleMapPress],
   );
 
   const handleMarkerDragEnd = useCallback(
@@ -528,8 +704,12 @@ export default function MapScreen({
     [waypoints, routeSegment, pushHistory],
   );
 
-  const handleEditWaypointNote = useCallback((id: string, note: string) => {
-    setWaypoints((prev) => prev.map((wp) => (wp.id === id ? { ...wp, note } : wp)));
+  const handleEditNoteText = useCallback((id: string, text: string) => {
+    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, text } : n)));
+  }, []);
+
+  const handleDeleteNote = useCallback((id: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
   const handleRequestClose = useCallback(() => {
@@ -546,6 +726,8 @@ export default function MapScreen({
   const handleClear = useCallback(() => {
     setWaypoints([]);
     setSegments([]);
+    setNotes([]);
+    setPlacingNote(false);
     setElevationGainM(0);
     setPathWithElevation([]);
     setEditingRoute(null);
@@ -668,6 +850,7 @@ export default function MapScreen({
           activityType,
           waypoints,
           segments,
+          notes,
           distanceKm,
           elevationGainM,
           elevationProfile: downsampleForStorage(renderPath),
@@ -698,6 +881,7 @@ export default function MapScreen({
     [
       waypoints,
       segments,
+      notes,
       distanceKm,
       elevationGainM,
       renderPath,
@@ -721,6 +905,7 @@ export default function MapScreen({
         waypoints={waypoints}
         colorSegments={colorSegments}
         kmMarkers={kmMarkers}
+        notes={notes}
         mapStyleMode={mapStyleMode}
         is3D={is3D}
         onMapPress={handleMapPress}
@@ -735,7 +920,7 @@ export default function MapScreen({
       <Pressable
         style={[
           styles.textToggleButton,
-          { bottom: 228 },
+          { bottom: 228 + BOTTOM_SAFE_PAD },
           mapStyleMode === 'satellite' && styles.textToggleButtonActive,
         ]}
         onPress={() => setMapStyleMode((prev) => (prev === 'satellite' ? 'standard' : 'satellite'))}
@@ -751,7 +936,7 @@ export default function MapScreen({
       </Pressable>
 
       <Pressable
-        style={[styles.textToggleButton, { bottom: 172 }, is3D && styles.textToggleButtonActive]}
+        style={[styles.textToggleButton, { bottom: 172 + BOTTOM_SAFE_PAD }, is3D && styles.textToggleButtonActive]}
         onPress={() => setIs3D((prev) => !prev)}
       >
         <Text style={[styles.textToggleButtonText, is3D && styles.textToggleButtonTextActive]}>3D</Text>
@@ -764,10 +949,45 @@ export default function MapScreen({
       <View style={styles.topOverlay}>
         <View style={styles.brandRow}>
           <Logo size={36} />
-          <Pressable style={styles.closeButton} onPress={handleRequestClose}>
-            <CloseIcon />
-          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable style={styles.closeButton} onPress={() => setShowPlaceSearch((v) => !v)}>
+              <SearchIcon size={18} />
+            </Pressable>
+            <Pressable style={styles.closeButton} onPress={handleRequestClose}>
+              <CloseIcon />
+            </Pressable>
+          </View>
         </View>
+
+        {showPlaceSearch && (
+          <View style={styles.placeSearchWrap}>
+            <TextInput
+              value={placeQuery}
+              onChangeText={setPlaceQuery}
+              placeholder="Search a place to plot the start…"
+              placeholderTextColor={colors.stone}
+              style={styles.placeSearchInput}
+              autoFocus
+            />
+            {(placeSearching || placeResults.length > 0) && (
+              <FlatList
+                data={placeResults}
+                keyExtractor={(item) => item.id}
+                keyboardShouldPersistTaps="handled"
+                style={styles.placeSearchResults}
+                ListHeaderComponent={placeSearching ? <Text style={styles.placeSearchEmpty}>Searching…</Text> : null}
+                renderItem={({ item }) => (
+                  <Pressable style={styles.placeSearchRow} onPress={() => handleSelectPlace(item)}>
+                    <Text style={styles.placeSearchRowName}>{item.name}</Text>
+                    <Text style={styles.placeSearchRowFull} numberOfLines={1}>
+                      {item.fullName}
+                    </Text>
+                  </Pressable>
+                )}
+              />
+            )}
+          </View>
+        )}
 
         {hasRoute && (
           <View style={styles.statsWrap}>
@@ -778,10 +998,26 @@ export default function MapScreen({
               isRouting={isRouting}
               isFetchingElevation={isFetchingElevation}
             />
-            <Pressable style={styles.pointsPill} onPress={() => setShowPointsModal(true)}>
-              <Text style={styles.pointsPillText}>
-                {waypoints.length} point{waypoints.length === 1 ? '' : 's'} · edit or delete ›
-              </Text>
+            <View style={styles.pillRow}>
+              <Pressable style={styles.pointsPill} onPress={() => setShowPointsModal(true)}>
+                <Text style={styles.pointsPillText}>
+                  {waypoints.length} point{waypoints.length === 1 ? '' : 's'} · edit or delete ›
+                </Text>
+              </Pressable>
+              <Pressable style={styles.pointsPill} onPress={() => setShowNotesModal(true)}>
+                <Text style={styles.pointsPillText}>
+                  {notes.length} note{notes.length === 1 ? '' : 's'} · add or edit ›
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {placingNote && (
+          <View style={styles.noteBanner}>
+            <Text style={styles.noteBannerText}>Tap the map to place your note</Text>
+            <Pressable onPress={() => setPlacingNote(false)}>
+              <Text style={styles.noteBannerCancel}>Cancel</Text>
             </Pressable>
           </View>
         )}
@@ -800,12 +1036,15 @@ export default function MapScreen({
       </View>
 
       {!hasRoute && tutorialStep === null && !hintDismissed && (
-        <Animated.View style={[styles.hintOverlay, { opacity: hintOpacity }]} pointerEvents="none">
-          <Text style={styles.hintTitle}>Tap the map to start</Text>
-          <Text style={styles.hintBody}>
-            Your first tap sets the start point. Keep tapping to add stops — Rootah routes along
-            real streets automatically.
-          </Text>
+        <Animated.View style={[styles.hintScrim, { opacity: hintOpacity }]} pointerEvents="box-none">
+          <Pressable style={StyleSheet.absoluteFill} onPress={dismissHint} />
+          <View style={styles.hintOverlay}>
+            <Text style={styles.hintTitle}>Tap the map to start</Text>
+            <Text style={styles.hintBody}>
+              Your first tap sets the start point. Keep tapping to add stops — Rootah routes along
+              real streets automatically.
+            </Text>
+          </View>
         </Animated.View>
       )}
 
@@ -891,7 +1130,18 @@ export default function MapScreen({
         waypoints={waypoints}
         onClose={() => setShowPointsModal(false)}
         onDelete={handleDeleteWaypoint}
-        onEditNote={handleEditWaypointNote}
+      />
+
+      <RouteNotesModal
+        visible={showNotesModal}
+        notes={notes}
+        onClose={() => setShowNotesModal(false)}
+        onDelete={handleDeleteNote}
+        onEditText={handleEditNoteText}
+        onAddNote={() => {
+          setShowNotesModal(false);
+          setPlacingNote(true);
+        }}
       />
     </View>
   );
@@ -913,52 +1163,114 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  placeSearchWrap: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: 8,
+    ...elevation('subtle'),
+  },
+  placeSearchInput: {
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    color: colors.ink,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  placeSearchResults: {
+    maxHeight: 220,
+    marginTop: 4,
+  },
+  placeSearchRow: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  placeSearchRowName: {
+    fontFamily: fonts.bold,
+    fontSize: 13.5,
+    color: colors.ink,
+  },
+  placeSearchRowFull: {
+    fontFamily: fonts.medium,
+    fontSize: 11.5,
+    color: colors.stone,
+    marginTop: 1,
+  },
+  placeSearchEmpty: {
+    fontFamily: fonts.medium,
+    fontSize: 12.5,
+    color: colors.stone,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   closeButton: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   statsWrap: {
     marginTop: 2,
     gap: 8,
   },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
   pointsPill: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.sand,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    ...elevation('subtle'),
   },
   pointsPillText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
     color: colors.ink,
   },
+  noteBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.amber,
+    borderRadius: radii.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  noteBannerText: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  noteBannerCancel: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.ink,
+    textDecorationLine: 'underline',
+  },
   errorBanner: {
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: colors.ink,
+    borderRadius: radii.sm,
+    padding: 12,
   },
   errorText: {
     color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   toastBanner: {
     backgroundColor: colors.ink,
-    borderRadius: 8,
-    padding: 10,
+    borderRadius: radii.sm,
+    padding: 12,
   },
   toastText: {
-    color: colors.sand,
-    fontFamily: fonts.bodyMedium,
+    color: colors.cream,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   centerPinHint: {
@@ -970,9 +1282,9 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(26,22,20,0.3)',
     borderStyle: 'dashed',
   },
   textToggleButton: {
@@ -980,65 +1292,71 @@ const styles = StyleSheet.create({
     right: 16,
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: colors.sand,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(3),
+    ...elevation('subtle'),
   },
   textToggleButtonActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   textToggleButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 11,
     color: colors.ink,
   },
   textToggleButtonTextActive: {
-    color: colors.sand,
+    color: colors.surface,
   },
   locateButton: {
     position: 'absolute',
     right: 16,
-    bottom: 116,
+    bottom: 116 + BOTTOM_SAFE_PAD,
     width: 44,
     height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.sand,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(3),
+    ...elevation('subtle'),
   },
   locateButtonText: {
     fontSize: 18,
     color: colors.ink,
   },
+  hintScrim: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
   hintOverlay: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 120,
-    backgroundColor: 'rgba(20,16,12,0.82)',
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    gap: 4,
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: 'rgba(26,22,20,0.9)',
+    borderRadius: radii.lg,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    gap: 6,
+    ...elevation('sheet'),
   },
   hintTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 16,
-    color: colors.sand,
+    letterSpacing: -0.3,
+    color: colors.surface,
   },
   hintBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.regular,
     fontSize: 13,
-    color: colors.sand,
+    color: colors.surface,
     opacity: 0.85,
     lineHeight: 19,
   },
   bottomOverlay: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 40 + BOTTOM_SAFE_PAD,
     left: 16,
     right: 16,
     flexDirection: 'row',
@@ -1051,31 +1369,33 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(3),
+    ...elevation('subtle'),
   },
   amberButton: {
     backgroundColor: colors.amber,
   },
   sandButton: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.surface,
   },
   aquaButton: {
-    backgroundColor: colors.aqua,
+    backgroundColor: colors.teal,
   },
   exportButton: {
     flex: 1,
     height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    paddingHorizontal: 24,
+    backgroundColor: colors.coral,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   exportButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    lineHeight: 18,
+    color: colors.surface,
   },
 });

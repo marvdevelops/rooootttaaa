@@ -58,6 +58,8 @@ function BuildForm() {
   const [placeSearching, setPlaceSearching] = useState(false);
   const [showPlaceResults, setShowPlaceResults] = useState(false);
   const placeSearchRef = useRef<HTMLDivElement>(null);
+  const waypointsRef = useRef<Waypoint[]>(waypoints);
+  waypointsRef.current = waypoints;
 
   useEffect(() => {
     if (!showPlaceResults) return;
@@ -138,7 +140,10 @@ function BuildForm() {
     let cancelled = false;
     setPlaceSearching(true);
     const timer = setTimeout(() => {
-      searchPlaces(placeQuery)
+      const currentWaypoints = waypointsRef.current;
+      const lastWaypoint = currentWaypoints[currentWaypoints.length - 1];
+      const proximity = lastWaypoint ? { latitude: lastWaypoint.latitude, longitude: lastWaypoint.longitude } : undefined;
+      searchPlaces(placeQuery, proximity)
         .then((results) => {
           if (!cancelled) setPlaceResults(results);
         })

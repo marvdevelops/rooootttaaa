@@ -7,6 +7,44 @@ export interface LngLatBounds {
   ne: [number, number];
 }
 
+export interface PlaceResult {
+  id: string;
+  name: string;
+  fullName: string;
+  latitude: number;
+  longitude: number;
+}
+
+/**
+ * Forward place search via Mapbox, biased toward the Philippines where
+ * Rootah's userbase is. `proximity` (e.g. the route's last waypoint) ranks
+ * nearby results first, so a generic query like "hotel" doesn't return a
+ * match from the other side of the country.
+ */
+export async function searchPlaces(query: string, proximity?: LatLng): Promise<PlaceResult[]> {
+  if (!MAPBOX_TOKEN || query.trim().length < 2) return [];
+
+  try {
+    const proximityParam = proximity ? `&proximity=${proximity.longitude},${proximity.latitude}` : '';
+    const url =
+      `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json` +
+      `?access_token=${MAPBOX_TOKEN}&limit=6&country=ph${proximityParam}`;
+    const response = await fetch(url);
+    if (!response.ok) return [];
+    const data = await response.json();
+    const features = Array.isArray(data.features) ? data.features : [];
+    return features.map((f: { id: string; text: string; place_name: string; center: [number, number] }) => ({
+      id: f.id,
+      name: f.text,
+      fullName: f.place_name,
+      latitude: f.center[1],
+      longitude: f.center[0],
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Reverse-geocodes a point to its city name via Mapbox, for tagging routes
  * at save time so Discover can filter by city. Returns null on any failure
