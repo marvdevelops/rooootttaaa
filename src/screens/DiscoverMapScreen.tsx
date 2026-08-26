@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Camera, MapView, MarkerView, StyleURL } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -15,7 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BellIcon, CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, RecordIcon, SearchIcon, UserIcon, UsersIcon } from '../components/icons';
+import { BellIcon, CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, RecordIcon, SearchIcon, TrophyIcon, UserIcon, UsersIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import ProBadge from '../components/ProBadge';
 import UpcomingRacesStrip from '../components/UpcomingRacesStrip';
@@ -28,7 +29,6 @@ import { reverseGeocodeCity, reverseGeocodeCountryBounds } from '../utils/geocod
 import { listRunsNearLocation, listUpcomingRaces } from '../utils/groupRunsApi';
 import '../utils/mapboxInit';
 import { listPublicRoutes, PublicRouteFilters, searchRoutes } from '../utils/routesApi';
-import { fetchTopRoutesInCity } from '../utils/topRoutesApi';
 
 function formatDistanceAway(distanceKm: number): string {
   if (distanceKm < 1) return `${Math.round(distanceKm * 1000)}m away`;
@@ -193,6 +193,7 @@ function FadeInPin({ children }: { children: React.ReactNode }) {
 // below; this is only what shows before/without that.
 const DEFAULT_CENTER: [number, number] = [121.774, 12.8797];
 const COUNTRY_ZOOM_FALLBACK = 4.5;
+const SHOW_UPCOMING_RACES_KEY = 'rootah_show_upcoming_races';
 
 // No safe-area-inset library wired into the app — this is a fixed
 // approximation of the home-indicator / gesture-nav inset so the FAB
@@ -290,10 +291,25 @@ export default function DiscoverMapScreen({
   // reflects what's currently on screen instead of staying pinned to a
   // one-time location.
   const [mapViewport, setMapViewport] = useState<{ center: LatLng; radiusKm: number } | null>(null);
-  // Upcoming races strip — replaces the old "Top in your city" routes strip;
-  // races are Rootah's event calendar and worth surfacing unconditionally,
-  // not behind a toggle like the routes leaderboard was.
+  // Upcoming races strip — replaces the old "Top in your city" routes strip.
+  // Toggleable the same way the old "Popular" routes strip was, remembered
+  // per-device.
+  const [showUpcomingRaces, setShowUpcomingRaces] = useState(false);
   const [upcomingRaces, setUpcomingRaces] = useState<GroupRun[]>([]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(SHOW_UPCOMING_RACES_KEY).then((v) => {
+      if (v === '1') setShowUpcomingRaces(true);
+    });
+  }, []);
+
+  const toggleUpcomingRaces = useCallback(() => {
+    setShowUpcomingRaces((prev) => {
+      const next = !prev;
+      AsyncStorage.setItem(SHOW_UPCOMING_RACES_KEY, next ? '1' : '0').catch(() => {});
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -635,6 +651,15 @@ export default function DiscoverMapScreen({
               {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : 'Filters'}
             </Text>
           </Pressable>
+          <Pressable
+            style={[styles.filterButton, showUpcomingRaces && styles.filterButtonActive]}
+            onPress={toggleUpcomingRaces}
+          >
+            <TrophyIcon size={14} color={showUpcomingRaces ? colors.white : colors.ink} />
+            <Text style={[styles.filterButtonText, showUpcomingRaces && styles.filterButtonTextActive]}>
+              Races
+            </Text>
+          </Pressable>
         </View>
 
         {error && (
@@ -649,7 +674,7 @@ export default function DiscoverMapScreen({
           </View>
         )}
 
-        <UpcomingRacesStrip races={upcomingRaces} onOpenRace={onOpenGroupRun} />
+        {showUpcomingRaces && <UpcomingRacesStrip races={upcomingRaces} onOpenRace={onOpenGroupRun} />}
       </View>
 
       {!loading && routes.length === 0 && !error && (

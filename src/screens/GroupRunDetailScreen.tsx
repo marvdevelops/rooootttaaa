@@ -13,11 +13,12 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { CalendarIcon, CloseIcon, CompassIcon, EditIcon, ReplyIcon, SendIcon, ShareIcon, TrashIcon, UserIcon } from '../components/icons';
+import { CalendarIcon, CloseIcon, CompassIcon, EditIcon, ExpandIcon, ReplyIcon, SendIcon, ShareIcon, TrashIcon, UserIcon } from '../components/icons';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import RaceBadge from '../components/RaceBadge';
 import ReportModal from '../components/ReportModal';
 import RunThisRaceButton from '../components/RunThisRaceButton';
+import PosterViewerModal from '../components/PosterViewerModal';
 import ScheduleGroupRunModal, { RaceInput, RecurrenceInput } from '../components/ScheduleGroupRunModal';
 import { useNotificationPrePermission } from '../hooks/useNotificationPrePermission';
 import { useAuth } from '../lib/AuthContext';
@@ -103,6 +104,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
   const [raceDetails, setRaceDetails] = useState<RaceDetails | null>(null);
   const [myRaceRsvp, setMyRaceRsvp] = useState<RaceRsvp | null>(null);
   const [myLiveLink, setMyLiveLink] = useState<string | null>(null);
+  const [viewingPoster, setViewingPoster] = useState<string | null>(null);
   const [route, setRoute] = useState<CloudRoute | null>(null);
   const [comments, setComments] = useState<GroupRunComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -625,7 +627,12 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
             <>
               {/* Hero — the banner IS the hero image when the organizer supplied one; the route map thumbnail only appears as a fallback so the two never compete for the same visual weight. */}
               {raceDetails?.eventBannerUrl ? (
-                <Image source={{ uri: raceDetails.eventBannerUrl }} style={styles.eventBanner} resizeMode="cover" />
+                <Pressable onPress={() => setViewingPoster(raceDetails.eventBannerUrl)}>
+                  <Image source={{ uri: raceDetails.eventBannerUrl }} style={styles.eventBanner} resizeMode="cover" />
+                  <View style={styles.expandBadge}>
+                    <ExpandIcon size={14} color={colors.white} />
+                  </View>
+                </Pressable>
               ) : (
                 routeMapUrl && (
                   <Pressable onPress={() => onOpenRoute(groupRun.routeId)}>
@@ -1040,6 +1047,8 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
           onRequirePaywall={onRequirePaywall}
         />
       )}
+
+      <PosterViewerModal imageUrl={viewingPoster} onClose={() => setViewingPoster(null)} />
     </KeyboardAvoidingView>
   );
 }
@@ -1167,6 +1176,17 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: radii.md,
     marginBottom: spacing.sm,
+  },
+  expandBadge: {
+    position: 'absolute',
+    bottom: spacing.sm + 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   organizerRow: {
     flexDirection: 'row',
