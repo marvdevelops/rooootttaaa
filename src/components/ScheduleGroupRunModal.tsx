@@ -13,10 +13,14 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { RecurrenceFrequency } from '../types/recurringSeries';
 import { CloseIcon, LockIcon } from './icons';
 import { UserTier } from '../hooks/useUserTier';
+
+export interface RaceInput {
+  raceDate: Date;
+}
 
 export interface RecurrenceInput {
   frequency: RecurrenceFrequency;
@@ -27,6 +31,8 @@ interface Props {
   visible: boolean;
   isSaving: boolean;
   tier: UserTier;
+  /** Only the official Rootah account can create races — see docs/race-mode-plan.md. */
+  isOfficialAccount?: boolean;
   onClose: () => void;
   onSchedule: (
     title: string,
@@ -34,6 +40,7 @@ interface Props {
     scheduledAt: Date,
     maxParticipants: number | null,
     recurrence: RecurrenceInput | null,
+    race: RaceInput | null,
   ) => void;
   onRequirePaywall: () => void;
 }
@@ -61,7 +68,15 @@ function defaultTime(): Date {
   return d;
 }
 
-export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose, onSchedule, onRequirePaywall }: Props) {
+export default function ScheduleGroupRunModal({
+  visible,
+  isSaving,
+  tier,
+  isOfficialAccount,
+  onClose,
+  onSchedule,
+  onRequirePaywall,
+}: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [scheduledAt, setScheduledAt] = useState<Date>(defaultTime());
@@ -69,6 +84,8 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('weekly');
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [isRace, setIsRace] = useState(false);
+  const [raceDate, setRaceDate] = useState<Date>(defaultTime());
 
   useEffect(() => {
     if (visible) {
@@ -79,6 +96,8 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
       setRecurrenceEnabled(false);
       setFrequency('weekly');
       setEndDate(null);
+      setIsRace(false);
+      setRaceDate(defaultTime());
     }
   }, [visible]);
 
@@ -117,7 +136,7 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
                 value={title}
                 onChangeText={setTitle}
                 placeholder="Saturday sunrise run"
-                placeholderTextColor={colors.mutedLight}
+                placeholderTextColor={colors.mist}
                 style={styles.input}
                 maxLength={60}
               />
@@ -129,7 +148,7 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Meet point, pace, what to bring..."
-                placeholderTextColor={colors.mutedLight}
+                placeholderTextColor={colors.mist}
                 style={[styles.input, styles.textArea]}
                 multiline
                 maxLength={280}
@@ -177,7 +196,7 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
                   style={[styles.participantChip, styles.openChip, maxParticipants === null && styles.participantChipActive]}
                   onPress={handleSelectOpen}
                 >
-                  {tier === 'free' && <LockIcon size={11} color={maxParticipants === null ? colors.sand : colors.muted} />}
+                  {tier === 'free' && <LockIcon size={11} color={maxParticipants === null ? colors.white : colors.stone} />}
                   <Text style={[styles.participantChipText, maxParticipants === null && styles.participantChipTextActive]}>
                     OPEN
                   </Text>
@@ -192,12 +211,12 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
                   {tier === 'free' && <Text style={styles.recurrenceSub}>Upgrade to Pro for recurring runs</Text>}
                 </View>
                 {tier === 'free' ? (
-                  <LockIcon size={16} color={colors.muted} />
+                  <LockIcon size={16} color={colors.stone} />
                 ) : (
                   <Switch
                     value={recurrenceEnabled}
                     onValueChange={handleToggleRecurrence}
-                    trackColor={{ true: colors.rust, false: colors.sand }}
+                    trackColor={{ true: colors.coral, false: '#E0DAD2' }}
                     thumbColor={colors.white}
                   />
                 )}
@@ -231,6 +250,38 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
               )}
             </View>
 
+            {isOfficialAccount && (
+              <View>
+                <Pressable style={styles.recurrenceRow} onPress={() => setIsRace((v) => !v)}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.recurrenceLabel}>Make this a race</Text>
+                    <Text style={styles.recurrenceSub}>Adds a RACE badge and a day-of "Run This Race" button.</Text>
+                  </View>
+                  <Switch
+                    value={isRace}
+                    onValueChange={setIsRace}
+                    trackColor={{ true: colors.coral, false: '#E0DAD2' }}
+                    thumbColor={colors.white}
+                  />
+                </Pressable>
+
+                {isRace && (
+                  <View style={styles.recurrenceDetails}>
+                    <Text style={styles.label}>RACE DAY (UNLOCKS "RUN THIS RACE")</Text>
+                    <View style={styles.pickerBox}>
+                      <DateTimePicker
+                        value={raceDate}
+                        mode="date"
+                        minimumDate={new Date()}
+                        onChange={(_, date) => date && setRaceDate(date)}
+                        style={styles.picker}
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
             <Pressable
               style={[styles.scheduleButton, !title.trim() && styles.scheduleButtonDisabled]}
               onPress={() =>
@@ -240,14 +291,15 @@ export default function ScheduleGroupRunModal({ visible, isSaving, tier, onClose
                   scheduledAt,
                   maxParticipants,
                   recurrenceEnabled ? { frequency, endDate } : null,
+                  isOfficialAccount && isRace ? { raceDate } : null,
                 )
               }
               disabled={!title.trim() || isSaving}
             >
               {isSaving ? (
-                <ActivityIndicator color={colors.ink} />
+                <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.scheduleButtonText}>SCHEDULE RUN</Text>
+                <Text style={styles.scheduleButtonText}>{isOfficialAccount && isRace ? 'CREATE RACE' : 'SCHEDULE RUN'}</Text>
               )}
             </Pressable>
           </ScrollView>
@@ -264,12 +316,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: colors.sheetBg,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
     maxHeight: '85%',
+    ...elevation('sheet'),
   },
   scrollContent: {
     paddingTop: 26,
@@ -283,37 +334,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   closeButton: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   label: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.08 * 10,
+    textTransform: 'uppercase',
+    color: colors.stone,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 12,
     paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   textArea: {
     minHeight: 70,
@@ -325,13 +376,12 @@ const styles = StyleSheet.create({
   },
   pickerBox: {
     flex: 1,
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
     paddingVertical: 4,
     paddingHorizontal: 8,
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   picker: {
     alignSelf: 'stretch',
@@ -345,12 +395,11 @@ const styles = StyleSheet.create({
     minWidth: 38,
     height: 38,
     paddingHorizontal: 10,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    backgroundColor: colors.white,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   openChip: {
     flexDirection: 'row',
@@ -358,35 +407,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   participantChipActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   participantChipText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
   participantChipTextActive: {
-    color: colors.sand,
+    color: colors.white,
   },
   recurrenceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: colors.white,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
     padding: 14,
+    ...elevation('subtle'),
   },
   recurrenceLabel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
   recurrenceSub: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
     marginTop: 2,
   },
   recurrenceDetails: {
@@ -400,43 +448,43 @@ const styles = StyleSheet.create({
   frequencyChip: {
     flex: 1,
     height: 38,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    backgroundColor: colors.white,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   frequencyChipActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   frequencyChipText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 10,
     color: colors.ink,
   },
   frequencyChipTextActive: {
-    color: colors.sand,
+    color: colors.white,
   },
   recurrencePreview: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   scheduleButton: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(4),
+    paddingHorizontal: spacing.xxl,
+    ...elevation('primaryBtn'),
   },
   scheduleButtonDisabled: {
     opacity: 0.5,
   },
   scheduleButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.white,
   },
 });

@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import AutoPauseBanner from '../components/AutoPauseBanner';
 import DeviationBanner from '../components/DeviationBanner';
@@ -24,6 +25,8 @@ const DEVIATION_CLEAR_METERS = 40;
 const DEVIATION_CONFIRM_COUNT = 3;
 const ROUTE_AHEAD_UPDATE_MS = 30_000;
 const COUNTDOWN_TICK_MS = 900;
+/** How far off a planned route someone can be and still start a route-aware recording — loose enough to cover parking/meet-point drift, tight enough that "record this route" from across town still gets blocked. */
+const ROUTE_START_MAX_DISTANCE_METERS = 150;
 
 type Phase = 'ready' | 'countdown' | 'recording';
 
@@ -61,6 +64,7 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
   const [nextClimb, setNextClimb] = useState<UpcomingClimb | null>(null);
   const [phase, setPhase] = useState<Phase>(alreadyStarted ? 'recording' : 'ready');
   const [countdownLabel, setCountdownLabel] = useState('3');
+  const [checkingProximity, setCheckingProximity] = useState(false);
 
   const routeIndex = useMemo(() => (plannedSegments ? buildRouteProgressIndex(plannedSegments) : null), [plannedSegments]);
   const plannedPath = useMemo(() => plannedSegments?.flatMap((s) => s.path), [plannedSegments]);
@@ -88,10 +92,7 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
       .finally(() => setStarting(false));
   }, [activityType, routeId, startRecording, onDiscard, raceRsvpId]);
 
-  // Explicit user input required before anything starts — tapping "Start"
-  // on the ready screen kicks off a 3-2-1 countdown, and GPS recording only
-  // actually begins once it reaches zero, not the instant the screen mounts.
-  const handleTapStart = useCallback(() => {
+  const startCountdown = useCallback(() => {
     setPhase('countdown');
     const steps = ['3', '2', '1', 'GO'];
     let i = 0;
@@ -106,6 +107,45 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
       setCountdownLabel(steps[i]);
     }, COUNTDOWN_TICK_MS);
   }, [beginRecording]);
+
+  // Explicit user input required before anything starts — tapping "Start"
+  // on the ready screen kicks off a 3-2-1 countdown, and GPS recording only
+  // actually begins once it reaches zero, not the instant the screen mounts.
+  // For route-aware recordings, first confirm the runner is actually near
+  // the route — otherwise "record this route" from across town would start
+  // a session that immediately fires the deviation banner.
+  const handleTapStart = useCallback(async () => {
+    if (!routeIndex || !plannedSegments) {
+      startCountdown();
+      return;
+    }
+
+    setCheckingProximity(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Location needed', 'Rootah needs location access to check you\'re on this route before recording.');
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const progress = getRouteProgress(routeIndex, plannedSegments, {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+      if (progress && progress.deviationMeters > ROUTE_START_MAX_DISTANCE_METERS) {
+        Alert.alert(
+          "You're not on this route",
+          `Get within ${ROUTE_START_MAX_DISTANCE_METERS}m of the route to start recording, or record a free-form activity instead.`,
+        );
+        return;
+      }
+      startCountdown();
+    } catch {
+      Alert.alert('Error', "Couldn't check your location. Make sure location services are on and try again.");
+    } finally {
+      setCheckingProximity(false);
+    }
+  }, [routeIndex, plannedSegments, startCountdown]);
 
   useEffect(() => {
     if (!startedAt) return;
@@ -231,8 +271,8 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
           {phase === 'ready' ? (
             <>
               <Text style={styles.readyTitle}>Ready when you are</Text>
-              <Pressable style={styles.startButton} onPress={handleTapStart} disabled={starting}>
-                <Text style={styles.startButtonText}>START</Text>
+              <Pressable style={styles.startButton} onPress={handleTapStart} disabled={starting || checkingProximity}>
+                {checkingProximity ? <ActivityIndicator color={colors.white} /> : <Text style={styles.startButtonText}>START</Text>}
               </Pressable>
             </>
           ) : (

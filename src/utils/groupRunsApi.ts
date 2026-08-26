@@ -135,6 +135,8 @@ export interface CreateGroupRunInput {
   maxParticipants: number | null;
   /** Tags this run as a club event — shows the club name/avatar on the card and notifies members. */
   clubId?: string | null;
+  /** Only the official Rootah account is allowed to set this — enforced server-side by the group_runs insert RLS policy. */
+  race?: { raceDate: Date; raceTimezone?: string } | null;
 }
 
 export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupRun> {
@@ -151,12 +153,25 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
       scheduled_at: input.scheduledAt.toISOString(),
       max_participants: input.maxParticipants,
       club_id: input.clubId ?? null,
+      category: input.race ? 'race' : 'training',
     })
     .select(GROUP_RUN_SELECT)
     .single();
 
   if (error || !data) throw new Error(error?.message ?? 'Failed to schedule group run.');
-  track('group_run_scheduled', { max_participants: input.maxParticipants, has_club: !!input.clubId });
+
+  if (input.race) {
+    // en-CA gives YYYY-MM-DD, matching race_details.race_date's format.
+    const raceDate = new Intl.DateTimeFormat('en-CA', { timeZone: input.race.raceTimezone ?? 'Asia/Manila' }).format(input.race.raceDate);
+    const { error: raceDetailsError } = await supabase.from('race_details').insert({
+      group_run_id: (data as { id: string }).id,
+      race_date: raceDate,
+      race_timezone: input.race.raceTimezone ?? 'Asia/Manila',
+    });
+    if (raceDetailsError) throw new Error(raceDetailsError.message);
+  }
+
+  track('group_run_scheduled', { max_participants: input.maxParticipants, has_club: !!input.clubId, category: input.race ? 'race' : 'training' });
   return toGroupRun(data as unknown as GroupRunRow, hostId, 'host');
 }
 

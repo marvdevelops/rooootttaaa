@@ -59,10 +59,14 @@ import { useRecording } from './src/hooks/useRecording';
 import { useRecordingStore } from './src/stores/recordingStore';
 import { getRoute } from './src/utils/routesApi';
 import { getRaceDetails } from './src/utils/racesApi';
-import { RecurrenceInput } from './src/components/ScheduleGroupRunModal';
+import { RaceInput, RecurrenceInput } from './src/components/ScheduleGroupRunModal';
 import { createSeries, getFirstUpcomingOccurrence } from './src/utils/recurringSeriesApi';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// The only account allowed to create races (docs/race-mode-plan.md) — matches
+// OFFICIAL_ACCOUNT_ID in scripts/createRace.ts and the group_runs/race_details RLS policies.
+const OFFICIAL_ACCOUNT_ID = 'f9808b4f-125a-4841-bf5e-b244d9f6cf1f';
 
 type Overlay =
   | 'builder'
@@ -397,6 +401,7 @@ function AuthedApp({
       scheduledAt: Date,
       maxParticipants: number | null,
       recurrence: RecurrenceInput | null,
+      race: RaceInput | null,
     ) => {
       if (!eventRouteId) return;
       setIsSchedulingEvent(true);
@@ -424,6 +429,7 @@ function AuthedApp({
             scheduledAt,
             maxParticipants,
             clubId: eventClubId,
+            race: race ? { raceDate: race.raceDate } : null,
           });
           setEventRouteId(null);
           setEventClubId(null);
@@ -847,6 +853,7 @@ function AuthedApp({
         visible={!!eventRouteId}
         isSaving={isSchedulingEvent}
         tier={tier}
+        isOfficialAccount={session?.user.id === OFFICIAL_ACCOUNT_ID}
         onClose={() => setEventRouteId(null)}
         onSchedule={handleScheduleEvent}
         onRequirePaywall={() => openPaywall('group_run_limit')}
