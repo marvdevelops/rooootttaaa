@@ -621,168 +621,227 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
             </View>
           )}
 
-          {groupRun.category === 'race' && raceDetails?.eventBannerUrl && (
-            <Image source={{ uri: raceDetails.eventBannerUrl }} style={styles.eventBanner} resizeMode="cover" />
-          )}
+          {groupRun.category === 'race' ? (
+            <>
+              {/* Hero — the banner IS the hero image when the organizer supplied one; the route map thumbnail only appears as a fallback so the two never compete for the same visual weight. */}
+              {raceDetails?.eventBannerUrl ? (
+                <Image source={{ uri: raceDetails.eventBannerUrl }} style={styles.eventBanner} resizeMode="cover" />
+              ) : (
+                routeMapUrl && (
+                  <Pressable onPress={() => onOpenRoute(groupRun.routeId)}>
+                    <Image source={{ uri: routeMapUrl }} style={styles.eventBanner} resizeMode="cover" />
+                  </Pressable>
+                )
+              )}
 
-          <View style={styles.eventCard}>
-            {routeMapUrl && (
-              <Pressable style={styles.routePreviewWrap} onPress={() => onOpenRoute(groupRun.routeId)}>
-                <Image source={{ uri: routeMapUrl }} style={styles.routePreviewImage} />
-                <View style={styles.routePreviewStatsRow}>
-                  <View style={styles.routePreviewChip}>
-                    <Text style={styles.routePreviewChipText}>{groupRun.routeDistanceKm.toFixed(1)} km</Text>
+              {/* Identity — badge, title, and organizer grouped tightly since they answer one question ("what race is this, who's behind it"); the date/distance facts sit in their own scannable row below rather than interleaved as separate badges. */}
+              <View style={styles.eventCard}>
+                <RaceBadge />
+                <Text style={styles.eventTitle}>{groupRun.title}</Text>
+
+                {(raceDetails?.organizerName || raceDetails?.eventLogoUrl) && (
+                  <View style={styles.organizerRow}>
+                    {(raceDetails.eventLogoUrl || raceDetails.organizerLogoUrl) && (
+                      <Image
+                        source={{ uri: raceDetails.eventLogoUrl ?? raceDetails.organizerLogoUrl! }}
+                        style={styles.organizerLogo}
+                        resizeMode="contain"
+                      />
+                    )}
+                    {raceDetails.organizerName && (
+                      <View>
+                        <Text style={styles.organizerLabel}>ORGANIZED BY</Text>
+                        <Text style={styles.organizerName}>{raceDetails.organizerName}</Text>
+                      </View>
+                    )}
                   </View>
+                )}
+
+                <View style={styles.raceFactsRow}>
+                  <View style={styles.raceFactChip}>
+                    <CalendarIcon size={12} />
+                    <Text style={styles.raceFactChipText}>{formatWhen(groupRun.scheduledAt)}</Text>
+                  </View>
+                  <Pressable style={styles.raceFactChip} onPress={() => onOpenRoute(groupRun.routeId)}>
+                    <Text style={styles.raceFactChipText}>{groupRun.routeDistanceKm.toFixed(1)} km</Text>
+                  </Pressable>
                   {route && (
-                    <View style={[styles.routePreviewChip, styles.routePreviewChipAqua]}>
-                      <Text style={styles.routePreviewChipText}>+{Math.round(route.elevationGainM)} m</Text>
+                    <View style={[styles.raceFactChip, styles.raceFactChipAqua]}>
+                      <Text style={styles.raceFactChipText}>+{Math.round(route.elevationGainM)} m</Text>
                     </View>
                   )}
                 </View>
-              </Pressable>
-            )}
+              </View>
 
-            {groupRun.category === 'race' && <RaceBadge />}
-
-            {groupRun.category === 'race' && (raceDetails?.organizerName || raceDetails?.eventLogoUrl) && (
-              <View style={styles.organizerRow}>
-                {(raceDetails.eventLogoUrl || raceDetails.organizerLogoUrl) && (
-                  <Image
-                    source={{ uri: raceDetails.eventLogoUrl ?? raceDetails.organizerLogoUrl! }}
-                    style={styles.organizerLogo}
-                    resizeMode="contain"
-                  />
-                )}
-                {raceDetails.organizerName && (
-                  <View>
-                    <Text style={styles.organizerLabel}>ORGANIZED BY</Text>
-                    <Text style={styles.organizerName}>{raceDetails.organizerName}</Text>
+              {/* Action — the single most important thing on this screen (join, run, or view your finish) gets its own visually distinct card instead of being buried in the footer below the description. */}
+              <View style={styles.raceActionCard}>
+                {groupRun.myRsvpStatus === 'approved' && raceDetails ? (
+                  <>
+                    {myRaceRsvp?.finishedAt ? (
+                      <Pressable
+                        style={[styles.rsvpButton, styles.rsvpButtonActive]}
+                        onPress={() => myRaceRsvp.recordedRunId && onReopenShareCard(groupRun, myRaceRsvp)}
+                        disabled={!myRaceRsvp.recordedRunId}
+                      >
+                        <Text style={[styles.rsvpButtonText, styles.rsvpButtonTextActive]}>
+                          ✓ FINISHED{myRaceRsvp.finishTimeSeconds ? ` · ${Math.round(myRaceRsvp.finishTimeSeconds / 60)} MIN` : ''} · VIEW SHARE CARD
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <RunThisRaceButton raceDetails={raceDetails} onPress={() => myRaceRsvp && onRunRace(groupRun, myRaceRsvp.id)} />
+                    )}
+                    {myLiveLink && (
+                      <Pressable
+                        style={styles.liveLinkCard}
+                        onPress={() => Share.share({ message: `Follow me live on Rootah at "${groupRun.title}": ${myLiveLink}`, url: myLiveLink }).catch(() => {})}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.liveLinkLabel}>YOUR LIVE TRACKING LINK</Text>
+                          <Text style={styles.liveLinkUrl} numberOfLines={1}>{myLiveLink}</Text>
+                        </View>
+                        <ShareIcon size={16} color={colors.ink} />
+                      </Pressable>
+                    )}
+                  </>
+                ) : groupRun.isHostedByMe ? (
+                  <View style={[styles.rsvpButton, styles.rsvpButtonActive]}>
+                    <Text style={[styles.rsvpButtonText, styles.rsvpButtonTextActive]}>HOSTING</Text>
                   </View>
+                ) : (
+                  !isArchived &&
+                  (isFull ? (
+                    <View style={[styles.rsvpButton, styles.rsvpButtonFull]}>
+                      <Text style={styles.rsvpButtonText}>FULL</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      style={[styles.rsvpButton, groupRun.myRsvpStatus === 'pending' && styles.rsvpButtonPending]}
+                      onPress={handleToggleRsvp}
+                    >
+                      <Text style={styles.rsvpButtonText}>
+                        {groupRun.myRsvpStatus === 'pending' ? 'REQUESTED' : "I'M JOINING THIS RACE"}
+                      </Text>
+                    </Pressable>
+                  ))
+                )}
+                <Text style={styles.rsvpCount}>
+                  {groupRun.rsvpCount}{groupRun.maxParticipants ? `/${groupRun.maxParticipants}` : ''} {isArchived ? 'went' : 'going'}
+                </Text>
+              </View>
+
+              {!!groupRun.description && (
+                <View style={styles.eventCard}>
+                  <Text style={styles.eventDescription}>{groupRun.description}</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.eventCard}>
+              {routeMapUrl && (
+                <Pressable style={styles.routePreviewWrap} onPress={() => onOpenRoute(groupRun.routeId)}>
+                  <Image source={{ uri: routeMapUrl }} style={styles.routePreviewImage} />
+                  <View style={styles.routePreviewStatsRow}>
+                    <View style={styles.routePreviewChip}>
+                      <Text style={styles.routePreviewChipText}>{groupRun.routeDistanceKm.toFixed(1)} km</Text>
+                    </View>
+                    {route && (
+                      <View style={[styles.routePreviewChip, styles.routePreviewChipAqua]}>
+                        <Text style={styles.routePreviewChipText}>+{Math.round(route.elevationGainM)} m</Text>
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              )}
+
+              <View style={styles.whenBadge}>
+                <CalendarIcon size={13} />
+                <Text style={styles.whenText}>{formatWhen(groupRun.scheduledAt)}</Text>
+              </View>
+              <Text style={styles.eventTitle}>{groupRun.title}</Text>
+              <View style={styles.eventRouteRow}>
+                <Pressable onPress={() => onOpenRoute(groupRun.routeId)}>
+                  <Text style={styles.eventRoute}>{groupRun.routeName}</Text>
+                </Pressable>
+                {groupRun.hostUsername !== 'unknown' && (
+                  <>
+                    <Text style={styles.eventRoute}> · hosted by </Text>
+                    <Pressable onPress={() => onOpenProfile(groupRun.hostId)}>
+                      <Text style={[styles.eventRoute, styles.eventHostLink]}>{groupRun.hostUsername}</Text>
+                    </Pressable>
+                  </>
                 )}
               </View>
-            )}
+              {!!groupRun.description && <Text style={styles.eventDescription}>{groupRun.description}</Text>}
 
-            <View style={styles.whenBadge}>
-              <CalendarIcon size={13} />
-              <Text style={styles.whenText}>{formatWhen(groupRun.scheduledAt)}</Text>
-            </View>
-            <Text style={styles.eventTitle}>{groupRun.title}</Text>
-            <View style={styles.eventRouteRow}>
-              <Pressable onPress={() => onOpenRoute(groupRun.routeId)}>
-                <Text style={styles.eventRoute}>{groupRun.routeName}</Text>
-              </Pressable>
-              {groupRun.category !== 'race' && groupRun.hostUsername !== 'unknown' && (
-                <>
-                  <Text style={styles.eventRoute}> · hosted by </Text>
-                  <Pressable onPress={() => onOpenProfile(groupRun.hostId)}>
-                    <Text style={[styles.eventRoute, styles.eventHostLink]}>{groupRun.hostUsername}</Text>
-                  </Pressable>
-                </>
+              {groupRun.seriesId && !groupRun.isHostedByMe && !isArchived && (
+                <View style={styles.seriesRow}>
+                  <View style={styles.seriesBadge}>
+                    <Text style={styles.seriesBadgeText}>🔁 RECURRING</Text>
+                  </View>
+                  {isSubscribedToSeries ? (
+                    <Pressable onPress={handleToggleSeriesSubscription} disabled={subscribingToSeries}>
+                      <Text style={styles.seriesLink}>
+                        {subscribingToSeries ? 'Updating…' : "✓ Subscribed — leave series"}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Pressable onPress={handleToggleSeriesSubscription} disabled={subscribingToSeries}>
+                      <Text style={styles.seriesLink}>
+                        {subscribingToSeries ? 'Joining…' : 'Join every week →'}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
               )}
-            </View>
-            {!!groupRun.description && <Text style={styles.eventDescription}>{groupRun.description}</Text>}
-
-            {groupRun.seriesId && !groupRun.isHostedByMe && !isArchived && (
-              <View style={styles.seriesRow}>
+              {groupRun.seriesId && groupRun.isHostedByMe && (
                 <View style={styles.seriesBadge}>
                   <Text style={styles.seriesBadgeText}>🔁 RECURRING</Text>
                 </View>
-                {isSubscribedToSeries ? (
-                  <Pressable onPress={handleToggleSeriesSubscription} disabled={subscribingToSeries}>
-                    <Text style={styles.seriesLink}>
-                      {subscribingToSeries ? 'Updating…' : "✓ Subscribed — leave series"}
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <Pressable onPress={handleToggleSeriesSubscription} disabled={subscribingToSeries}>
-                    <Text style={styles.seriesLink}>
-                      {subscribingToSeries ? 'Joining…' : 'Join every week →'}
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
-            {groupRun.seriesId && groupRun.isHostedByMe && (
-              <View style={styles.seriesBadge}>
-                <Text style={styles.seriesBadgeText}>🔁 RECURRING</Text>
-              </View>
-            )}
+              )}
 
-            {groupRun.category === 'race' && groupRun.myRsvpStatus === 'approved' && raceDetails && (
-              <View style={styles.raceRunWrap}>
-                {myRaceRsvp?.finishedAt ? (
-                  <Pressable
-                    style={[styles.rsvpButton, styles.rsvpButtonActive]}
-                    onPress={() => myRaceRsvp.recordedRunId && onReopenShareCard(groupRun, myRaceRsvp)}
-                    disabled={!myRaceRsvp.recordedRunId}
-                  >
-                    <Text style={[styles.rsvpButtonText, styles.rsvpButtonTextActive]}>
-                      ✓ FINISHED{myRaceRsvp.finishTimeSeconds ? ` · ${Math.round(myRaceRsvp.finishTimeSeconds / 60)} MIN` : ''} · VIEW SHARE CARD
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <RunThisRaceButton
-                    raceDetails={raceDetails}
-                    onPress={() => myRaceRsvp && onRunRace(groupRun, myRaceRsvp.id)}
-                  />
-                )}
-                {myLiveLink && (
-                  <Pressable
-                    style={styles.liveLinkCard}
-                    onPress={() => Share.share({ message: `Follow me live on Rootah at "${groupRun.title}": ${myLiveLink}`, url: myLiveLink }).catch(() => {})}
-                  >
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.liveLinkLabel}>YOUR LIVE TRACKING LINK</Text>
-                      <Text style={styles.liveLinkUrl} numberOfLines={1}>{myLiveLink}</Text>
-                    </View>
-                    <ShareIcon size={16} color={colors.ink} />
-                  </Pressable>
-                )}
-              </View>
-            )}
-
-            <View style={styles.eventFooter}>
-              <Text style={styles.rsvpCount}>
-                {groupRun.rsvpCount}{groupRun.maxParticipants ? `/${groupRun.maxParticipants}` : ''} {isArchived ? 'went' : 'going'}
-              </Text>
-              {groupRun.isHostedByMe ? (
-                <View style={[styles.rsvpButton, styles.rsvpButtonActive]}>
-                  <Text style={[styles.rsvpButtonText, styles.rsvpButtonTextActive]}>HOSTING</Text>
-                </View>
-              ) : (
-                !isArchived &&
-                (isFull ? (
-                  <View style={[styles.rsvpButton, styles.rsvpButtonFull]}>
-                    <Text style={styles.rsvpButtonText}>FULL</Text>
+              <View style={styles.eventFooter}>
+                <Text style={styles.rsvpCount}>
+                  {groupRun.rsvpCount}{groupRun.maxParticipants ? `/${groupRun.maxParticipants}` : ''} {isArchived ? 'went' : 'going'}
+                </Text>
+                {groupRun.isHostedByMe ? (
+                  <View style={[styles.rsvpButton, styles.rsvpButtonActive]}>
+                    <Text style={[styles.rsvpButtonText, styles.rsvpButtonTextActive]}>HOSTING</Text>
                   </View>
                 ) : (
-                  <Pressable
-                    style={[
-                      styles.rsvpButton,
-                      groupRun.myRsvpStatus === 'approved' && styles.rsvpButtonActive,
-                      groupRun.myRsvpStatus === 'pending' && styles.rsvpButtonPending,
-                    ]}
-                    onPress={handleToggleRsvp}
-                  >
-                    <Text
+                  !isArchived &&
+                  (isFull ? (
+                    <View style={[styles.rsvpButton, styles.rsvpButtonFull]}>
+                      <Text style={styles.rsvpButtonText}>FULL</Text>
+                    </View>
+                  ) : (
+                    <Pressable
                       style={[
-                        styles.rsvpButtonText,
-                        groupRun.myRsvpStatus === 'approved' && styles.rsvpButtonTextActive,
+                        styles.rsvpButton,
+                        groupRun.myRsvpStatus === 'approved' && styles.rsvpButtonActive,
+                        groupRun.myRsvpStatus === 'pending' && styles.rsvpButtonPending,
                       ]}
+                      onPress={handleToggleRsvp}
                     >
-                      {groupRun.myRsvpStatus === 'approved'
-                        ? "I'M IN"
-                        : groupRun.myRsvpStatus === 'pending'
-                          ? 'REQUESTED'
-                          : groupRun.category === 'race'
-                            ? "I'M JOINING THIS RACE"
+                      <Text
+                        style={[
+                          styles.rsvpButtonText,
+                          groupRun.myRsvpStatus === 'approved' && styles.rsvpButtonTextActive,
+                        ]}
+                      >
+                        {groupRun.myRsvpStatus === 'approved'
+                          ? "I'M IN"
+                          : groupRun.myRsvpStatus === 'pending'
+                            ? 'REQUESTED'
                             : 'REQUEST TO JOIN'}
-                    </Text>
-                  </Pressable>
-                ))
-              )}
+                      </Text>
+                    </Pressable>
+                  ))
+                )}
+              </View>
             </View>
+          )}
 
+          <View style={styles.eventCard}>
             {groupRun.isHostedByMe && pendingRequests.length > 0 && (
               <View style={styles.requestsSection}>
                 <Text style={styles.requestsTitle}>
@@ -1137,6 +1196,39 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     padding: spacing.lg,
     gap: 4,
+    ...elevation('card'),
+  },
+  raceFactsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  raceFactChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.cream,
+    borderRadius: radii.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  raceFactChipAqua: {
+    backgroundColor: colors.teal,
+  },
+  raceFactChipText: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.ink,
+  },
+  raceActionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.lg,
+    gap: 10,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.coral,
     ...elevation('card'),
   },
   routePreviewWrap: {
