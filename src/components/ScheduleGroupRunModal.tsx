@@ -1,5 +1,5 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -111,8 +111,16 @@ export default function ScheduleGroupRunModal({
   const [eventBannerUrl, setEventBannerUrl] = useState('');
   const [eventLogoUrl, setEventLogoUrl] = useState('');
 
+  // Only reset fields on the closed->open transition — `editing` is a fresh
+  // object literal from the caller on every render (GroupRunDetailScreen
+  // builds it inline), so depending on it directly would wipe out whatever
+  // the user is mid-typing every time the parent re-renders for an
+  // unrelated reason (comments/participants polling, etc.) while this modal
+  // is still open — which is exactly what made edits appear to silently
+  // revert instead of saving.
+  const wasVisible = useRef(false);
   useEffect(() => {
-    if (visible) {
+    if (visible && !wasVisible.current) {
       setTitle(editing?.title ?? '');
       setDescription(editing?.description ?? '');
       setScheduledAt(editing?.scheduledAt ?? defaultTime());
@@ -127,6 +135,7 @@ export default function ScheduleGroupRunModal({
       setEventLogoUrl(editing?.eventLogoUrl ?? '');
       setRaceDate(editing?.raceDate ?? defaultTime());
     }
+    wasVisible.current = visible;
   }, [visible, editing]);
 
   const handleToggleRecurrence = (v: boolean) => {

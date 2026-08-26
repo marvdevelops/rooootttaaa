@@ -24,6 +24,7 @@ export default function LiveTrackMap({ segments, liveLat, liveLng }: Props) {
   const liveMarker = useRef<mapboxgl.Marker | null>(null);
   const loaded = useRef(false);
   const hasFitted = useRef(false);
+  const hasFocusedRunner = useRef(false);
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
@@ -88,7 +89,20 @@ export default function LiveTrackMap({ segments, liveLat, liveLng }: Props) {
     if (!m || liveLat === null || liveLng === null || !liveMarker.current) return;
     liveMarker.current.setLngLat([liveLng, liveLat]);
     if (!liveMarker.current.getElement().isConnected) liveMarker.current.addTo(m);
-    if (loaded.current) m.easeTo({ center: [liveLng, liveLat], duration: 600 });
+    if (!loaded.current) return;
+
+    if (!hasFocusedRunner.current) {
+      // First live fix — zoom in tight on the runner rather than staying at
+      // the whole-route fitBounds level (which can be quite far out for a
+      // long course). The route line is still drawn underneath, just mostly
+      // out of frame, same as it would be on a phone's live-tracking view.
+      hasFocusedRunner.current = true;
+      m.easeTo({ center: [liveLng, liveLat], zoom: 16, duration: 800 });
+    } else {
+      // Later updates just re-center — don't fight a viewer who's zoomed
+      // out themselves to see how the runner sits against the route.
+      m.easeTo({ center: [liveLng, liveLat], duration: 600 });
+    }
   }, [liveLat, liveLng]);
 
   return (

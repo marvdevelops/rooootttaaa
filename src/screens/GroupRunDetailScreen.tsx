@@ -226,6 +226,30 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
     }
   }, [groupRun?.seriesId, isSubscribedToSeries, refresh]);
 
+  // Sharing the live-tracking link only happens right after tapping "I'M
+  // JOINING THIS RACE" — not as a persistent button elsewhere on the page —
+  // so this is invoked once, from handleToggleRsvp, not wired to its own UI.
+  const promptShareLiveLink = useCallback(async (rsvpId: string, raceTitle: string) => {
+    setSharingLiveLink(true);
+    try {
+      const token = await ensureLiveShareToken(rsvpId);
+      const url = `https://app.rootah.com/live/${token}`;
+      Alert.alert("You're in!", 'Share your live tracking link so friends and family can follow along on race day?', [
+        { text: 'Not now', style: 'cancel' },
+        {
+          text: 'Share',
+          onPress: () => {
+            Share.share({ message: `Follow me live on Rootah at "${raceTitle}": ${url}`, url }).catch(() => {});
+          },
+        },
+      ]);
+    } catch {
+      // non-fatal — the runner already joined successfully; they just won't get the share prompt this time.
+    } finally {
+      setSharingLiveLink(false);
+    }
+  }, []);
+
   const handleToggleRsvp = useCallback(async () => {
     if (!groupRun || groupRun.isHostedByMe) return;
     const requesting = !groupRun.myRsvpStatus;
@@ -244,6 +268,16 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       await setGroupRunRsvp(groupRun.id, requesting);
       if (requesting) {
         notificationPrePermission.maybePrompt('Get notified when the host approves your request or posts updates.');
+        // Races auto-approve on join (no host review) — this is the moment
+        // "I'M JOINING THIS RACE" was tapped, so offer the live-tracking
+        // link right here rather than making the runner hunt for it later.
+        if (groupRun.category === 'race') {
+          getMyRaceRsvp(groupRun.id)
+            .then((rsvp) => {
+              if (rsvp?.status === 'approved') promptShareLiveLink(rsvp.id, groupRun.title);
+            })
+            .catch(() => {});
+        }
       }
       refresh();
     } catch (e) {
@@ -263,7 +297,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
         Alert.alert('Error', e instanceof Error ? e.message : 'Failed to update RSVP.');
       }
     }
-  }, [groupRun, onRequirePaywall, notificationPrePermission.maybePrompt, refresh]);
+  }, [groupRun, onRequirePaywall, notificationPrePermission.maybePrompt, refresh, promptShareLiveLink]);
 
   const handleRespondToRequest = useCallback(
     async (userId: string, approve: boolean) => {
@@ -358,20 +392,6 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       startDate: new Date(groupRun.scheduledAt),
     });
   }, [groupRun]);
-
-  const handleShareLiveLink = useCallback(async () => {
-    if (!myRaceRsvp || !groupRun) return;
-    setSharingLiveLink(true);
-    try {
-      const token = await ensureLiveShareToken(myRaceRsvp.id);
-      const url = `https://app.rootah.com/live/${token}`;
-      await Share.share({ message: `Follow me live on Rootah at "${groupRun.title}": ${url}`, url });
-    } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to get your live tracking link.');
-    } finally {
-      setSharingLiveLink(false);
-    }
-  }, [myRaceRsvp, groupRun]);
 
   const handleShare = useCallback(async () => {
     if (!groupRun) return;
@@ -682,14 +702,6 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                     raceDetails={raceDetails}
                     onPress={() => myRaceRsvp && onRunRace(groupRun, myRaceRsvp.id)}
                   />
-                )}
-                {myRaceRsvp && !myRaceRsvp.finishedAt && (
-                  <Pressable style={styles.shareLiveLinkButton} onPress={handleShareLiveLink} disabled={sharingLiveLink}>
-                    <ShareIcon size={14} color={colors.ink} />
-                    <Text style={styles.shareLiveLinkText}>
-                      {sharingLiveLink ? 'Getting your link…' : 'Share my live tracking link'}
-                    </Text>
-                  </Pressable>
                 )}
               </View>
             )}
@@ -1187,20 +1199,6 @@ const styles = StyleSheet.create({
   raceRunWrap: {
     marginTop: 14,
     gap: 8,
-  },
-  shareLiveLinkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 42,
-    borderRadius: radii.pill,
-    backgroundColor: colors.cream,
-  },
-  shareLiveLinkText: {
-    fontFamily: fonts.bold,
-    fontSize: 12.5,
-    color: colors.ink,
   },
   seriesBadgeText: {
     fontFamily: fonts.bold,

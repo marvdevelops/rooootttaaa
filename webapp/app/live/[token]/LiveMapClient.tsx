@@ -3,9 +3,7 @@
 import { useEffect, useState } from 'react';
 import LiveTrackMap from '../../../components/LiveTrackMap';
 import { createClient } from '../../../lib/supabase/client';
-import { getRoute } from '../../../lib/routesApi';
-import { getRaceLivePosition, RaceLivePosition } from '../../../lib/racesApi';
-import { CloudRoute } from '../../../lib/types';
+import { getRaceLivePosition, getRaceRoute, RaceLivePosition, RaceRoute } from '../../../lib/racesApi';
 
 interface Props {
   token: string;
@@ -29,12 +27,15 @@ function formatStaleness(updatedAt: number | null): string {
 
 export default function LiveMapClient({ token, initial }: Props) {
   const [position, setPosition] = useState(initial);
-  const [route, setRoute] = useState<CloudRoute | null>(null);
+  const [route, setRoute] = useState<RaceRoute | null>(null);
   const [, forceTick] = useState(0);
 
   useEffect(() => {
-    getRoute(position.routeId).then(setRoute).catch(() => {});
-  }, [position.routeId]);
+    // Token-gated RPC, not a raw routes select — the course must stay
+    // visible to anyone with the live link even if the organizer built the
+    // race against a route they'd otherwise marked private.
+    getRaceRoute(token).then(setRoute).catch(() => {});
+  }, [token]);
 
   useEffect(() => {
     const supabase = createClient();

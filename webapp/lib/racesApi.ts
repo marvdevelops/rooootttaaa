@@ -1,4 +1,5 @@
 import { createClient } from './supabase/client';
+import { RouteSegment } from './types';
 
 export interface RaceLivePosition {
   rsvpId: string;
@@ -57,4 +58,36 @@ export async function getRaceLivePosition(token: string): Promise<RaceLivePositi
   if (error) throw new Error(error.message);
   const row = (data as RaceLivePositionRow[] | null)?.[0];
   return row ? toRaceLivePosition(row) : null;
+}
+
+export interface RaceRoute {
+  routeId: string;
+  name: string;
+  distanceKm: number;
+  elevationGainM: number;
+  segments: RouteSegment[];
+}
+
+interface RaceRouteRow {
+  route_id: string;
+  name: string;
+  distance_km: number;
+  elevation_gain_m: number;
+  segments: RouteSegment[];
+}
+
+/** Token-gated route lookup — bypasses the route's own is_public flag via a security-definer RPC, since a race's course is meant to be publicly visible to anyone with the live link regardless of how the underlying route was saved. */
+export async function getRaceRoute(token: string): Promise<RaceRoute | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('get_race_route', { token });
+  if (error) throw new Error(error.message);
+  const row = (data as RaceRouteRow[] | null)?.[0];
+  if (!row) return null;
+  return {
+    routeId: row.route_id,
+    name: row.name,
+    distanceKm: row.distance_km,
+    elevationGainM: row.elevation_gain_m,
+    segments: row.segments,
+  };
 }
