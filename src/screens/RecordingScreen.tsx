@@ -17,6 +17,7 @@ import { ActivityType, RouteSegment } from '../types/route';
 import { RecordingSession } from '../types/recording';
 import { buildRouteProgressIndex, findNextClimb, getRouteProgress, UpcomingClimb } from '../utils/routeProgress';
 import { getRaceShareToken, startRaceRun, updateRaceLivePosition } from '../utils/racesApi';
+import { haversineDistance } from '../utils/distance';
 
 const LIVE_TRACKING_BASE_URL = 'https://app.rootah.com/live';
 
@@ -29,6 +30,10 @@ const ROUTE_AHEAD_UPDATE_MS = 30_000;
 const COUNTDOWN_TICK_MS = 900;
 /** How far off a planned route someone can be and still start a route-aware recording — loose enough to cover parking/meet-point drift, tight enough that "record this route" from across town still gets blocked. */
 const ROUTE_START_MAX_DISTANCE_METERS = 150;
+/** Rolling window for the on-screen "current pace" stat — short enough to react within seconds of a pace change (not "wait for a full km"), long enough that per-point GPS noise doesn't make the number jump around. */
+const CURRENT_PACE_WINDOW_MS = 20_000;
+const CURRENT_PACE_MIN_WINDOW_SECONDS = 4;
+const CURRENT_PACE_MIN_WINDOW_METERS = 5;
 
 type Phase = 'ready' | 'countdown' | 'recording';
 
@@ -203,7 +208,39 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
     return () => clearInterval(interval);
   }, [startedAt]);
 
-  const displayPaceSecondsPerKm = distanceMeters >= 50 && movingSeconds > 0 ? movingSeconds / (distanceMeters / 1000) : null;
+  // On-screen "current pace" — a short rolling window of recent GPS
+  // points, not a lifetime average since start. An average dragged down by
+  // the whole run so far reads as "not displaying" for a while (needs
+  // ~50m/a minute of history before it settles) and doesn't reflect a
+  // pace change until it's diluted across everything run so far; this
+  // updates within a few seconds of actual pace changing, same as a
+  // running watch's "current pace" field.
+  const recentPointsRef = useRef<{ t: number; lat: number; lng: number }[]>([]);
+  const [displayPaceSecondsPerKm, setDisplayPaceSecondsPerKm] = useState<number | null>(null);
+  useEffect(() => {
+    if (!lastPoint || lastPoint.isPaused) return;
+    const now = lastPoint.timestamp;
+    recentPointsRef.current.push({ t: now, lat: lastPoint.lat, lng: lastPoint.lng });
+    recentPointsRef.current = recentPointsRef.current.filter((p) => now - p.t <= CURRENT_PACE_WINDOW_MS);
+
+    const pts = recentPointsRef.current;
+    if (pts.length < 2) {
+      setDisplayPaceSecondsPerKm(null);
+      return;
+    }
+
+    let windowMeters = 0;
+    for (let i = 1; i < pts.length; i++) {
+      windowMeters += haversineDistance({ latitude: pts[i - 1].lat, longitude: pts[i - 1].lng }, { latitude: pts[i].lat, longitude: pts[i].lng });
+    }
+    const windowSeconds = (pts[pts.length - 1].t - pts[0].t) / 1000;
+
+    if (windowSeconds < CURRENT_PACE_MIN_WINDOW_SECONDS || windowMeters < CURRENT_PACE_MIN_WINDOW_METERS) {
+      setDisplayPaceSecondsPerKm(null);
+      return;
+    }
+    setDisplayPaceSecondsPerKm(windowSeconds / (windowMeters / 1000));
+  }, [lastPoint]);
 
   // Route-aware mode: on each incoming (non-paused) GPS point, check
   // deviation from the planned route. Remaining distance and the next-climb

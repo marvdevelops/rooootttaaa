@@ -1,5 +1,4 @@
 import { Camera, MapView, MarkerView, StyleURL } from '@rnmapbox/maps';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -16,17 +15,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BellIcon, CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, RecordIcon, SearchIcon, TrophyIcon, UserIcon, UsersIcon } from '../components/icons';
+import { BellIcon, CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, RecordIcon, SearchIcon, UserIcon, UsersIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import ProBadge from '../components/ProBadge';
-import TopRoutesStrip from '../components/TopRoutesStrip';
+import UpcomingRacesStrip from '../components/UpcomingRacesStrip';
 import { useUserTier } from '../hooks/useUserTier';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute, GroupRun, LatLng } from '../types/route';
 import { clusterRoutesByStart, RouteCluster } from '../utils/clusterRoutes';
 import { haversineDistance } from '../utils/distance';
 import { reverseGeocodeCity, reverseGeocodeCountryBounds } from '../utils/geocoding';
-import { listRunsNearLocation } from '../utils/groupRunsApi';
+import { listRunsNearLocation, listUpcomingRaces } from '../utils/groupRunsApi';
 import '../utils/mapboxInit';
 import { listPublicRoutes, PublicRouteFilters, searchRoutes } from '../utils/routesApi';
 import { fetchTopRoutesInCity } from '../utils/topRoutesApi';
@@ -174,7 +173,6 @@ interface Props {
   onCreateRoute: () => void;
   onImportGpx: () => void;
   onCreateEvent: () => void;
-  onOpenTopRoutes: (city: string | null) => void;
   /** Bump this to force a re-fetch (e.g. after a route is created or deleted elsewhere). */
   refreshSignal?: number;
 }
@@ -195,8 +193,6 @@ function FadeInPin({ children }: { children: React.ReactNode }) {
 // below; this is only what shows before/without that.
 const DEFAULT_CENTER: [number, number] = [121.774, 12.8797];
 const COUNTRY_ZOOM_FALLBACK = 4.5;
-
-const SHOW_TOP_ROUTES_KEY = 'rootah_show_top_routes';
 
 // No safe-area-inset library wired into the app — this is a fixed
 // approximation of the home-indicator / gesture-nav inset so the FAB
@@ -241,7 +237,6 @@ export default function DiscoverMapScreen({
   onCreateRoute,
   onImportGpx,
   onCreateEvent,
-  onOpenTopRoutes,
   refreshSignal,
 }: Props) {
   const tier = useUserTier();
@@ -250,23 +245,6 @@ export default function DiscoverMapScreen({
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
-  // Off by default — an always-visible "most run" strip covering the map
-  // read as obtrusive. Remembered per-device once toggled.
-  const [showTopRoutes, setShowTopRoutes] = useState(false);
-
-  useEffect(() => {
-    AsyncStorage.getItem(SHOW_TOP_ROUTES_KEY).then((v) => {
-      if (v === '1') setShowTopRoutes(true);
-    });
-  }, []);
-
-  const toggleTopRoutes = useCallback(() => {
-    setShowTopRoutes((prev) => {
-      const next = !prev;
-      AsyncStorage.setItem(SHOW_TOP_ROUTES_KEY, next ? '1' : '0').catch(() => {});
-      return next;
-    });
-  }, []);
   const [zoom, setZoom] = useState(COUNTRY_ZOOM_FALLBACK);
   const [openCluster, setOpenCluster] = useState<RouteCluster | null>(null);
 
@@ -312,31 +290,22 @@ export default function DiscoverMapScreen({
   // reflects what's currently on screen instead of staying pinned to a
   // one-time location.
   const [mapViewport, setMapViewport] = useState<{ center: LatLng; radiusKm: number } | null>(null);
-  // "Top in your city" strip — resolved once from GPS position, not the map
-  // viewport (which the "runs near you" strip already tracks), so panning
-  // around doesn't make the Top Routes ranking flicker between cities.
-  const [topRoutesCity, setTopRoutesCity] = useState<string | null>(null);
-  const [topRoutes, setTopRoutes] = useState<CloudRoute[]>([]);
-  const [topRoutesIsFallback, setTopRoutesIsFallback] = useState(false);
-
-  useEffect(() => {
-    if (!userLocation) return;
-    reverseGeocodeCity(userLocation).then(setTopRoutesCity).catch(() => {});
-  }, [userLocation]);
+  // Upcoming races strip — replaces the old "Top in your city" routes strip;
+  // races are Rootah's event calendar and worth surfacing unconditionally,
+  // not behind a toggle like the routes leaderboard was.
+  const [upcomingRaces, setUpcomingRaces] = useState<GroupRun[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    fetchTopRoutesInCity(topRoutesCity)
-      .then(({ routes: r, isFallback }) => {
-        if (cancelled) return;
-        setTopRoutes(r);
-        setTopRoutesIsFallback(isFallback);
+    listUpcomingRaces()
+      .then((races) => {
+        if (!cancelled) setUpcomingRaces(races);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [topRoutesCity, refreshSignal]);
+  }, [refreshSignal]);
 
   const refresh = useCallback(async (filters: PublicRouteFilters) => {
     setLoading(true);
@@ -666,15 +635,6 @@ export default function DiscoverMapScreen({
               {activeFilterCount > 0 ? `Filters (${activeFilterCount})` : 'Filters'}
             </Text>
           </Pressable>
-          <Pressable
-            style={[styles.filterButton, showTopRoutes && styles.filterButtonActive]}
-            onPress={toggleTopRoutes}
-          >
-            <TrophyIcon size={14} color={showTopRoutes ? colors.white : colors.ink} />
-            <Text style={[styles.filterButtonText, showTopRoutes && styles.filterButtonTextActive]}>
-              Popular
-            </Text>
-          </Pressable>
         </View>
 
         {error && (
@@ -689,15 +649,7 @@ export default function DiscoverMapScreen({
           </View>
         )}
 
-        {showTopRoutes && (
-          <TopRoutesStrip
-            routes={topRoutes}
-            city={topRoutesCity}
-            isFallback={topRoutesIsFallback}
-            onOpenRoute={onOpenDetail}
-            onSeeAll={() => onOpenTopRoutes(topRoutesCity)}
-          />
-        )}
+        <UpcomingRacesStrip races={upcomingRaces} onOpenRace={onOpenGroupRun} />
       </View>
 
       {!loading && routes.length === 0 && !error && (

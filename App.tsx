@@ -521,10 +521,6 @@ function AuthedApp({
         onCreateRoute={() => setOverlay('builder')}
         onImportGpx={() => (tier === 'paid' ? setOverlay('importGpx') : openPaywall('gpx_import'))}
         onCreateEvent={handleTapCreateEvent}
-        onOpenTopRoutes={(city) => {
-          setTopRoutesCity(city);
-          navigateTo('topRoutes');
-        }}
         refreshSignal={discoverRefreshSignal}
       />
 

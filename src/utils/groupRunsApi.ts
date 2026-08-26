@@ -260,6 +260,23 @@ export async function listUpcomingGroupRuns(limit = 40): Promise<GroupRun[]> {
   return dedupeBySeries(await toGroupRunBatch(rows, viewerId));
 }
 
+/** Upcoming races only, soonest first — for the discover screen's races strip (replaces the old "popular routes" strip there). */
+export async function listUpcomingRaces(limit = 20): Promise<GroupRun[]> {
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase
+    .from('group_runs')
+    .select(GROUP_RUN_SELECT)
+    .eq('category', 'race')
+    .in('status', UPCOMING_STATUSES)
+    .order('scheduled_at', { ascending: true })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as unknown as GroupRunRow[];
+  return toGroupRunBatch(rows, viewerId);
+}
+
 /**
  * Upcoming runs within `radiusKm` of the given point, closest first — a real
  * geographic search (Haversine, via the nearby_group_runs RPC) rather than
