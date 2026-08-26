@@ -133,6 +133,8 @@ export interface RaceMetaInput {
   organizerLogoUrl?: string | null;
   eventBannerUrl?: string | null;
   eventLogoUrl?: string | null;
+  /** Set when this race is a new distance category joining an existing multi-distance event — pass the event's anchor race id (any sibling category's group_run_id works, since they all share the same event_group_id). Omit for a standalone race or the first category of a new event. */
+  eventGroupId?: string | null;
 }
 
 export interface CreateGroupRunInput {
@@ -170,16 +172,23 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
   if (error || !data) throw new Error(error?.message ?? 'Failed to schedule group run.');
 
   if (input.race) {
+    const newRaceId = (data as { id: string }).id;
     // en-CA gives YYYY-MM-DD, matching race_details.race_date's format.
     const raceDate = new Intl.DateTimeFormat('en-CA', { timeZone: input.race.raceTimezone ?? 'Asia/Manila' }).format(input.race.raceDate);
     const { error: raceDetailsError } = await supabase.from('race_details').insert({
-      group_run_id: (data as { id: string }).id,
+      group_run_id: newRaceId,
       race_date: raceDate,
       race_timezone: input.race.raceTimezone ?? 'Asia/Manila',
       organizer_name: input.race.organizerName ?? null,
       organizer_logo_url: input.race.organizerLogoUrl ?? null,
       event_banner_url: input.race.eventBannerUrl ?? null,
       event_logo_url: input.race.eventLogoUrl ?? null,
+      // Joining an existing multi-distance event uses that event's anchor
+      // id; otherwise this race becomes its own event's anchor (self-
+      // referencing) so "this race's event" is always well-defined —
+      // getRaceCategories(eventGroupId) then just returns itself for a
+      // standalone race.
+      event_group_id: input.race.eventGroupId ?? newRaceId,
     });
     if (raceDetailsError) throw new Error(raceDetailsError.message);
   }
@@ -217,7 +226,11 @@ export async function updateGroupRun(id: string, input: UpdateGroupRunInput): Pr
 
   if (input.race) {
     const raceDate = new Intl.DateTimeFormat('en-CA', { timeZone: input.race.raceTimezone ?? 'Asia/Manila' }).format(input.race.raceDate);
-    const { error: raceDetailsError } = await supabase
+    // .select().single() is load-bearing, not decoration — race_details had
+    // no UPDATE RLS policy at all until 0052, so this write was silently
+    // no-oping (0 rows affected, no error) for months. This makes the same
+    // class of bug throw instead of silently succeeding if it regresses.
+    const { error: raceDetailsError, data: raceDetailsData } = await supabase
       .from('race_details')
       .update({
         race_date: raceDate,
@@ -226,8 +239,10 @@ export async function updateGroupRun(id: string, input: UpdateGroupRunInput): Pr
         event_banner_url: input.race.eventBannerUrl ?? null,
         event_logo_url: input.race.eventLogoUrl ?? null,
       })
-      .eq('group_run_id', id);
-    if (raceDetailsError) throw new Error(raceDetailsError.message);
+      .eq('group_run_id', id)
+      .select('group_run_id')
+      .single();
+    if (raceDetailsError || !raceDetailsData) throw new Error(raceDetailsError?.message ?? 'Failed to update race details.');
   }
 
   return toGroupRun(data as unknown as GroupRunRow, viewerId, 'host');

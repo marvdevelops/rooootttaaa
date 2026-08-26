@@ -22,8 +22,13 @@
  *   "eventLogoUrl": "https://…",
  *   "eventBannerUrl": "https://…",
  *   "brandPrimaryColor": "#E84B2A",
- *   "brandAccentColor": "#1A1614"
+ *   "brandAccentColor": "#1A1614",
+ *   "eventGroupId": null
  * }
+ *
+ * For a multi-distance event, run this once per distance and set
+ * eventGroupId on every category after the first to the first category's
+ * returned group_run_id — that's what groups them as one event.
  *
  * Uses the service-role key (bypasses RLS) so it can insert as the official
  * account without needing that account's password — same pattern as
@@ -58,6 +63,8 @@ interface RaceConfig {
   eventLogoUrl?: string | null;
   brandPrimaryColor?: string;
   brandAccentColor?: string;
+  /** Set to an existing category's group_run_id to add this as another distance to that multi-distance event, instead of starting a new one. */
+  eventGroupId?: string | null;
 }
 
 async function main() {
@@ -99,6 +106,9 @@ async function main() {
     event_logo_url: config.eventLogoUrl ?? null,
     brand_primary_color: config.brandPrimaryColor ?? '#E84B2A',
     brand_accent_color: config.brandAccentColor ?? '#1A1614',
+    // Joining an existing multi-distance event uses that event's anchor id;
+    // otherwise this race becomes its own event's anchor (self-referencing).
+    event_group_id: config.eventGroupId ?? run.id,
   });
 
   if (detailsError) {

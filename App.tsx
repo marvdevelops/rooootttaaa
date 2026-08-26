@@ -60,7 +60,7 @@ import { useRecordingStore } from './src/stores/recordingStore';
 import { getRoute } from './src/utils/routesApi';
 import { getRaceDetails } from './src/utils/racesApi';
 import { getRecordedRunStats } from './src/utils/recordingUpload';
-import { RaceInput, RecurrenceInput } from './src/components/ScheduleGroupRunModal';
+import { RaceInput, RacePrefill, RecurrenceInput } from './src/components/ScheduleGroupRunModal';
 import { createSeries, getFirstUpcomingOccurrence } from './src/utils/recurringSeriesApi';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -140,6 +140,11 @@ function AuthedApp({
   // Set when the "Create event" flow was launched from a club's Events tab —
   // tags the resulting group run to that club.
   const [eventClubId, setEventClubId] = useState<string | null>(null);
+  // Set only when "add distance category" was tapped from an existing
+  // race's event page — routes the resulting createGroupRun call to join
+  // that event (race.eventGroupId) instead of starting a new one, and
+  // seeds the schedule modal's branding fields from the event it's joining.
+  const [addCategoryContext, setAddCategoryContext] = useState<{ eventGroupId: string; prefillRace: RacePrefill } | null>(null);
   const [isSchedulingEvent, setIsSchedulingEvent] = useState(false);
   const [selectedClubId, setSelectedClubId] = useState<string | null>(null);
   const [topRoutesCity, setTopRoutesCity] = useState<string | null>(null);
@@ -341,6 +346,21 @@ function AuthedApp({
     setOverlay(null);
   }, []);
 
+  const handleAddDistanceCategory = useCallback((groupRun: GroupRun, raceDetails: RaceDetails) => {
+    setAddCategoryContext({
+      eventGroupId: raceDetails.eventGroupId ?? groupRun.id,
+      prefillRace: {
+        raceDate: new Date(`${raceDetails.raceDate}T00:00:00`),
+        organizerName: raceDetails.organizerName ?? '',
+        organizerLogoUrl: raceDetails.organizerLogoUrl ?? '',
+        eventBannerUrl: raceDetails.eventBannerUrl ?? '',
+        eventLogoUrl: raceDetails.eventLogoUrl ?? '',
+      },
+    });
+    setEventClubId(null);
+    setOverlay('createEvent');
+  }, []);
+
   const handleTapScheduleClubRun = useCallback((clubId: string) => {
     setEventClubId(clubId);
     setOverlay('createEvent');
@@ -466,12 +486,14 @@ function AuthedApp({
                   organizerLogoUrl: race.organizerLogoUrl || null,
                   eventBannerUrl: race.eventBannerUrl || null,
                   eventLogoUrl: race.eventLogoUrl || null,
+                  eventGroupId: addCategoryContext?.eventGroupId ?? null,
                 }
               : null,
           });
           setEventRouteId(null);
           setEventClubId(null);
-          setToast('Event created.');
+          setAddCategoryContext(null);
+          setToast(addCategoryContext ? 'Distance category added.' : 'Event created.');
           openGroupRunDetail(created.id);
         }
         notificationPrePermission.maybePrompt('Get notified when people join your event or post updates.');
@@ -481,7 +503,7 @@ function AuthedApp({
         setIsSchedulingEvent(false);
       }
     },
-    [eventRouteId, eventClubId, openGroupRunDetail, notificationPrePermission.maybePrompt],
+    [eventRouteId, eventClubId, addCategoryContext, openGroupRunDetail, notificationPrePermission.maybePrompt],
   );
 
   // Deep link from the shared web preview page (rootah://routes/{id}),
@@ -825,6 +847,8 @@ function AuthedApp({
             onOpenProfile={openProfile}
             onRunRace={handleRunRace}
             onReopenShareCard={handleReopenShareCard}
+            onOpenGroupRun={openGroupRunDetail}
+            onAddDistanceCategory={handleAddDistanceCategory}
           />
         </View>
       )}
@@ -881,6 +905,7 @@ function AuthedApp({
           <CreateEventScreen
             onClose={() => {
               setEventClubId(null);
+              setAddCategoryContext(null);
               setOverlay(null);
             }}
             onSelectRoute={handleSelectEventRoute}
@@ -894,7 +919,11 @@ function AuthedApp({
         isSaving={isSchedulingEvent}
         tier={tier}
         isOfficialAccount={session?.user.id === OFFICIAL_ACCOUNT_ID}
-        onClose={() => setEventRouteId(null)}
+        prefillRace={addCategoryContext?.prefillRace ?? null}
+        onClose={() => {
+          setEventRouteId(null);
+          setAddCategoryContext(null);
+        }}
         onSchedule={handleScheduleEvent}
         onRequirePaywall={() => openPaywall('group_run_limit')}
       />

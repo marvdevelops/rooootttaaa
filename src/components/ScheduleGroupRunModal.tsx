@@ -44,6 +44,14 @@ export interface EditingGroupRun {
   eventLogoUrl?: string;
 }
 
+export interface RacePrefill {
+  raceDate: Date;
+  organizerName: string;
+  organizerLogoUrl: string;
+  eventBannerUrl: string;
+  eventLogoUrl: string;
+}
+
 interface Props {
   visible: boolean;
   isSaving: boolean;
@@ -52,6 +60,8 @@ interface Props {
   isOfficialAccount?: boolean;
   /** Present to edit an existing event instead of creating a new one — prefills fields, hides recurrence (out of scope for an edit), and relabels the sheet/button. */
   editing?: EditingGroupRun | null;
+  /** Present when creating a NEW distance category for an existing multi-distance event — seeds the race toggle on and its branding/date fields (read-only there, since every category shares one event's identity) while leaving title/route to be picked fresh. Ignored when `editing` is set. */
+  prefillRace?: RacePrefill | null;
   onClose: () => void;
   onSchedule: (
     title: string,
@@ -93,6 +103,7 @@ export default function ScheduleGroupRunModal({
   tier,
   isOfficialAccount,
   editing,
+  prefillRace,
   onClose,
   onSchedule,
   onRequirePaywall,
@@ -128,15 +139,15 @@ export default function ScheduleGroupRunModal({
       setRecurrenceEnabled(false);
       setFrequency('weekly');
       setEndDate(null);
-      setIsRace(!!editing?.raceDate);
-      setOrganizerName(editing?.organizerName ?? '');
-      setOrganizerLogoUrl(editing?.organizerLogoUrl ?? '');
-      setEventBannerUrl(editing?.eventBannerUrl ?? '');
-      setEventLogoUrl(editing?.eventLogoUrl ?? '');
-      setRaceDate(editing?.raceDate ?? defaultTime());
+      setIsRace(!!editing?.raceDate || !!prefillRace);
+      setOrganizerName(editing?.organizerName ?? prefillRace?.organizerName ?? '');
+      setOrganizerLogoUrl(editing?.organizerLogoUrl ?? prefillRace?.organizerLogoUrl ?? '');
+      setEventBannerUrl(editing?.eventBannerUrl ?? prefillRace?.eventBannerUrl ?? '');
+      setEventLogoUrl(editing?.eventLogoUrl ?? prefillRace?.eventLogoUrl ?? '');
+      setRaceDate(editing?.raceDate ?? prefillRace?.raceDate ?? defaultTime());
     }
     wasVisible.current = visible;
-  }, [visible, editing]);
+  }, [visible, editing, prefillRace]);
 
   const handleToggleRecurrence = (v: boolean) => {
     if (v && tier === 'free') {
@@ -291,7 +302,7 @@ export default function ScheduleGroupRunModal({
 
             {isOfficialAccount && (!editing || editing.raceDate) && (
               <View>
-                {!editing && (
+                {!editing && !prefillRace && (
                   <Pressable style={styles.recurrenceRow} onPress={() => setIsRace((v) => !v)}>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.recurrenceLabel}>Make this a race</Text>
@@ -306,8 +317,22 @@ export default function ScheduleGroupRunModal({
                   </Pressable>
                 )}
 
+                {prefillRace && (
+                  <View style={styles.recurrenceRow}>
+                    <Text style={styles.recurrenceLabel}>New distance category</Text>
+                  </View>
+                )}
+
                 {isRace && (
-                  <View style={styles.recurrenceDetails}>
+                  <View
+                    style={[styles.recurrenceDetails, prefillRace && styles.recurrenceDetailsDisabled]}
+                    pointerEvents={prefillRace ? 'none' : 'auto'}
+                  >
+                    {prefillRace && (
+                      <Text style={styles.recurrenceSub}>
+                        Branding and race day below are shared with this event's other distances — edit them from any category later if they need to change.
+                      </Text>
+                    )}
                     <Text style={styles.label}>RACE DAY (UNLOCKS "RUN THIS RACE")</Text>
                     <View style={styles.pickerBox}>
                       <DateTimePicker
@@ -534,6 +559,9 @@ const styles = StyleSheet.create({
   recurrenceDetails: {
     marginTop: 10,
     gap: 10,
+  },
+  recurrenceDetailsDisabled: {
+    opacity: 0.5,
   },
   frequencyRow: {
     flexDirection: 'row',

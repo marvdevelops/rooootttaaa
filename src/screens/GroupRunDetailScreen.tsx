@@ -30,6 +30,7 @@ import {
   GroupRunComment,
   GroupRunParticipant,
   PathPoint,
+  RaceCategorySummary,
   RaceDetails,
   RaceRsvp,
   RouteCompletion,
@@ -38,7 +39,7 @@ import {
 import { addGroupRunToCalendar } from '../utils/calendar';
 import { getTodayCompletion, logRouteCompletion } from '../utils/completionsApi';
 import { getMyReview } from '../utils/reviewsApi';
-import { ensureLiveShareToken, getMyRaceRsvp, getRaceDetails } from '../utils/racesApi';
+import { ensureLiveShareToken, getMyRaceRsvp, getRaceCategories, getRaceDetails } from '../utils/racesApi';
 import {
   isSubscribedToSeries as checkIsSubscribedToSeries,
   subscribeToSeries,
@@ -49,6 +50,7 @@ import { navigateToStart } from '../utils/externalNav';
 import { deleteGroupRunComment, listGroupRunComments, postGroupRunComment } from '../utils/groupRunCommentsApi';
 import {
   cancelGroupRun,
+  createGroupRun,
   FreeJoinLimitError,
   getGroupRun,
   listGroupRunParticipants,
@@ -73,6 +75,8 @@ interface Props {
   onOpenProfile: (userId: string) => void;
   onRunRace: (groupRun: GroupRun, rsvpId: string) => void;
   onReopenShareCard: (groupRun: GroupRun, rsvp: RaceRsvp) => void;
+  onOpenGroupRun: (groupRunId: string) => void;
+  onAddDistanceCategory: (groupRun: GroupRun, raceDetails: RaceDetails) => void;
 }
 
 interface ReplyTarget {
@@ -99,9 +103,10 @@ function formatCommentTime(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute, onRequirePaywall, onOpenProfile, onRunRace, onReopenShareCard }: Props) {
+export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute, onRequirePaywall, onOpenProfile, onRunRace, onReopenShareCard, onOpenGroupRun, onAddDistanceCategory }: Props) {
   const [groupRun, setGroupRun] = useState<GroupRun | null>(null);
   const [raceDetails, setRaceDetails] = useState<RaceDetails | null>(null);
+  const [raceCategories, setRaceCategories] = useState<RaceCategorySummary[]>([]);
   const [myRaceRsvp, setMyRaceRsvp] = useState<RaceRsvp | null>(null);
   const [myLiveLink, setMyLiveLink] = useState<string | null>(null);
   const [viewingPoster, setViewingPoster] = useState<string | null>(null);
@@ -160,7 +165,16 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
           .catch(() => {});
       }
       if (run.category === 'race') {
-        getRaceDetails(groupRunId).then(setRaceDetails).catch(() => {});
+        getRaceDetails(groupRunId)
+          .then((details) => {
+            setRaceDetails(details);
+            if (details?.eventGroupId) {
+              getRaceCategories(details.eventGroupId)
+                .then(setRaceCategories)
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
         if (run.isRsvpedByMe) getMyRaceRsvp(groupRunId).then(setMyRaceRsvp).catch(() => {});
       }
     } catch (e) {
@@ -678,6 +692,35 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                     </View>
                   )}
                 </View>
+
+                {raceCategories.length > 1 && (
+                  <View style={styles.categoriesSection}>
+                    <Text style={styles.categoriesLabel}>DISTANCE</Text>
+                    <View style={styles.categoriesRow}>
+                      {raceCategories.map((cat) => {
+                        const isCurrent = cat.groupRunId === groupRun.id;
+                        return (
+                          <Pressable
+                            key={cat.groupRunId}
+                            style={[styles.categoryChip, isCurrent && styles.categoryChipActive]}
+                            onPress={() => !isCurrent && onOpenGroupRun(cat.groupRunId)}
+                            disabled={isCurrent}
+                          >
+                            <Text style={[styles.categoryChipText, isCurrent && styles.categoryChipTextActive]}>
+                              {cat.routeDistanceKm.toFixed(1)} km
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {groupRun.isHostedByMe && raceDetails && (
+                  <Pressable style={styles.addCategoryButton} onPress={() => onAddDistanceCategory(groupRun, raceDetails)}>
+                    <Text style={styles.addCategoryButtonText}>+ Add another distance</Text>
+                  </Pressable>
+                )}
               </View>
 
               {/* Action — the single most important thing on this screen (join, run, or view your finish) gets its own visually distinct card instead of being buried in the footer below the description. */}
@@ -1240,6 +1283,49 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.ink,
+  },
+  categoriesSection: {
+    marginTop: 12,
+  },
+  categoriesLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.6,
+    color: colors.stone,
+    marginBottom: 6,
+  },
+  categoriesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    borderRadius: radii.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderWidth: 1.5,
+    borderColor: colors.coral,
+  },
+  categoryChipActive: {
+    backgroundColor: colors.coral,
+  },
+  categoryChipText: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.coral,
+  },
+  categoryChipTextActive: {
+    color: colors.white,
+  },
+  addCategoryButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  addCategoryButtonText: {
+    fontFamily: fonts.bold,
+    fontSize: 12.5,
+    color: colors.coral,
+    textDecorationLine: 'underline',
   },
   raceActionCard: {
     backgroundColor: colors.surface,

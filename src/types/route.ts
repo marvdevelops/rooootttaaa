@@ -162,6 +162,16 @@ export interface RaceDetails {
   eventLogoUrl: string | null;
   brandPrimaryColor: string;
   brandAccentColor: string;
+  /** Shared across every distance category of one multi-distance event (5K/10K/21K…) — the first category's own group_run_id, self-referenced. Null for a standalone, single-distance race. */
+  eventGroupId: string | null;
+}
+
+/** One distance option within a multi-distance race event — for the "pick your distance" picker and the sibling-categories chip row. */
+export interface RaceCategorySummary {
+  groupRunId: string;
+  title: string;
+  routeDistanceKm: number;
+  scheduledAt: number;
 }
 
 export type RsvpStatus = 'pending' | 'approved' | 'declined';

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { RaceDetails, RaceRsvp } from '../types/route';
+import { RaceCategorySummary, RaceDetails, RaceRsvp } from '../types/route';
 
 interface RaceDetailsRow {
   group_run_id: string;
@@ -11,6 +11,7 @@ interface RaceDetailsRow {
   event_logo_url: string | null;
   brand_primary_color: string;
   brand_accent_color: string;
+  event_group_id: string | null;
 }
 
 function toRaceDetails(row: RaceDetailsRow): RaceDetails {
@@ -24,6 +25,7 @@ function toRaceDetails(row: RaceDetailsRow): RaceDetails {
     eventLogoUrl: row.event_logo_url,
     brandPrimaryColor: row.brand_primary_color,
     brandAccentColor: row.brand_accent_color,
+    eventGroupId: row.event_group_id,
   };
 }
 
@@ -31,6 +33,35 @@ export async function getRaceDetails(groupRunId: string): Promise<RaceDetails | 
   const { data, error } = await supabase.from('race_details').select('*').eq('group_run_id', groupRunId).maybeSingle();
   if (error) throw new Error(error.message);
   return data ? toRaceDetails(data as RaceDetailsRow) : null;
+}
+
+interface RaceCategoryRow {
+  group_run_id: string;
+  group_runs: { title: string; scheduled_at: string; routes: { distance_km: number } | { distance_km: number }[] | null } | { title: string; scheduled_at: string; routes: { distance_km: number } | { distance_km: number }[] | null }[] | null;
+}
+
+/** Every distance category sharing this event, including the one you're currently viewing — for the "pick your distance" list. */
+export async function getRaceCategories(eventGroupId: string): Promise<RaceCategorySummary[]> {
+  const { data, error } = await supabase
+    .from('race_details')
+    .select('group_run_id, group_runs(title, scheduled_at, routes(distance_km))')
+    .eq('event_group_id', eventGroupId);
+  if (error) throw new Error(error.message);
+
+  return ((data ?? []) as unknown as RaceCategoryRow[])
+    .map((row) => {
+      const run = Array.isArray(row.group_runs) ? row.group_runs[0] : row.group_runs;
+      if (!run) return null;
+      const route = Array.isArray(run.routes) ? run.routes[0] : run.routes;
+      return {
+        groupRunId: row.group_run_id,
+        title: run.title,
+        routeDistanceKm: route?.distance_km ?? 0,
+        scheduledAt: new Date(run.scheduled_at).getTime(),
+      };
+    })
+    .filter((c): c is RaceCategorySummary => c !== null)
+    .sort((a, b) => a.routeDistanceKm - b.routeDistanceKm);
 }
 
 /** True once "today" has reached race_date in the race's own timezone — not the device's. */
