@@ -20,7 +20,7 @@ import { getRaceShareToken, startRaceRun, updateRaceLivePosition } from '../util
 
 const LIVE_TRACKING_BASE_URL = 'https://app.rootah.com/live';
 
-const RACE_LIVE_UPDATE_MS = 30_000;
+const RACE_LIVE_UPDATE_MS = 5_000;
 
 const DEVIATION_TRIGGER_METERS = 60;
 const DEVIATION_CLEAR_METERS = 40;
@@ -163,9 +163,17 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
     }
   }, [routeIndex, plannedSegments, startCountdown]);
 
+  // Moving time (excludes auto-paused stretches) — elapsedSeconds is raw
+  // wall-clock and inflates pace after any pause (or a slow initial GPS
+  // fix before startedAt's first point), which is what made the live-
+  // tracking pace broadcast read much slower than actual pace.
+  const movingSecondsRef = useRef(0);
   useEffect(() => {
     if (!startedAt) return;
-    const interval = setInterval(() => setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
+      if (!useRecordingStore.getState().isPaused) movingSecondsRef.current += 1;
+    }, 1000);
     return () => clearInterval(interval);
   }, [startedAt]);
 
@@ -208,7 +216,7 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
     if (now - lastRaceUpdate.current < RACE_LIVE_UPDATE_MS && lastRaceUpdate.current !== 0) return;
     lastRaceUpdate.current = now;
 
-    const paceSecondsPerKm = distanceMeters > 50 ? elapsedSeconds / (distanceMeters / 1000) : null;
+    const paceSecondsPerKm = distanceMeters > 50 ? movingSecondsRef.current / (distanceMeters / 1000) : null;
     updateRaceLivePosition(raceRsvpId, lastPoint.lat, lastPoint.lng, distanceMeters, paceSecondsPerKm);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastPoint]);

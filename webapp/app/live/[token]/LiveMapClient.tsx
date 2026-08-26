@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import ElevationChart from '../../../components/ElevationChart';
 import LiveTrackMap from '../../../components/LiveTrackMap';
 import { createClient } from '../../../lib/supabase/client';
 import { getRaceLivePosition, getRaceRoute, RaceLivePosition, RaceRoute } from '../../../lib/racesApi';
@@ -74,6 +75,7 @@ export default function LiveMapClient({ token, initial }: Props) {
   }, []);
 
   const isFinished = position.finishTimeSeconds !== null;
+  const fullPath = route?.segments.flatMap((seg) => seg.path) ?? [];
 
   return (
     <div style={{ position: 'relative', width: '100vw', height: '100vh', background: 'var(--cream, #F2EDE5)' }}>
@@ -104,6 +106,12 @@ export default function LiveMapClient({ token, initial }: Props) {
               <div style={statLabelStyle}>Pace /km</div>
             </div>
           </div>
+          {fullPath.length > 1 && (
+            <div style={elevationWrapStyle}>
+              <span style={elevationLabelStyle}>ELEVATION</span>
+              <ElevationChart path={fullPath} height={70} />
+            </div>
+          )}
           <a href="https://rootah.com/#download" style={ctaStyle}>
             Follow more races on Rootah
           </a>
@@ -125,11 +133,30 @@ export default function LiveMapClient({ token, initial }: Props) {
               <div style={statLabelStyle}>Pace /km</div>
             </div>
           </div>
+          {fullPath.length > 1 && (
+            <div style={elevationWrapStyle}>
+              <span style={elevationLabelStyle}>ELEVATION</span>
+              <ElevationChart path={fullPath} height={70} />
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
+
+const elevationWrapStyle: React.CSSProperties = {
+  marginTop: 14,
+};
+
+const elevationLabelStyle: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: '0.06em',
+  color: 'var(--stone, #8C8078)',
+  display: 'block',
+  marginBottom: 4,
+};
 
 const overlayCardStyle: React.CSSProperties = {
   position: 'absolute',

@@ -10,6 +10,8 @@ mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 const DEFAULT_CENTER: [number, number] = [121.774, 12.8797];
 const SOURCE_ID = 'race-route-line';
 const LAYER_ID = 'race-route-line-layer';
+const TRAIL_SOURCE_ID = 'race-traveled-trail';
+const TRAIL_LAYER_ID = 'race-traveled-trail-layer';
 
 interface Props {
   segments: RouteSegment[];
@@ -25,6 +27,13 @@ export default function LiveTrackMap({ segments, liveLat, liveLng }: Props) {
   const loaded = useRef(false);
   const hasFitted = useRef(false);
   const hasFocusedRunner = useRef(false);
+  // Solid coral breadcrumb trail of where the runner has actually been —
+  // without this, a single jumping marker with a multi-second easeTo
+  // between sparse updates reads as cutting straight lines off the road,
+  // which is what made the live map look like it was "drawing a different
+  // route." Accumulated client-side (not persisted), since every update
+  // already lands here via Realtime.
+  const trail = useRef<[number, number][]>([]);
 
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
@@ -54,6 +63,14 @@ export default function LiveTrackMap({ segments, liveLat, liveLng }: Props) {
         source: SOURCE_ID,
         layout: { 'line-join': 'round', 'line-cap': 'round' },
         paint: { 'line-color': '#8C8078', 'line-width': 4, 'line-dasharray': [2, 2] },
+      });
+      m.addSource(TRAIL_SOURCE_ID, { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      m.addLayer({
+        id: TRAIL_LAYER_ID,
+        type: 'line',
+        source: TRAIL_SOURCE_ID,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#E84B2A', 'line-width': 5 },
       });
       loaded.current = true;
     });
@@ -90,6 +107,13 @@ export default function LiveTrackMap({ segments, liveLat, liveLng }: Props) {
     liveMarker.current.setLngLat([liveLng, liveLat]);
     if (!liveMarker.current.getElement().isConnected) liveMarker.current.addTo(m);
     if (!loaded.current) return;
+
+    const last = trail.current[trail.current.length - 1];
+    if (!last || last[0] !== liveLng || last[1] !== liveLat) {
+      trail.current.push([liveLng, liveLat]);
+      const trailSource = m.getSource(TRAIL_SOURCE_ID) as mapboxgl.GeoJSONSource | undefined;
+      trailSource?.setData({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: trail.current } });
+    }
 
     if (!hasFocusedRunner.current) {
       // First live fix — zoom in tight on the runner rather than staying at

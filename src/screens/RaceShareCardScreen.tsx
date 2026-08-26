@@ -1,7 +1,7 @@
 import { File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import { BackIcon, CameraIcon, ShareIcon } from '../components/icons';
 import ShareCardCanvas from '../components/ShareCardCanvas';
@@ -96,6 +96,7 @@ export default function RaceShareCardScreen({
         <BackIcon />
       </Pressable>
 
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>Nice run!</Text>
       <Text style={styles.subtitle}>Tap the card to add a selfie, then share it.</Text>
 
@@ -141,6 +142,7 @@ export default function RaceShareCardScreen({
       <Pressable style={styles.skipButton} onPress={onDone} disabled={sharing}>
         <Text style={styles.skipButtonText}>Skip for now</Text>
       </Pressable>
+      </ScrollView>
     </View>
   );
 }
@@ -149,9 +151,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
+  },
+  scrollContent: {
     alignItems: 'center',
     paddingTop: 70,
     paddingHorizontal: spacing.lg,
+    paddingBottom: 40,
   },
   backButton: {
     position: 'absolute',
