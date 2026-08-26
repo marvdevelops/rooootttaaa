@@ -390,6 +390,30 @@ export function CheckIcon({ size = 14, color = colors.ink }: { size?: number; co
   );
 }
 
+export function RecordIcon({ size = 16, color = colors.coral }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M12 3a9 9 0 100 18 9 9 0 000-18z" />
+    </Svg>
+  );
+}
+
+export function PauseIcon({ size = 20, color = colors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M8 5v14M16 5v14" stroke={color} strokeWidth={2.4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function PlayIcon({ size = 20, color = colors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+      <Path d="M7 4.5v15l13-7.5-13-7.5z" />
+    </Svg>
+  );
+}
+
 export function LockIcon({ size = 16, color = colors.stone }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

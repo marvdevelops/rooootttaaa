@@ -21,7 +21,8 @@ import {
   UIManager,
   View,
 } from 'react-native';
-import { BackIcon, CalendarIcon, ChevronUpIcon, CompassIcon, ExportIcon, FlybyIcon, HeartIcon, LockIcon, ShareIcon, TrashIcon } from '../components/icons';
+import { BackIcon, CalendarIcon, ChevronUpIcon, EditIcon, ExportIcon, FlybyIcon, HeartIcon, LockIcon, NoteFlagIcon, RecordIcon, RunnerIcon, ShareIcon, TrashIcon } from '../components/icons';
+import EditRouteInfoModal from '../components/EditRouteInfoModal';
 import ElevationProfileChart from '../components/ElevationProfileChart';
 import TrailInfoSection from '../components/TrailInfoSection';
 import RoutePhotoGallery from '../components/RoutePhotoGallery';
@@ -35,7 +36,7 @@ import ScheduleGroupRunModal, { RecurrenceInput } from '../components/ScheduleGr
 import { createSeries } from '../utils/recurringSeriesApi';
 import { useNotificationPrePermission } from '../hooks/useNotificationPrePermission';
 import { useUserTier } from '../hooks/useUserTier';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { ActivityType, CloudRoute, GroupRun, PathPoint } from '../types/route';
 import { blockUser } from '../utils/blocksApi';
 import CompletionFollowUpSheet from '../components/CompletionFollowUpSheet';
@@ -52,7 +53,6 @@ import { canReviewRoute, getMyReview, listRouteReviews } from '../utils/reviewsA
 import { RouteCompletion, RouteReview } from '../types/route';
 import ReviewModal from '../components/ReviewModal';
 import { kilometerMarkers } from '../utils/distance';
-import { navigateToStart } from '../utils/externalNav';
 import { buildGpx } from '../utils/gpx';
 import {
   countMyActiveGroupRuns,
@@ -62,7 +62,7 @@ import {
   setGroupRunRsvp,
 } from '../utils/groupRunsApi';
 import { createReport, ReportReason } from '../utils/reportsApi';
-import { deleteRoute, setRouteLiked, setRouteSaved } from '../utils/routesApi';
+import { deleteRoute, setRouteLiked, setRouteSaved, updateRouteMeta } from '../utils/routesApi';
 import { colorSegmentsByGrade } from '../utils/routeColor';
 import { PaywallTrigger } from './PaywallScreen';
 import { ROUTE_LIMITS } from '../constants/routeLimits';
@@ -83,6 +83,7 @@ interface Props {
   onOpenPhotoViewer: (routeId: string, photoId: string) => void;
   photoRefreshSignal?: number;
   onOpenFlyby: (route: CloudRoute) => void;
+  onRecordRoute: (route: CloudRoute) => void;
 }
 
 const ACTIVITY_LABELS: Record<ActivityType, string> = {
@@ -106,10 +107,15 @@ export default function RouteDetailScreen({
   onOpenPhotoViewer,
   photoRefreshSignal,
   onOpenFlyby,
+  onRecordRoute,
 }: Props) {
   const tier = useUserTier();
   const flybyAccess = useFlybyAccess();
   const notificationPrePermission = useNotificationPrePermission();
+  const [routeName, setRouteName] = useState(route.name);
+  const [routeDescription, setRouteDescription] = useState(route.description);
+  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
   const [likesCount, setLikesCount] = useState(route.likesCount);
   const [savesCount, setSavesCount] = useState(route.savesCount);
   const [isLiked, setIsLiked] = useState(route.isLikedByMe);
@@ -117,6 +123,10 @@ export default function RouteDetailScreen({
   const [busy, setBusy] = useState(false);
   const [mapStyleMode, setMapStyleMode] = useState<MapStyleMode>('standard');
   const [is3D, setIs3D] = useState(false);
+  // Measured so the SAT/3D toggles can float just above the glass details
+  // panel instead of a hardcoded offset — the panel's height varies with
+  // whether the elevation chart/peak stat is showing.
+  const [glassPanelHeight, setGlassPanelHeight] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [groupRuns, setGroupRuns] = useState<GroupRun[]>([]);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -267,13 +277,29 @@ export default function RouteDetailScreen({
     if (hasFitBounds.current || fullPath.length < 2) return;
     const lats = fullPath.map((p) => p.latitude);
     const lngs = fullPath.map((p) => p.longitude);
-    hasFitBounds.current = true;
-    cameraRef.current?.fitBounds(
-      [Math.max(...lngs), Math.max(...lats)],
-      [Math.min(...lngs), Math.min(...lats)],
-      [40, 50, 260, 50],
-      0,
-    );
+    const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+    const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+
+    // The camera ref isn't guaranteed to be attached the instant fullPath is
+    // ready (native map/camera mount lags a render or two behind) — calling
+    // fitBounds while it's still null silently no-ops, leaving the map
+    // framed on just the default center/zoom (looks like "only part of the
+    // route is visible"). Retry on the next frame until the ref is live,
+    // rather than marking done unconditionally.
+    let cancelled = false;
+    const tryFit = () => {
+      if (cancelled) return;
+      if (cameraRef.current) {
+        hasFitBounds.current = true;
+        cameraRef.current.fitBounds(ne, sw, [40, 50, 260, 50], 0);
+      } else {
+        requestAnimationFrame(tryFit);
+      }
+    };
+    tryFit();
+    return () => {
+      cancelled = true;
+    };
   }, [fullPath]);
 
   const chartPath = route.elevationProfile.length >= 2 ? route.elevationProfile : fullPath;
@@ -285,17 +311,7 @@ export default function RouteDetailScreen({
   }, [chartPath]);
   const center = route.waypoints[0] ?? { latitude: 0, longitude: 0 };
 
-  const notedWaypoints = useMemo(
-    () =>
-      route.waypoints
-        .map((wp, index) => ({ wp, index }))
-        .filter(({ wp }) => !!wp.note?.trim())
-        .map(({ wp, index }) => ({
-          note: wp.note!.trim(),
-          label: index === 0 ? 'S' : index === route.waypoints.length - 1 ? 'E' : String(index + 1),
-        })),
-    [route.waypoints],
-  );
+  const routeNotes = useMemo(() => route.notes.filter((n) => !!n.text.trim()), [route.notes]);
 
   const setExpanded = useCallback((next: boolean) => {
     LayoutAnimation.configureNext(LayoutAnimation.create(280, LayoutAnimation.Types.easeInEaseOut, LayoutAnimation.Properties.opacity));
@@ -359,7 +375,7 @@ export default function RouteDetailScreen({
   }, [isSaved, route.id]);
 
   const handleDelete = useCallback(() => {
-    Alert.alert('Delete route', `Remove "${route.name}"? This can't be undone.`, [
+    Alert.alert('Delete route', `Remove "${routeName}"? This can't be undone.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -376,7 +392,24 @@ export default function RouteDetailScreen({
         },
       },
     ]);
-  }, [route.id, route.name, onDeleted]);
+  }, [route.id, routeName, onDeleted]);
+
+  const handleSaveInfo = useCallback(
+    async (name: string, description: string) => {
+      setSavingInfo(true);
+      try {
+        await updateRouteMeta(route.id, name, description);
+        setRouteName(name);
+        setRouteDescription(description);
+        setShowEditInfoModal(false);
+      } catch (e) {
+        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to update route info.');
+      } finally {
+        setSavingInfo(false);
+      }
+    },
+    [route.id],
+  );
 
   const handleSubmitReport = useCallback(
     async (reason: ReportReason, details: string) => {
@@ -421,18 +454,18 @@ export default function RouteDetailScreen({
     const url = webBaseUrl ? `${webBaseUrl}/routes/${route.id}` : undefined;
     try {
       await Share.share({
-        message: url ? `Check out my route "${route.name}" on Rootah: ${url}` : `Check out my route "${route.name}" on Rootah`,
+        message: url ? `Check out my route "${routeName}" on Rootah: ${url}` : `Check out my route "${routeName}" on Rootah`,
         url,
       });
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Failed to share route.');
     }
-  }, [route.id, route.name]);
+  }, [route.id, routeName]);
 
   const handleExportGpx = useCallback(async () => {
     setExporting(true);
     try {
-      const gpx = buildGpx(fullPath, route.name);
+      const gpx = buildGpx(fullPath, routeName);
       const file = new File(Paths.cache, `rootah_${route.id}.gpx`);
       file.create({ overwrite: true });
       file.write(gpx);
@@ -446,7 +479,7 @@ export default function RouteDetailScreen({
     } finally {
       setExporting(false);
     }
-  }, [fullPath, route.id, route.name]);
+  }, [fullPath, route.id, routeName]);
 
   const handlePressSchedule = useCallback(async () => {
     if (tier === 'free') {
@@ -473,12 +506,6 @@ export default function RouteDetailScreen({
       onRequirePaywall('route_customize');
     }
   }, [tier, route, onOpenOnMap, onRequirePaywall]);
-
-  const handleNavigateToStart = useCallback(() => {
-    const start = route.waypoints[0];
-    if (!start) return;
-    navigateToStart(start.latitude, start.longitude, route.name || 'start');
-  }, [route]);
 
   const handleSchedule = useCallback(
     async (
@@ -571,7 +598,7 @@ export default function RouteDetailScreen({
           is3D={is3D}
           waypointsDraggable={false}
           showWaypointMarkers={false}
-          showNoteMarkers
+          notes={route.notes}
         />
 
         <Pressable style={styles.backButton} onPress={() => (sheetExpanded ? setExpanded(false) : onClose())}>
@@ -581,19 +608,11 @@ export default function RouteDetailScreen({
 
         {!sheetExpanded && (
           <View style={styles.topRightActions}>
-            <Pressable
-              style={styles.iconChip}
-              onPress={() => setMapStyleMode((prev) => (prev === 'satellite' ? 'standard' : 'satellite'))}
-            >
-              <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-              <Text style={[styles.toggleText, mapStyleMode === 'satellite' && styles.toggleTextActive]}>SAT</Text>
-            </Pressable>
-            <Pressable style={styles.iconChip} onPress={() => setIs3D((prev) => !prev)}>
-              <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-              <Text style={[styles.toggleText, is3D && styles.toggleTextActive]}>3D</Text>
+            <Pressable style={[styles.iconChip, styles.iconChipSolid]} onPress={() => onRecordRoute(route)}>
+              <RecordIcon size={16} color={colors.sheetBg} />
             </Pressable>
             <Pressable style={[styles.iconChip, styles.iconChipSolid]} onPress={handleExportGpx} disabled={exporting}>
-              {exporting ? <ActivityIndicator size="small" color={colors.sand} /> : <ExportIcon size={18} color={colors.sand} />}
+              {exporting ? <ActivityIndicator size="small" color={colors.sheetBg} /> : <ExportIcon size={18} color={colors.sheetBg} />}
             </Pressable>
             <Pressable style={styles.iconChip} onPress={handleShare}>
               <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
@@ -613,14 +632,14 @@ export default function RouteDetailScreen({
             {route.isOwnedByMe && (
               <Pressable style={styles.iconChip} onPress={handleDelete} disabled={busy}>
                 <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
-                {busy ? <ActivityIndicator size="small" color={colors.rustDark} /> : <TrashIcon size={16} color={colors.rustDark} />}
+                {busy ? <ActivityIndicator size="small" color={colors.danger} /> : <TrashIcon size={16} color={colors.danger} />}
               </Pressable>
             )}
           </View>
         )}
 
         {!sheetExpanded && (
-          <View style={styles.glassOverlayWrap}>
+          <View style={styles.glassOverlayWrap} onLayout={(e) => setGlassPanelHeight(e.nativeEvent.layout.height)}>
             <BlurView intensity={30} tint="light" style={StyleSheet.absoluteFill} />
             <LinearGradient
               colors={['rgba(226,218,194,0)', 'rgba(226,218,194,0.35)', 'rgba(226,218,194,0.55)']}
@@ -634,13 +653,13 @@ export default function RouteDetailScreen({
                   <Text style={styles.glassStatValueCompact}>{route.distanceKm.toFixed(2)} km</Text>
                 </View>
                 <View style={[styles.glassChip, styles.glassChipAqua]}>
-                  <Text style={styles.glassStatLabel}>GAIN</Text>
-                  <Text style={styles.glassStatValueCompact}>+{Math.round(route.elevationGainM)} m</Text>
+                  <Text style={[styles.glassStatLabel, styles.glassStatLabelOnColor]}>GAIN</Text>
+                  <Text style={[styles.glassStatValueCompact, styles.glassStatValueOnColor]}>+{Math.round(route.elevationGainM)} m</Text>
                 </View>
                 {peakElevationM !== null && (
                   <View style={[styles.glassChip, styles.glassChipAmber]}>
-                    <Text style={styles.glassStatLabel}>PEAK</Text>
-                    <Text style={styles.glassStatValueCompact}>{Math.round(peakElevationM)} m</Text>
+                    <Text style={[styles.glassStatLabel, styles.glassStatLabelOnColor]}>PEAK</Text>
+                    <Text style={[styles.glassStatValueCompact, styles.glassStatValueOnColor]}>{Math.round(peakElevationM)} m</Text>
                   </View>
                 )}
               </View>
@@ -658,6 +677,22 @@ export default function RouteDetailScreen({
             </View>
           </View>
         )}
+
+        {!sheetExpanded && (
+          <View style={[styles.bottomRightActions, { bottom: glassPanelHeight + 12 }]}>
+            <Pressable
+              style={styles.iconChip}
+              onPress={() => setMapStyleMode((prev) => (prev === 'satellite' ? 'standard' : 'satellite'))}
+            >
+              <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+              <Text style={[styles.toggleText, mapStyleMode === 'satellite' && styles.toggleTextActive]}>SAT</Text>
+            </Pressable>
+            <Pressable style={styles.iconChip} onPress={() => setIs3D((prev) => !prev)}>
+              <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+              <Text style={[styles.toggleText, is3D && styles.toggleTextActive]}>3D</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       {sheetExpanded && (
@@ -672,8 +707,13 @@ export default function RouteDetailScreen({
               <Text style={styles.activityBadgeText}>{ACTIVITY_LABELS[route.activityType]}</Text>
             </View>
             <Text style={styles.name} numberOfLines={1}>
-              {route.name}
+              {routeName}
             </Text>
+            {route.isOwnedByMe && (
+              <Pressable style={styles.editInfoButton} onPress={() => setShowEditInfoModal(true)}>
+                <EditIcon size={15} color={colors.stone} />
+              </Pressable>
+            )}
           </View>
 
           <View style={styles.bylineWrap}>
@@ -700,16 +740,16 @@ export default function RouteDetailScreen({
             )}
           </View>
 
-          {!!route.description && <Text style={styles.description}>{route.description}</Text>}
+          {!!routeDescription && <Text style={styles.description}>{routeDescription}</Text>}
 
-          {notedWaypoints.length > 0 && (
+          {routeNotes.length > 0 && (
             <View style={styles.notesSection}>
-              {notedWaypoints.map((n, i) => (
-                <View key={i} style={styles.noteRow}>
+              {routeNotes.map((n) => (
+                <View key={n.id} style={styles.noteRow}>
                   <View style={styles.noteBadge}>
-                    <Text style={styles.noteBadgeText}>{n.label}</Text>
+                    <NoteFlagIcon size={12} color={colors.white} />
                   </View>
-                  <Text style={styles.noteText}>{n.note}</Text>
+                  <Text style={styles.noteText}>{n.text}</Text>
                 </View>
               ))}
             </View>
@@ -721,13 +761,13 @@ export default function RouteDetailScreen({
               <Text style={styles.statValue}>{route.distanceKm.toFixed(2)} km</Text>
             </View>
             <View style={[styles.statCardSheet, styles.statCardSheetAqua]}>
-              <Text style={styles.statLabel}>GAIN</Text>
-              <Text style={styles.statValue}>+{Math.round(route.elevationGainM)} m</Text>
+              <Text style={[styles.statLabel, styles.statLabelOnColor]}>GAIN</Text>
+              <Text style={[styles.statValue, styles.statValueOnColor]}>+{Math.round(route.elevationGainM)} m</Text>
             </View>
             {peakElevationM !== null && (
               <View style={[styles.statCardSheet, styles.statCardSheetAmber]}>
-                <Text style={styles.statLabel}>PEAK</Text>
-                <Text style={styles.statValue}>{Math.round(peakElevationM)} m</Text>
+                <Text style={[styles.statLabel, styles.statLabelOnColor]}>PEAK</Text>
+                <Text style={[styles.statValue, styles.statValueOnColor]}>{Math.round(peakElevationM)} m</Text>
               </View>
             )}
           </View>
@@ -755,7 +795,7 @@ export default function RouteDetailScreen({
             disabled={loggingCompletion}
           >
             {loggingCompletion ? (
-              <ActivityIndicator color={colors.sand} />
+              <ActivityIndicator color={colors.sheetBg} />
             ) : (
               <Text style={[styles.runThisButtonText, todayCompletion && styles.runThisButtonTextLogged]}>
                 {todayCompletion ? '✓ Ran today' : '✓ I ran this'}
@@ -771,7 +811,7 @@ export default function RouteDetailScreen({
 
           <View style={styles.actionsRow}>
             <Pressable style={[styles.actionButton, isLiked && styles.actionButtonLiked]} onPress={handleToggleLike}>
-              <HeartIcon size={16} color={isLiked ? colors.sand : colors.ink} filled={isLiked} />
+              <HeartIcon size={16} color={isLiked ? colors.sheetBg : colors.ink} filled={isLiked} />
               <Text style={[styles.actionButtonText, isLiked && styles.actionButtonTextLiked]} numberOfLines={1}>
                 {likesCount}
               </Text>
@@ -814,12 +854,6 @@ export default function RouteDetailScreen({
               )}
             </Pressable>
 
-            <Pressable style={styles.actionButton} onPress={handleNavigateToStart}>
-              <CompassIcon size={16} color={colors.ink} />
-              <Text style={styles.actionButtonText} numberOfLines={1}>
-                NAVIGATE
-              </Text>
-            </Pressable>
           </View>
 
           {route.isOwnedByMe ? (
@@ -830,7 +864,7 @@ export default function RouteDetailScreen({
             </Pressable>
           ) : (
             <Pressable style={styles.openButton} onPress={handleCustomize}>
-              {tier === 'free' && <LockIcon size={16} color={colors.sand} />}
+              {tier === 'free' && <LockIcon size={16} color={colors.sheetBg} />}
               <Text style={styles.openButtonText} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                 CUSTOMIZE THIS ROUTE
               </Text>
@@ -839,9 +873,10 @@ export default function RouteDetailScreen({
 
           {completionCount > 0 && (
             <View style={styles.completionsSection}>
-              <Pressable onPress={toggleCompletionsExpanded}>
+              <Pressable style={styles.completionsSummaryRow} onPress={toggleCompletionsExpanded}>
+                <RunnerIcon size={15} color={colors.ink} />
                 <Text style={styles.completionsSummary}>
-                  🏃 Ran by {completionCount} {completionCount === 1 ? 'person' : 'people'}
+                  Ran by {completionCount} {completionCount === 1 ? 'person' : 'people'}
                 </Text>
               </Pressable>
               <LocalLegendCallout routeId={route.id} onOpenProfile={onOpenProfile} />
@@ -971,7 +1006,7 @@ export default function RouteDetailScreen({
 
           {route.isOwnedByMe && (
             <Pressable style={styles.deleteButton} onPress={handleDelete} disabled={busy}>
-              <TrashIcon size={14} color={colors.rustDark} />
+              <TrashIcon size={14} color={colors.danger} />
               <Text style={styles.deleteButtonText}>Delete route</Text>
             </Pressable>
           )}
@@ -993,6 +1028,15 @@ export default function RouteDetailScreen({
         isSubmitting={isReporting}
         onClose={() => setShowReportModal(false)}
         onSubmit={handleSubmitReport}
+      />
+
+      <EditRouteInfoModal
+        visible={showEditInfoModal}
+        initialName={routeName}
+        initialDescription={routeDescription}
+        isSaving={savingInfo}
+        onClose={() => setShowEditInfoModal(false)}
+        onSave={handleSaveInfo}
       />
 
       <NotificationPermissionModal
@@ -1052,14 +1096,12 @@ const styles = StyleSheet.create({
     left: 16,
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: radii.icon,
     overflow: 'hidden',
-    backgroundColor: 'rgba(226,218,194,0.72)',
-    borderWidth: 3,
-    borderColor: colors.ink,
+    backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadowNoBorder(3),
+    ...elevation('subtle'),
   },
   topRightActions: {
     position: 'absolute',
@@ -1068,28 +1110,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
+  bottomRightActions: {
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 10,
+  },
   iconChip: {
     width: 44,
     height: 44,
-    borderRadius: 12,
+    borderRadius: radii.icon,
     overflow: 'hidden',
-    backgroundColor: 'rgba(226,218,194,0.72)',
-    borderWidth: 3,
-    borderColor: colors.ink,
+    backgroundColor: 'rgba(255,255,255,0.85)',
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadowNoBorder(3),
+    ...elevation('subtle'),
   },
   iconChipSolid: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   toggleText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 10,
     color: colors.ink,
   },
   toggleTextActive: {
-    color: colors.rust,
+    color: colors.coral,
   },
   glassOverlayWrap: {
     position: 'absolute',
@@ -1110,63 +1157,62 @@ const styles = StyleSheet.create({
   },
   glassChip: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-    borderWidth: 2,
-    borderColor: 'rgba(34,42,42,0.85)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    borderRadius: radii.sm,
     padding: 10,
     gap: 1,
   },
   glassChipAqua: {
-    backgroundColor: 'rgba(79,187,188,0.4)',
+    backgroundColor: 'rgba(75,171,184,0.72)',
   },
   glassChipAmber: {
-    backgroundColor: 'rgba(243,145,32,0.4)',
+    backgroundColor: 'rgba(232,146,58,0.72)',
   },
   glassStatLabel: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 10,
     letterSpacing: 0.6,
     color: colors.ink,
   },
+  glassStatLabelOnColor: {
+    color: 'rgba(255,255,255,0.85)',
+  },
   glassStatValueCompact: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 15,
     color: colors.ink,
   },
+  glassStatValueOnColor: {
+    color: colors.white,
+  },
   glassChartCard: {
-    backgroundColor: 'rgba(255,255,255,0.28)',
-    borderWidth: 2,
-    borderColor: 'rgba(34,42,42,0.85)',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    borderRadius: radii.sm,
     padding: 10,
   },
   detailsPill: {
     alignSelf: 'center',
     width: 120,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(226,218,194,0.6)',
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.85)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    ...brutalShadowNoBorder(3),
+    ...elevation('subtle'),
   },
   detailsPillText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 12,
     color: colors.ink,
   },
   sheet: {
     flex: 1,
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
+    backgroundColor: colors.sheetBg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
+    ...elevation('sheet'),
   },
   sheetScroll: {
     flex: 1,
@@ -1194,22 +1240,30 @@ const styles = StyleSheet.create({
   },
   activityBadge: {
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
     borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   activityBadgeText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 10,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    color: colors.surface,
+    textTransform: 'uppercase',
   },
   name: {
     flex: 1,
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
     color: colors.ink,
+  },
+  editInfoButton: {
+    width: 30,
+    height: 30,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...elevation('subtle'),
   },
   bylineWrap: {
     flexDirection: 'row',
@@ -1227,50 +1281,54 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   moderationLink: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: colors.mist,
     textDecorationLine: 'underline',
   },
   bylineAvatar: {
     width: 18,
     height: 18,
     borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.ink,
   },
   bylineAvatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   bylineAvatarText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 9,
     color: colors.ink,
   },
   byline: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   description: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
     lineHeight: 20,
   },
   statLabel: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 10,
-    color: colors.muted,
+    color: colors.stone,
     letterSpacing: 0.5,
   },
   statValue: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
     color: colors.ink,
     marginTop: 2,
+  },
+  statLabelOnColor: {
+    color: 'rgba(255,255,255,0.85)',
+  },
+  statValueOnColor: {
+    color: colors.white,
   },
   notesSection: {
     gap: 6,
@@ -1285,20 +1343,18 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 8,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
   },
   noteBadgeText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 10,
-    color: colors.ink,
+    color: colors.surface,
   },
   noteText: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
     lineHeight: 18,
@@ -1309,35 +1365,34 @@ const styles = StyleSheet.create({
   },
   statCardSheet: {
     flex: 1,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    padding: 10,
+    backgroundColor: colors.sheetBg,
+    borderRadius: radii.sm,
+    padding: 12,
     gap: 1,
+    ...elevation('subtle'),
   },
   statCardSheetAqua: {
-    backgroundColor: colors.aqua,
+    backgroundColor: colors.teal,
   },
   statCardSheetAmber: {
     backgroundColor: colors.amber,
   },
   runThisButton: {
     height: 54,
-    borderRadius: 14,
-    backgroundColor: colors.green,
+    borderRadius: radii.pill,
+    backgroundColor: colors.sage,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   runThisButtonLogged: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
   },
   runThisButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 15,
-    color: colors.white,
+    color: colors.surface,
   },
   runThisButtonTextLogged: {
     color: colors.ink,
@@ -1345,17 +1400,15 @@ const styles = StyleSheet.create({
   pbRow: {
     alignSelf: 'flex-start',
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
     borderRadius: 8,
     paddingVertical: 4,
     paddingHorizontal: 10,
     marginBottom: 10,
   },
   pbRowText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.ink,
+    color: colors.surface,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -1367,54 +1420,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    paddingVertical: 10,
-    ...brutalShadowNoBorder(3),
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    paddingVertical: 12,
+    ...elevation('subtle'),
   },
   actionButtonLiked: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   actionButtonSaved: {
-    backgroundColor: colors.aqua,
+    backgroundColor: colors.teal,
   },
   actionButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
   actionButtonTextLiked: {
-    color: colors.sand,
+    color: colors.sheetBg,
   },
   openButton: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginTop: 4,
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   openButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.surface,
   },
   divider: {
     height: 1,
-    backgroundColor: '#c9bfa2',
+    backgroundColor: 'rgba(0,0,0,0.05)',
     marginVertical: 2,
   },
   completionsSection: {
     gap: 8,
     marginTop: 4,
   },
+  completionsSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   completionsSummary: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
@@ -1429,34 +1485,34 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   completionAvatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   completionAvatarText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.ink,
   },
   completionUsername: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
   },
   completionDuration: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
   reviewsSection: {
     gap: 10,
     marginTop: 4,
   },
   reviewsTitle: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   ratingSummaryRow: {
     flexDirection: 'row',
@@ -1464,14 +1520,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   ratingSummaryValue: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
     color: colors.ink,
   },
   ratingSummaryCount: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   reviewList: {
     gap: 12,
@@ -1485,17 +1541,17 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   reviewUsername: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
   reviewSourceLabel: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 11,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   reviewBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
     marginTop: 2,
@@ -1508,30 +1564,30 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   writeReviewText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.rust,
+    color: colors.coral,
     textDecorationLine: 'underline',
   },
   groupRunsSection: {
     gap: 10,
   },
   groupRunsTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 15,
     color: colors.ink,
   },
   noRunsText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   groupRunCard: {
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: 16,
     gap: 6,
-    ...brutalShadow(3),
+    ...elevation('card'),
   },
   groupRunWhenBadge: {
     flexDirection: 'row',
@@ -1539,27 +1595,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
     borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     marginBottom: 2,
   },
   groupRunWhenText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    color: colors.surface,
+    textTransform: 'uppercase',
   },
   groupRunTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 16,
     color: colors.ink,
   },
   groupRunDescription: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     lineHeight: 18,
   },
   groupRunFooter: {
@@ -1569,28 +1624,26 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   groupRunGoing: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   rsvpButton: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
+    borderRadius: radii.pill,
     paddingVertical: 7,
-    paddingHorizontal: 12,
-    backgroundColor: colors.sand,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(0,0,0,0.07)',
   },
   rsvpButtonActive: {
-    backgroundColor: colors.green,
+    backgroundColor: colors.sage,
   },
   rsvpButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
     color: colors.ink,
   },
   rsvpButtonTextActive: {
-    color: colors.white,
+    color: colors.surface,
   },
   deleteButton: {
     flexDirection: 'row',
@@ -1600,13 +1653,8 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   deleteButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.rustDark,
+    color: colors.danger,
   },
 });
-
-/** Same hard-offset shadow as brutalShadow(), without re-declaring the border (already set explicitly alongside it here). */
-function brutalShadowNoBorder(offset: number) {
-  return { boxShadow: `${offset}px ${offset}px 0px ${colors.ink}` } as const;
-}

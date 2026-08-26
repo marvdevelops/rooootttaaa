@@ -16,7 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BellIcon, CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, SearchIcon, TrophyIcon, UserIcon, UsersIcon } from '../components/icons';
+import { BellIcon, CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, RecordIcon, SearchIcon, TrophyIcon, UserIcon, UsersIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import ProBadge from '../components/ProBadge';
 import TopRoutesStrip from '../components/TopRoutesStrip';
@@ -170,6 +170,7 @@ interface Props {
   onOpenClubs: () => void;
   onOpenNotifications: () => void;
   unreadNotificationCount: number;
+  onStartRecording: () => void;
   onCreateRoute: () => void;
   onImportGpx: () => void;
   onCreateEvent: () => void;
@@ -236,6 +237,7 @@ export default function DiscoverMapScreen({
   onOpenClubs,
   onOpenNotifications,
   unreadNotificationCount,
+  onStartRecording,
   onCreateRoute,
   onImportGpx,
   onCreateEvent,
@@ -731,6 +733,16 @@ export default function DiscoverMapScreen({
         <>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddMenu(false)} />
           <View style={styles.addMenu}>
+            <Pressable
+              style={styles.addMenuItem}
+              onPress={() => {
+                setShowAddMenu(false);
+                onStartRecording();
+              }}
+            >
+              <RecordIcon size={16} />
+              <Text style={styles.addMenuItemText}>Record activity</Text>
+            </Pressable>
             <Pressable
               style={styles.addMenuItem}
               onPress={() => {

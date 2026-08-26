@@ -15,21 +15,26 @@ import {
 } from 'react-native';
 import { CalendarIcon, CloseIcon, CompassIcon, ReplyIcon, SendIcon, ShareIcon, TrashIcon, UserIcon } from '../components/icons';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
+import RaceBadge from '../components/RaceBadge';
 import ReportModal from '../components/ReportModal';
+import RunThisRaceButton from '../components/RunThisRaceButton';
 import { useNotificationPrePermission } from '../hooks/useNotificationPrePermission';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import {
   CloudRoute,
   GroupRun,
   GroupRunComment,
   GroupRunParticipant,
   PathPoint,
+  RaceDetails,
+  RaceRsvp,
   RouteCompletion,
   RouteReview,
 } from '../types/route';
 import { addGroupRunToCalendar } from '../utils/calendar';
 import { getTodayCompletion, logRouteCompletion } from '../utils/completionsApi';
 import { getMyReview } from '../utils/reviewsApi';
+import { getMyRaceRsvp, getRaceDetails } from '../utils/racesApi';
 import {
   isSubscribedToSeries as checkIsSubscribedToSeries,
   subscribeToSeries,
@@ -56,6 +61,8 @@ interface Props {
   onClose: () => void;
   onOpenRoute: (routeId: string) => void;
   onRequirePaywall: () => void;
+  onOpenProfile: (userId: string) => void;
+  onRunRace: (groupRun: GroupRun, rsvpId: string) => void;
 }
 
 interface ReplyTarget {
@@ -82,8 +89,10 @@ function formatCommentTime(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute, onRequirePaywall }: Props) {
+export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute, onRequirePaywall, onOpenProfile, onRunRace }: Props) {
   const [groupRun, setGroupRun] = useState<GroupRun | null>(null);
+  const [raceDetails, setRaceDetails] = useState<RaceDetails | null>(null);
+  const [myRaceRsvp, setMyRaceRsvp] = useState<RaceRsvp | null>(null);
   const [route, setRoute] = useState<CloudRoute | null>(null);
   const [comments, setComments] = useState<GroupRunComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -131,6 +140,10 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
         getMyReview(run.routeId)
           .then(setMyReview)
           .catch(() => {});
+      }
+      if (run.category === 'race') {
+        getRaceDetails(groupRunId).then(setRaceDetails).catch(() => {});
+        if (run.isRsvpedByMe) getMyRaceRsvp(groupRunId).then(setMyRaceRsvp).catch(() => {});
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load this group run.');
@@ -392,7 +405,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
           )}
           {comment.isOwnedByMe ? (
             <Pressable style={styles.deleteCommentButton} onPress={() => handleDeleteComment(comment)}>
-              <TrashIcon size={12} color={colors.rustDark} />
+              <TrashIcon size={12} color={colors.danger} />
             </Pressable>
           ) : (
             <Pressable style={styles.deleteCommentButton} onPress={() => setReportingCommentId(comment.id)}>
@@ -423,7 +436,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
 
       {loading && (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.rust} />
+          <ActivityIndicator color={colors.coral} />
         </View>
       )}
 
@@ -454,7 +467,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                 disabled={loggingCompletion}
               >
                 {loggingCompletion ? (
-                  <ActivityIndicator color={colors.sand} size="small" />
+                  <ActivityIndicator color={colors.white} size="small" />
                 ) : (
                   <Text style={[styles.postEventButtonText, todayCompletion && styles.postEventButtonTextDone]}>
                     {todayCompletion ? '✓ Logged' : 'I ran it ✓'}
@@ -486,17 +499,25 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               </Pressable>
             )}
 
+            {groupRun.category === 'race' && <RaceBadge />}
             <View style={styles.whenBadge}>
               <CalendarIcon size={13} />
               <Text style={styles.whenText}>{formatWhen(groupRun.scheduledAt)}</Text>
             </View>
             <Text style={styles.eventTitle}>{groupRun.title}</Text>
-            <Pressable onPress={() => onOpenRoute(groupRun.routeId)}>
-              <Text style={styles.eventRoute}>
-                {groupRun.routeName}
-                {groupRun.hostUsername !== 'unknown' ? ` · hosted by ${groupRun.hostUsername}` : ''}
-              </Text>
-            </Pressable>
+            <View style={styles.eventRouteRow}>
+              <Pressable onPress={() => onOpenRoute(groupRun.routeId)}>
+                <Text style={styles.eventRoute}>{groupRun.routeName}</Text>
+              </Pressable>
+              {groupRun.hostUsername !== 'unknown' && (
+                <>
+                  <Text style={styles.eventRoute}> · hosted by </Text>
+                  <Pressable onPress={() => onOpenProfile(groupRun.hostId)}>
+                    <Text style={[styles.eventRoute, styles.eventHostLink]}>{groupRun.hostUsername}</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
             {!!groupRun.description && <Text style={styles.eventDescription}>{groupRun.description}</Text>}
 
             {groupRun.seriesId && !groupRun.isHostedByMe && !isArchived && (
@@ -522,6 +543,23 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
             {groupRun.seriesId && groupRun.isHostedByMe && (
               <View style={styles.seriesBadge}>
                 <Text style={styles.seriesBadgeText}>🔁 RECURRING</Text>
+              </View>
+            )}
+
+            {groupRun.category === 'race' && groupRun.myRsvpStatus === 'approved' && raceDetails && (
+              <View style={styles.raceRunWrap}>
+                {myRaceRsvp?.finishedAt ? (
+                  <View style={[styles.rsvpButton, styles.rsvpButtonActive]}>
+                    <Text style={[styles.rsvpButtonText, styles.rsvpButtonTextActive]}>
+                      ✓ FINISHED{myRaceRsvp.finishTimeSeconds ? ` · ${Math.round(myRaceRsvp.finishTimeSeconds / 60)} MIN` : ''}
+                    </Text>
+                  </View>
+                ) : (
+                  <RunThisRaceButton
+                    raceDetails={raceDetails}
+                    onPress={() => myRaceRsvp && onRunRace(groupRun, myRaceRsvp.id)}
+                  />
+                )}
               </View>
             )}
 
@@ -576,14 +614,14 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                       {p.avatarUrl ? (
                         <Image source={{ uri: p.avatarUrl }} style={styles.requestAvatarImage} />
                       ) : (
-                        <UserIcon size={16} color={colors.muted} />
+                        <UserIcon size={16} color={colors.stone} />
                       )}
                     </View>
                     <Text style={styles.requestUsername} numberOfLines={1}>
                       {p.username}
                     </Text>
                     {respondingUserId === p.userId ? (
-                      <ActivityIndicator size="small" color={colors.ink} />
+                      <ActivityIndicator size="small" color={colors.coral} />
                     ) : (
                       <View style={styles.requestActions}>
                         <Pressable
@@ -615,7 +653,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                         {p.avatarUrl ? (
                           <Image source={{ uri: p.avatarUrl }} style={styles.requestAvatarImage} />
                         ) : (
-                          <UserIcon size={13} color={colors.muted} />
+                          <UserIcon size={13} color={colors.stone} />
                         )}
                       </View>
                       <Text style={styles.whosGoingUsername} numberOfLines={1}>
@@ -681,7 +719,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                 <TextInput
                   style={styles.composerInput}
                   placeholder={replyTarget ? 'Write a reply…' : 'Write a comment…'}
-                  placeholderTextColor={colors.mutedLight}
+                  placeholderTextColor={colors.mist}
                   value={draft}
                   onChangeText={setDraft}
                   autoFocus
@@ -692,7 +730,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                   onPress={handlePost}
                   disabled={!draft.trim() || posting}
                 >
-                  {posting ? <ActivityIndicator size="small" color={colors.sand} /> : <SendIcon size={16} />}
+                  {posting ? <ActivityIndicator size="small" color={colors.white} /> : <SendIcon size={16} />}
                 </Pressable>
               </View>
             ) : (
@@ -764,18 +802,18 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 16,
+    letterSpacing: -0.3,
     color: colors.ink,
     marginHorizontal: 8,
   },
@@ -786,13 +824,13 @@ const styles = StyleSheet.create({
   errorBanner: {
     marginHorizontal: 16,
     marginBottom: 12,
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
     padding: 10,
   },
   errorText: {
     color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   scroll: {
@@ -804,27 +842,25 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   activeBanner: {
-    backgroundColor: colors.green,
-    borderRadius: 10,
+    backgroundColor: colors.sage,
+    borderRadius: radii.sm,
     padding: 10,
   },
   activeBannerText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.white,
     textAlign: 'center',
   },
   archivedBanner: {
-    backgroundColor: colors.sand,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
+    backgroundColor: colors.sheetBg,
+    borderRadius: radii.sm,
     padding: 10,
   },
   archivedBannerText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
   },
   postEventCard: {
@@ -833,17 +869,18 @@ const styles = StyleSheet.create({
   },
   postEventButton: {
     height: 48,
-    borderRadius: 12,
-    backgroundColor: colors.green,
+    borderRadius: radii.pill,
+    backgroundColor: colors.sage,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(3),
+    paddingHorizontal: spacing.xxl,
+    ...elevation('primaryBtn'),
   },
   postEventButtonDone: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
   },
   postEventButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.white,
   },
@@ -854,29 +891,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   postEventReviewLinkText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.rust,
+    color: colors.coral,
     textDecorationLine: 'underline',
   },
   eventCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.lg,
     gap: 4,
-    ...brutalShadow(4),
+    ...elevation('card'),
   },
   routePreviewWrap: {
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.ink,
+    borderRadius: radii.sm,
     overflow: 'hidden',
     marginBottom: 10,
   },
   routePreviewImage: {
     width: '100%',
     height: 160,
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
   },
   routePreviewStatsRow: {
     position: 'absolute',
@@ -886,18 +921,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   routePreviewChip: {
-    backgroundColor: colors.white,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    backgroundColor: colors.surface,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    ...elevation('subtle'),
   },
   routePreviewChipAqua: {
-    backgroundColor: colors.aqua,
+    backgroundColor: colors.teal,
   },
   routePreviewChipText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
     color: colors.ink,
   },
@@ -907,31 +941,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     marginBottom: 4,
   },
   whenText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.08 * 9,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
   eventTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 19,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
+  eventRouteRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
   eventRoute: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     textDecorationLine: 'underline',
   },
+  eventHostLink: {
+    color: colors.coral,
+    fontFamily: fonts.bold,
+  },
   eventDescription: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
     lineHeight: 20,
@@ -945,23 +989,24 @@ const styles = StyleSheet.create({
   },
   seriesBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: colors.aqua,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    backgroundColor: colors.teal,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     marginTop: 10,
   },
+  raceRunWrap: {
+    marginTop: 14,
+  },
   seriesBadgeText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 10,
-    color: colors.ink,
+    color: colors.white,
   },
   seriesLink: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.rust,
+    color: colors.coral,
     textDecorationLine: 'underline',
   },
   eventFooter: {
@@ -971,29 +1016,28 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   rsvpCount: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    color: colors.mutedLight,
+    fontFamily: fonts.semiBold,
+    fontSize: 11,
+    color: colors.stone,
   },
   rsvpButton: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    backgroundColor: colors.sand,
+    borderRadius: radii.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+    backgroundColor: colors.coral,
+    ...elevation('smallCta'),
   },
   rsvpButtonActive: {
-    backgroundColor: colors.green,
+    backgroundColor: colors.sage,
   },
   rsvpButtonFull: {
-    backgroundColor: colors.sand,
-    opacity: 0.6,
+    backgroundColor: colors.mist,
+    opacity: 0.7,
   },
   rsvpButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.white,
   },
   rsvpButtonTextActive: {
     color: colors.white,
@@ -1006,7 +1050,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   requestsTitle: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
@@ -1030,7 +1074,7 @@ const styles = StyleSheet.create({
   },
   requestUsername: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
   },
@@ -1039,20 +1083,19 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   requestActionButton: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
+    borderRadius: radii.xs,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    ...elevation('subtle'),
   },
   requestDeclineButton: {
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
   },
   requestApproveButton: {
-    backgroundColor: colors.green,
+    backgroundColor: colors.sage,
   },
   requestActionText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 10,
     color: colors.ink,
   },
@@ -1064,7 +1107,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   whosGoingTitle: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
@@ -1077,25 +1120,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    borderWidth: 2,
-    borderColor: colors.ink,
     borderRadius: 16,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    backgroundColor: colors.cream,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    backgroundColor: colors.sheetBg,
     maxWidth: 140,
   },
   whosGoingAvatar: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: colors.sand,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
   whosGoingUsername: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 11,
     color: colors.ink,
   },
@@ -1110,29 +1151,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
-    paddingVertical: 9,
-    backgroundColor: colors.sand,
+    borderRadius: radii.sm,
+    paddingVertical: 10,
+    backgroundColor: colors.surface,
+    ...elevation('subtle'),
   },
   secondaryActionText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.08 * 10,
     color: colors.ink,
   },
   commentsSection: {
     gap: 12,
   },
   commentsTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 15,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   emptyCommentsText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   commentWrap: {
     gap: 8,
@@ -1142,14 +1184,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingLeft: 12,
     borderLeftWidth: 2,
-    borderLeftColor: colors.sand,
+    borderLeftColor: 'rgba(0,0,0,0.06)',
   },
   commentCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
     padding: 12,
     gap: 6,
-    ...brutalShadow(2),
+    ...elevation('subtle'),
   },
   commentHeader: {
     flexDirection: 'row',
@@ -1160,38 +1202,34 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 7,
-    backgroundColor: colors.aqua,
-    borderWidth: 1.5,
-    borderColor: colors.ink,
+    backgroundColor: colors.teal,
   },
   commentAvatarPlaceholder: {
     width: 20,
     height: 20,
     borderRadius: 7,
-    backgroundColor: colors.sand,
-    borderWidth: 1.5,
-    borderColor: colors.ink,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
   },
   commentAvatarText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 9,
-    color: colors.ink,
+    color: colors.white,
   },
   commentUsername: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.ink,
   },
   commentTime: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 11,
-    color: colors.mutedLight,
+    color: colors.mist,
     marginLeft: 'auto',
   },
   commentBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
     lineHeight: 19,
@@ -1207,26 +1245,25 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   replyButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
-    color: colors.muted,
+    color: colors.stone,
   },
   deleteCommentButton: {
     marginLeft: 'auto',
   },
   reportCommentText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 11,
-    color: colors.mutedLight,
+    color: colors.mist,
     textDecorationLine: 'underline',
   },
   composerWrap: {
-    borderTopWidth: 3,
-    borderColor: colors.ink,
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 22,
+    ...elevation('sheet'),
   },
   replyingBanner: {
     flexDirection: 'row',
@@ -1235,27 +1272,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   replyingText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
   replyingCancel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.rustDark,
+    color: colors.danger,
   },
   composerPrompt: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
+    ...elevation('subtle'),
   },
   composerPromptText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   composerRow: {
     flexDirection: 'row',
@@ -1264,40 +1300,38 @@ const styles = StyleSheet.create({
   },
   composerInput: {
     flex: 1,
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
     maxHeight: 100,
+    ...elevation('subtle'),
   },
   sendButton: {
     width: 44,
     height: 44,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.md,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(3),
+    ...elevation('primaryBtn'),
   },
   sendButtonDisabled: {
     opacity: 0.5,
   },
   rsvpGate: {
-    backgroundColor: colors.white,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
     padding: 12,
     alignItems: 'center',
+    ...elevation('subtle'),
   },
   rsvpGateText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
 });

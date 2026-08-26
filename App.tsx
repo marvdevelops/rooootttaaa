@@ -10,14 +10,22 @@ import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, BackHandler, Linking, StyleSheet, Text, View } from 'react-native';
 import { AuthProvider, useAuth } from './src/lib/AuthContext';
+// Side-effect import — registers the background location task at module
+// load time, before any navigation renders. Must happen at the app root,
+// not lazily inside the recording screen, or a background re-launch after
+// the OS kills the app mid-run would have no task definition to resume into.
+import './src/tasks/locationTask';
 import ActivityFeedScreen from './src/screens/ActivityFeedScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import BlockedUsersScreen from './src/screens/BlockedUsersScreen';
 import ClubAdminScreen from './src/screens/ClubAdminScreen';
 import ClubProfileScreen from './src/screens/ClubProfileScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
+import RecordingScreen from './src/screens/RecordingScreen';
+import RecordingSummaryScreen from './src/screens/RecordingSummaryScreen';
+import RaceShareCardScreen from './src/screens/RaceShareCardScreen';
 import ClubsListScreen from './src/screens/ClubsListScreen';
 import CreateClubScreen from './src/screens/CreateClubScreen';
 import CreateEventScreen from './src/screens/CreateEventScreen';
@@ -43,10 +51,14 @@ import ScheduleGroupRunModal from './src/components/ScheduleGroupRunModal';
 import { useNotificationPrePermission } from './src/hooks/useNotificationPrePermission';
 import { useUserTier } from './src/hooks/useUserTier';
 import { colors, fonts } from './src/theme/theme';
-import { CloudRoute } from './src/types/route';
+import { ActivityType, CloudRoute, GroupRun, RaceDetails } from './src/types/route';
+import { RecordingSession } from './src/types/recording';
 import { countMyActiveGroupRuns, createGroupRun } from './src/utils/groupRunsApi';
 import { countUnreadNotifications } from './src/utils/notificationsApi';
+import { useRecording } from './src/hooks/useRecording';
+import { useRecordingStore } from './src/stores/recordingStore';
 import { getRoute } from './src/utils/routesApi';
+import { getRaceDetails } from './src/utils/racesApi';
 import { RecurrenceInput } from './src/components/ScheduleGroupRunModal';
 import { createSeries, getFirstUpcomingOccurrence } from './src/utils/recurringSeriesApi';
 
@@ -75,6 +87,9 @@ type Overlay =
   | 'clubAdmin'
   | 'createClub'
   | 'notifications'
+  | 'recording'
+  | 'recordingSummary'
+  | 'raceShareCard'
   | null;
 
 interface AuthedAppProps {
@@ -132,12 +147,78 @@ function AuthedApp({
   // instead of opening the route's detail page.
   const [creatingEventForNewRoute, setCreatingEventForNewRoute] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [recordingActivityType, setRecordingActivityType] = useState<ActivityType>('run');
+  const [finishedRecordingSession, setFinishedRecordingSession] = useState<RecordingSession | null>(null);
+  const [resumedRecording, setResumedRecording] = useState(false);
+  const [recordingRoute, setRecordingRoute] = useState<CloudRoute | null>(null);
+  const [recordingRaceRsvpId, setRecordingRaceRsvpId] = useState<string | null>(null);
+  const [recordingRaceContext, setRecordingRaceContext] = useState<{ raceDetails: RaceDetails; raceTitle: string } | null>(null);
+  const [raceFinishStats, setRaceFinishStats] = useState<{ distanceMeters: number; finishTimeSeconds: number; paceSecondsPerKm: number | null } | null>(null);
+  const { checkForActiveSession, resumeActiveSession, finishRecording, discardSession } = useRecording();
 
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2500);
     return () => clearTimeout(t);
   }, [toast]);
+
+  // Crash recovery — the app died mid-recording (force-quit, OS kill) and
+  // relaunched into a fresh session with no active overlay. Never silently
+  // discard the in-progress run; ask the user what to do with it.
+  useEffect(() => {
+    const activeSession = checkForActiveSession();
+    if (!activeSession) return;
+
+    Alert.alert(
+      'Unfinished run found',
+      `You have an unfinished run from ${new Date(activeSession.startedAt).toLocaleString()}. Resume or finish it?`,
+      [
+        {
+          text: 'Discard',
+          style: 'destructive',
+          onPress: () => discardSession(activeSession.id),
+        },
+        {
+          text: 'Finish now',
+          onPress: async () => {
+            await finishRecording(activeSession.id);
+            setFinishedRecordingSession(activeSession);
+            setOverlay('recordingSummary');
+          },
+        },
+        {
+          text: 'Resume',
+          onPress: async () => {
+            setRecordingActivityType(activeSession.activityType);
+            await resumeActiveSession(activeSession);
+            setResumedRecording(true);
+            setOverlay('recording');
+          },
+        },
+      ],
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A recording in progress owns the screen — returning to Rootah (from the
+  // background, another app, or the lock screen) always lands back on the
+  // recording screen, and the Android hardware back button is blocked while
+  // it's showing. The only way out is Finish or the in-screen Discard
+  // confirm, both of which actually stop the recording first.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      if (useRecordingStore.getState().isRecording && overlay !== 'recording') {
+        setOverlay('recording');
+      }
+    });
+    return () => subscription.remove();
+  }, [overlay]);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => overlay === 'recording');
+    return () => subscription.remove();
+  }, [overlay]);
 
   useEffect(() => {
     const refreshUnread = () => countUnreadNotifications().then(setUnreadNotificationCount).catch(() => {});
@@ -256,6 +337,53 @@ function AuthedApp({
     setOverlay('createEvent');
   }, []);
 
+  const handleRecordRoute = useCallback(
+    (route: CloudRoute) => {
+      setResumedRecording(false);
+      setRecordingRoute(route);
+      setRecordingRaceRsvpId(null);
+      setRecordingRaceContext(null);
+      setRecordingActivityType(route.activityType);
+      navigateTo('recording');
+    },
+    [navigateTo],
+  );
+
+  const handleRunRace = useCallback(
+    async (groupRun: GroupRun, rsvpId: string) => {
+      setResolvingRoute(true);
+      try {
+        const [route, raceDetails] = await Promise.all([getRoute(groupRun.routeId), getRaceDetails(groupRun.id)]);
+        setResumedRecording(false);
+        setRecordingRoute(route);
+        setRecordingRaceRsvpId(rsvpId);
+        setRecordingRaceContext(raceDetails ? { raceDetails, raceTitle: groupRun.title } : null);
+        setRecordingActivityType(route.activityType);
+        navigateTo('recording');
+      } catch (e) {
+        Alert.alert('Error', e instanceof Error ? e.message : "Couldn't load this race's route.");
+      } finally {
+        setResolvingRoute(false);
+      }
+    },
+    [navigateTo],
+  );
+
+  const handleStartRecording = useCallback(() => {
+    setResumedRecording(false);
+    setRecordingRoute(null);
+    setRecordingRaceRsvpId(null);
+    setRecordingRaceContext(null);
+    Alert.alert('Record activity', 'What are you doing?', [
+      { text: 'Run', onPress: () => { setRecordingActivityType('run'); navigateTo('recording'); } },
+      { text: 'Trail run', onPress: () => { setRecordingActivityType('trail_run'); navigateTo('recording'); } },
+      { text: 'Hike', onPress: () => { setRecordingActivityType('hike'); navigateTo('recording'); } },
+      { text: 'Ride', onPress: () => { setRecordingActivityType('bike'); navigateTo('recording'); } },
+      { text: 'Walk', onPress: () => { setRecordingActivityType('walk'); navigateTo('recording'); } },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }, [navigateTo]);
+
   const handleCreateNewRouteForEvent = useCallback(() => {
     setCreatingEventForNewRoute(true);
     setRouteToLoad(null);
@@ -345,6 +473,7 @@ function AuthedApp({
         onOpenClubs={() => setOverlay('clubs')}
         onOpenNotifications={() => navigateTo('notifications')}
         unreadNotificationCount={unreadNotificationCount}
+        onStartRecording={handleStartRecording}
         onCreateRoute={() => setOverlay('builder')}
         onImportGpx={() => (tier === 'paid' ? setOverlay('importGpx') : openPaywall('gpx_import'))}
         onCreateEvent={handleTapCreateEvent}
@@ -494,6 +623,75 @@ function AuthedApp({
         </View>
       )}
 
+      {overlay === 'recording' && (
+        <View style={StyleSheet.absoluteFill}>
+          <RecordingScreen
+            activityType={recordingActivityType}
+            routeId={recordingRoute?.id}
+            plannedSegments={recordingRoute?.segments}
+            alreadyStarted={resumedRecording}
+            raceRsvpId={recordingRaceRsvpId ?? undefined}
+            onFinish={(session) => {
+              setFinishedRecordingSession(session);
+              setOverlay('recordingSummary');
+            }}
+            onDiscard={() => navigateBack()}
+          />
+        </View>
+      )}
+
+      {overlay === 'recordingSummary' && finishedRecordingSession && (
+        <View style={StyleSheet.absoluteFill}>
+          <RecordingSummaryScreen
+            sessionId={finishedRecordingSession.id}
+            activityType={finishedRecordingSession.activityType}
+            routeId={finishedRecordingSession.routeId}
+            startedAt={finishedRecordingSession.startedAt}
+            raceRsvpId={recordingRaceRsvpId ?? undefined}
+            onRaceFinished={
+              recordingRaceContext
+                ? (distanceMeters, finishTimeSeconds, paceSecondsPerKm) => {
+                    setRaceFinishStats({ distanceMeters, finishTimeSeconds, paceSecondsPerKm });
+                    setFinishedRecordingSession(null);
+                    setDiscoverRefreshSignal((n) => n + 1);
+                    setOverlay('raceShareCard');
+                  }
+                : undefined
+            }
+            onDone={() => {
+              setFinishedRecordingSession(null);
+              setRecordingRaceRsvpId(null);
+              setRecordingRaceContext(null);
+              setToast('Run saved.');
+              setDiscoverRefreshSignal((n) => n + 1);
+              setOverlay(null);
+              setNavStack([]);
+            }}
+          />
+        </View>
+      )}
+
+      {overlay === 'raceShareCard' && recordingRaceRsvpId && recordingRaceContext && raceFinishStats && (
+        <View style={StyleSheet.absoluteFill}>
+          <RaceShareCardScreen
+            rsvpId={recordingRaceRsvpId}
+            raceDetails={recordingRaceContext.raceDetails}
+            raceTitle={recordingRaceContext.raceTitle}
+            distanceMeters={raceFinishStats.distanceMeters}
+            finishTimeSeconds={raceFinishStats.finishTimeSeconds}
+            paceSecondsPerKm={raceFinishStats.paceSecondsPerKm}
+            onDone={() => {
+              setRecordingRaceRsvpId(null);
+              setRecordingRaceContext(null);
+              setRaceFinishStats(null);
+              setToast('Run saved.');
+              setOverlay(null);
+              setNavStack([]);
+            }}
+          />
+        </View>
+      )}
+
       {overlay === 'clubAdmin' && selectedClubId && (
         <View style={StyleSheet.absoluteFill}>
           <ClubAdminScreen
@@ -535,6 +733,7 @@ function AuthedApp({
               setSelectedRoute(r);
               navigateTo('flyby');
             }}
+            onRecordRoute={handleRecordRoute}
           />
         </View>
       )}
@@ -579,6 +778,7 @@ function AuthedApp({
             onOpenRoute={(routeId) => openDetailById(routeId)}
             onRequirePaywall={() => openPaywall('group_run_join_limit')}
             onOpenProfile={openProfile}
+            onRunRace={handleRunRace}
           />
         </View>
       )}

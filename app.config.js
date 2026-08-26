@@ -13,7 +13,7 @@ module.exports = {
     name: 'Rootah',
     slug: 'RunMap',
     scheme: 'rootah',
-    version: '1.0.0',
+    version: '1.0.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -23,8 +23,12 @@ module.exports = {
       infoPlist: {
         NSLocationWhenInUseUsageDescription:
           'Rootah uses your location to center the map on your current position. Location access is optional — you can still build and browse routes without it.',
+        NSLocationAlwaysAndWhenInUseUsageDescription:
+          'Rootah tracks your location during a run or ride, even when the screen is off.',
+        NSLocationAlwaysUsageDescription:
+          'Rootah tracks your location during a run or ride, even when the screen is off.',
         ITSAppUsesNonExemptEncryption: false,
-        UIBackgroundModes: ['remote-notification'],
+        UIBackgroundModes: ['remote-notification', 'location'],
       },
     },
     android: {
@@ -39,6 +43,9 @@ module.exports = {
       permissions: [
         'ACCESS_COARSE_LOCATION',
         'ACCESS_FINE_LOCATION',
+        'ACCESS_BACKGROUND_LOCATION',
+        'FOREGROUND_SERVICE',
+        'FOREGROUND_SERVICE_LOCATION',
         'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.ACCESS_FINE_LOCATION',
       ],
@@ -49,7 +56,17 @@ module.exports = {
     },
     plugins: [
       'expo-sharing',
-      'expo-location',
+      [
+        'expo-location',
+        {
+          locationAlwaysAndWhenInUsePermission:
+            'Rootah tracks your location during a run or ride, even when the screen is off.',
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
+        },
+      ],
+      'expo-sqlite',
+      'expo-task-manager',
       'expo-font',
       'expo-document-picker',
       [
@@ -58,7 +75,7 @@ module.exports = {
           image: './assets/splash-icon.png',
           imageWidth: 220,
           resizeMode: 'contain',
-          backgroundColor: '#222A2A',
+          backgroundColor: '#1A1614',
         },
       ],
       '@rnmapbox/maps',

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { GroupRun, GroupRunParticipant, GroupRunStatus, RsvpStatus } from '../types/route';
+import { track } from '../lib/analytics';
 
 interface GroupRunRow {
   id: string;
@@ -17,6 +18,7 @@ interface GroupRunRow {
   start_lng: number | null;
   club_id: string | null;
   series_id: string | null;
+  category: 'training' | 'race';
   routes: { name: string; distance_km: number } | { name: string; distance_km: number }[] | null;
   profiles: { username: string } | { username: string }[] | null;
   run_clubs: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[] | null;
@@ -70,6 +72,7 @@ function buildGroupRun(
     clubName: club?.name ?? null,
     clubAvatarUrl: club?.avatar_url ?? null,
     seriesId: row.series_id,
+    category: row.category,
   };
 }
 
@@ -153,6 +156,7 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
     .single();
 
   if (error || !data) throw new Error(error?.message ?? 'Failed to schedule group run.');
+  track('group_run_scheduled', { max_participants: input.maxParticipants, has_club: !!input.clubId });
   return toGroupRun(data as unknown as GroupRunRow, hostId, 'host');
 }
 

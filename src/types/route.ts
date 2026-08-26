@@ -9,7 +9,6 @@ export interface PathPoint extends LatLng {
 
 export interface Waypoint extends LatLng {
   id: string;
-  note?: string;
 }
 
 export interface RouteSegment {
@@ -17,6 +16,17 @@ export interface RouteSegment {
   toId: string;
   path: PathPoint[];
   distanceMeters: number;
+}
+
+/**
+ * A note pinned somewhere along a route (e.g. "water stop", "turn here",
+ * a race-day instruction) — a standalone entity, not tied to any Waypoint.
+ * Waypoints exist only to draw/route the line; moving, adding, or deleting
+ * one never touches notes, and vice versa.
+ */
+export interface RouteNote extends LatLng {
+  id: string;
+  text: string;
 }
 
 export type ActivityType = 'run' | 'trail_run' | 'hike' | 'bike' | 'walk' | 'other';
@@ -48,6 +58,7 @@ export interface CloudRoute {
   createdAt: number;
   waypoints: Waypoint[];
   segments: RouteSegment[];
+  notes: RouteNote[];
   distanceKm: number;
   elevationGainM: number;
   elevationProfile: PathPoint[];
@@ -136,6 +147,17 @@ export interface GroupRun {
   clubAvatarUrl: string | null;
   /** Set when this occurrence belongs to a recurring series — null for one-off runs. */
   seriesId: string | null;
+  /** 'race' events get day-of-gated "Run This Race" tracking, branding, and a live-tracking link — everything else behaves like a normal group run. */
+  category: 'training' | 'race';
+}
+
+export interface RaceDetails {
+  groupRunId: string;
+  raceDate: string; // YYYY-MM-DD, in raceTimezone
+  raceTimezone: string;
+  organizerLogoUrl: string | null;
+  brandPrimaryColor: string;
+  brandAccentColor: string;
 }
 
 export type RsvpStatus = 'pending' | 'approved' | 'declined';
@@ -146,6 +168,19 @@ export interface GroupRunParticipant {
   avatarUrl: string | null;
   status: RsvpStatus;
   requestedAt: number;
+}
+
+/** The current user's own RSVP on a race, including race-run state — null fields until they actually start running. */
+export interface RaceRsvp {
+  id: string;
+  groupRunId: string;
+  status: RsvpStatus;
+  startedAt: number | null;
+  finishedAt: number | null;
+  finishTimeSeconds: number | null;
+  recordedRunId: string | null;
+  shareCardStoragePath: string | null;
+  liveShareToken: string | null;
 }
 
 export interface GroupRunComment {
