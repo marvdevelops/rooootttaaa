@@ -658,7 +658,10 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               {/* Identity — badge, title, and organizer grouped tightly since they answer one question ("what race is this, who's behind it"); the date/distance facts sit in their own scannable row below rather than interleaved as separate badges. */}
               <View style={styles.eventCard}>
                 <RaceBadge />
-                <Text style={styles.eventTitle}>{groupRun.title}</Text>
+                <Text style={styles.eventTitle}>{raceDetails?.eventTitle ?? groupRun.title}</Text>
+                {raceDetails?.eventTitle && raceDetails.eventTitle !== groupRun.title && (
+                  <Text style={styles.categorySubtitle}>{groupRun.title}</Text>
+                )}
 
                 {(raceDetails?.organizerName || raceDetails?.eventLogoUrl) && (
                   <View style={styles.organizerRow}>
@@ -1392,6 +1395,12 @@ const styles = StyleSheet.create({
     fontSize: 19,
     letterSpacing: -0.4,
     color: colors.ink,
+  },
+  categorySubtitle: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.coral,
+    marginTop: 2,
   },
   eventRouteRow: {
     flexDirection: 'row',

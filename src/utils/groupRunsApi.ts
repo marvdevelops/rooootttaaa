@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { GroupRun, GroupRunParticipant, GroupRunStatus, RsvpStatus } from '../types/route';
+import { GroupRun, GroupRunParticipant, GroupRunStatus, RaceCategorySummary, RaceEventSummary, RsvpStatus } from '../types/route';
 import { track } from '../lib/analytics';
 
 interface GroupRunRow {
@@ -135,6 +135,8 @@ export interface RaceMetaInput {
   eventLogoUrl?: string | null;
   /** Set when this race is a new distance category joining an existing multi-distance event — pass the event's anchor race id (any sibling category's group_run_id works, since they all share the same event_group_id). Omit for a standalone race or the first category of a new event. */
   eventGroupId?: string | null;
+  /** The shared event display name ("Milo Marathon 2026"). Pass the existing event's title when adding a category to it; omit to default to this category's own `title` (the normal case — a standalone race or a brand-new event's first category). */
+  eventTitle?: string | null;
 }
 
 export interface CreateGroupRunInput {
@@ -189,6 +191,7 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
       // getRaceCategories(eventGroupId) then just returns itself for a
       // standalone race.
       event_group_id: input.race.eventGroupId ?? newRaceId,
+      event_title: input.race.eventTitle ?? input.title,
     });
     if (raceDetailsError) throw new Error(raceDetailsError.message);
   }
@@ -290,6 +293,61 @@ export async function listUpcomingRaces(limit = 20): Promise<GroupRun[]> {
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as unknown as GroupRunRow[];
   return toGroupRunBatch(rows, viewerId);
+}
+
+/**
+ * Same upcoming races, grouped into one entry per multi-distance event
+ * (event_group_id) instead of one per distance category — what the browse
+ * screens actually want to show. A standalone single-distance race is just
+ * a group of one. See docs/race-mode-plan.md's distance-categories section
+ * for why this is a client-side grouping over ordinary group_runs rows
+ * rather than a dedicated events table.
+ */
+export async function listUpcomingRaceEvents(limit = 20): Promise<RaceEventSummary[]> {
+  const races = await listUpcomingRaces(limit);
+  if (races.length === 0) return [];
+
+  const { data: detailsRows, error } = await supabase
+    .from('race_details')
+    .select('group_run_id, event_group_id, event_title')
+    .in(
+      'group_run_id',
+      races.map((r) => r.id),
+    );
+  if (error) throw new Error(error.message);
+
+  const detailsByRunId = new Map(
+    (detailsRows ?? []).map((row) => [row.group_run_id as string, { eventGroupId: row.event_group_id as string | null, eventTitle: row.event_title as string | null }]),
+  );
+
+  const eventsByGroupId = new Map<string, RaceEventSummary>();
+  for (const race of races) {
+    const details = detailsByRunId.get(race.id);
+    const eventGroupId = details?.eventGroupId ?? race.id;
+    const category: RaceCategorySummary = { groupRunId: race.id, title: race.title, routeDistanceKm: race.routeDistanceKm, scheduledAt: race.scheduledAt };
+
+    const existing = eventsByGroupId.get(eventGroupId);
+    if (existing) {
+      existing.categories.push(category);
+      existing.rsvpCount += race.rsvpCount;
+      if (race.scheduledAt < existing.scheduledAt) {
+        existing.scheduledAt = race.scheduledAt;
+        existing.primaryGroupRunId = race.id;
+      }
+    } else {
+      eventsByGroupId.set(eventGroupId, {
+        eventGroupId,
+        eventTitle: details?.eventTitle ?? race.title,
+        primaryGroupRunId: race.id,
+        scheduledAt: race.scheduledAt,
+        rsvpCount: race.rsvpCount,
+        categories: [category],
+      });
+    }
+  }
+
+  for (const event of eventsByGroupId.values()) event.categories.sort((a, b) => a.routeDistanceKm - b.routeDistanceKm);
+  return Array.from(eventsByGroupId.values()).sort((a, b) => a.scheduledAt - b.scheduledAt);
 }
 
 /**

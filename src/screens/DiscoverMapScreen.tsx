@@ -22,11 +22,11 @@ import ProBadge from '../components/ProBadge';
 import UpcomingRacesStrip from '../components/UpcomingRacesStrip';
 import { useUserTier } from '../hooks/useUserTier';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
-import { ActivityType, CloudRoute, GroupRun, LatLng } from '../types/route';
+import { ActivityType, CloudRoute, GroupRun, LatLng, RaceEventSummary } from '../types/route';
 import { clusterRoutesByStart, RouteCluster } from '../utils/clusterRoutes';
 import { haversineDistance } from '../utils/distance';
 import { reverseGeocodeCity, reverseGeocodeCountryBounds } from '../utils/geocoding';
-import { listRunsNearLocation, listUpcomingRaces } from '../utils/groupRunsApi';
+import { listRunsNearLocation, listUpcomingRaceEvents } from '../utils/groupRunsApi';
 import '../utils/mapboxInit';
 import { listPublicRoutes, PublicRouteFilters, searchRoutes } from '../utils/routesApi';
 
@@ -295,7 +295,7 @@ export default function DiscoverMapScreen({
   // Toggleable the same way the old "Popular" routes strip was, remembered
   // per-device.
   const [showUpcomingRaces, setShowUpcomingRaces] = useState(false);
-  const [upcomingRaces, setUpcomingRaces] = useState<GroupRun[]>([]);
+  const [upcomingRaceEvents, setUpcomingRaceEvents] = useState<RaceEventSummary[]>([]);
 
   useEffect(() => {
     AsyncStorage.getItem(SHOW_UPCOMING_RACES_KEY).then((v) => {
@@ -313,9 +313,9 @@ export default function DiscoverMapScreen({
 
   useEffect(() => {
     let cancelled = false;
-    listUpcomingRaces()
-      .then((races) => {
-        if (!cancelled) setUpcomingRaces(races);
+    listUpcomingRaceEvents()
+      .then((events) => {
+        if (!cancelled) setUpcomingRaceEvents(events);
       })
       .catch(() => {});
     return () => {
@@ -674,7 +674,7 @@ export default function DiscoverMapScreen({
           </View>
         )}
 
-        {showUpcomingRaces && <UpcomingRacesStrip races={upcomingRaces} onOpenRace={onOpenGroupRun} />}
+        {showUpcomingRaces && <UpcomingRacesStrip events={upcomingRaceEvents} onOpenRace={onOpenGroupRun} />}
       </View>
 
       {!loading && routes.length === 0 && !error && (

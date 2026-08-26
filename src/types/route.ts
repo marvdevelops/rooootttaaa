@@ -164,6 +164,8 @@ export interface RaceDetails {
   brandAccentColor: string;
   /** Shared across every distance category of one multi-distance event (5K/10K/21K…) — the first category's own group_run_id, self-referenced. Null for a standalone, single-distance race. */
   eventGroupId: string | null;
+  /** Shared display name for the event ("Milo Marathon 2026") — distinct from this category's own group_runs.title, which is just its distance label ("10K"). Falls back to the category's own title for pre-existing single-category races. */
+  eventTitle: string | null;
 }
 
 /** One distance option within a multi-distance race event — for the "pick your distance" picker and the sibling-categories chip row. */
@@ -172,6 +174,17 @@ export interface RaceCategorySummary {
   title: string;
   routeDistanceKm: number;
   scheduledAt: number;
+}
+
+/** One multi-distance event grouped for display — the discover/browse screens show one of these per event instead of one card per distance category. */
+export interface RaceEventSummary {
+  eventGroupId: string;
+  eventTitle: string;
+  /** The soonest-scheduled category's group_run_id — where a tap lands; its own detail page shows the full distance picker. */
+  primaryGroupRunId: string;
+  scheduledAt: number;
+  rsvpCount: number;
+  categories: RaceCategorySummary[];
 }
 
 export type RsvpStatus = 'pending' | 'approved' | 'declined';

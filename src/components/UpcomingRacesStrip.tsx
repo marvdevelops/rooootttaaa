@@ -1,17 +1,18 @@
 import React from 'react';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme/theme';
-import { GroupRun } from '../types/route';
+import { RaceEventSummary } from '../types/route';
 import RaceCard from './RaceCard';
 
 interface Props {
-  races: GroupRun[];
+  events: RaceEventSummary[];
+  /** Opens the primary (soonest) distance category's own detail page — that page's distance-chip row is where the user actually picks their race. */
   onOpenRace: (groupRunId: string) => void;
 }
 
-/** Replaces the discover screen's old "Popular routes" strip — races are Rootah's event calendar, worth surfacing over a routes leaderboard. */
-export default function UpcomingRacesStrip({ races, onOpenRace }: Props) {
-  if (races.length === 0) return null;
+/** Replaces the discover screen's old "Popular routes" strip — races are Rootah's event calendar, worth surfacing over a routes leaderboard. One card per event, not per distance category — a 5K/10K/21K event is one race with options, not three unrelated races. */
+export default function UpcomingRacesStrip({ events, onOpenRace }: Props) {
+  if (events.length === 0) return null;
 
   return (
     <View style={styles.wrap}>
@@ -20,11 +21,11 @@ export default function UpcomingRacesStrip({ races, onOpenRace }: Props) {
       </View>
       <FlatList
         horizontal
-        data={races}
-        keyExtractor={(r) => r.id}
+        data={events}
+        keyExtractor={(e) => e.eventGroupId}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => <RaceCard race={item} onPress={() => onOpenRace(item.id)} />}
+        renderItem={({ item }) => <RaceCard event={item} onPress={() => onOpenRace(item.primaryGroupRunId)} />}
       />
     </View>
   );

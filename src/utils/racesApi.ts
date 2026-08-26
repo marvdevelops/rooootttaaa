@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { RaceCategorySummary, RaceDetails, RaceRsvp } from '../types/route';
+import { RaceCategorySummary, RaceDetails, RaceEventSummary, RaceRsvp } from '../types/route';
 
 interface RaceDetailsRow {
   group_run_id: string;
@@ -12,6 +12,7 @@ interface RaceDetailsRow {
   brand_primary_color: string;
   brand_accent_color: string;
   event_group_id: string | null;
+  event_title: string | null;
 }
 
 function toRaceDetails(row: RaceDetailsRow): RaceDetails {
@@ -26,6 +27,7 @@ function toRaceDetails(row: RaceDetailsRow): RaceDetails {
     brandPrimaryColor: row.brand_primary_color,
     brandAccentColor: row.brand_accent_color,
     eventGroupId: row.event_group_id,
+    eventTitle: row.event_title,
   };
 }
 

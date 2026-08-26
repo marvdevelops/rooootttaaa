@@ -1,7 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, elevation, fonts, radii } from '../theme/theme';
-import { GroupRun } from '../types/route';
+import { RaceEventSummary } from '../types/route';
 
 function daysAway(scheduledAt: number): string {
   const diffDays = Math.round((scheduledAt - Date.now()) / 86_400_000);
@@ -15,25 +15,32 @@ function formatWhen(ms: number): string {
 }
 
 interface Props {
-  race: GroupRun;
+  event: RaceEventSummary;
   onPress: () => void;
 }
 
-/** Compact card for the discover screen's upcoming-races strip — date badge, title, route distance, and a going count, mirroring TopRouteCard's shape. */
-export default function RaceCard({ race, onPress }: Props) {
+/** Compact card for the discover screen's upcoming-races strip — one card per event (not per distance category), with every distance shown as its own chip so "one race, several distances" reads as one thing instead of N unrelated cards. */
+export default function RaceCard({ event, onPress }: Props) {
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <View style={styles.dateBadge}>
-        <Text style={styles.dateBadgeText}>{daysAway(race.scheduledAt)}</Text>
+        <Text style={styles.dateBadgeText}>{daysAway(event.scheduledAt)}</Text>
       </View>
       <Text style={styles.title} numberOfLines={2}>
-        {race.title}
+        {event.eventTitle}
       </Text>
       <Text style={styles.meta} numberOfLines={1}>
-        {formatWhen(race.scheduledAt)} · {race.routeDistanceKm.toFixed(1)} km
+        {formatWhen(event.scheduledAt)}
       </Text>
+      <View style={styles.distanceRow}>
+        {event.categories.map((cat) => (
+          <View key={cat.groupRunId} style={styles.distanceChip}>
+            <Text style={styles.distanceChipText}>{cat.routeDistanceKm.toFixed(0)}K</Text>
+          </View>
+        ))}
+      </View>
       <Text style={styles.going} numberOfLines={1}>
-        {race.rsvpCount} joined
+        {event.rsvpCount} joined
       </Text>
     </Pressable>
   );
@@ -70,6 +77,22 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 11,
     color: colors.stone,
+  },
+  distanceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  distanceChip: {
+    backgroundColor: colors.cream,
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  distanceChipText: {
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    color: colors.ink,
   },
   going: {
     fontFamily: fonts.medium,

@@ -24,6 +24,8 @@ export interface RaceInput {
   organizerLogoUrl: string;
   eventBannerUrl: string;
   eventLogoUrl: string;
+  /** Set only when this race is joining an existing multi-distance event (prefillRace was passed) — the shared event name to carry over. */
+  eventTitle?: string;
 }
 
 export interface RecurrenceInput {
@@ -45,6 +47,8 @@ export interface EditingGroupRun {
 }
 
 export interface RacePrefill {
+  /** The event's shared display name ("Milo Marathon 2026") — shown read-only; the title field below becomes this new category's own distance label instead. */
+  eventTitle: string;
   raceDate: Date;
   organizerName: string;
   organizerLogoUrl: string;
@@ -172,18 +176,25 @@ export default function ScheduleGroupRunModal({
         <View style={styles.sheet}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
             <View style={styles.headerRow}>
-              <Text style={styles.title}>{editing ? 'Edit event' : 'Schedule group run'}</Text>
+              <Text style={styles.title}>{editing ? 'Edit event' : prefillRace ? 'Add a distance' : 'Schedule group run'}</Text>
               <Pressable style={styles.closeButton} onPress={onClose}>
                 <CloseIcon size={16} />
               </Pressable>
             </View>
 
+            {prefillRace && (
+              <View style={styles.eventNameBanner}>
+                <Text style={styles.eventNameBannerLabel}>PART OF</Text>
+                <Text style={styles.eventNameBannerText}>{prefillRace.eventTitle}</Text>
+              </View>
+            )}
+
             <View>
-              <Text style={styles.label}>TITLE</Text>
+              <Text style={styles.label}>{prefillRace ? 'DISTANCE LABEL' : 'TITLE'}</Text>
               <TextInput
                 value={title}
                 onChangeText={setTitle}
-                placeholder="Saturday sunrise run"
+                placeholder={prefillRace ? 'e.g. 10K' : 'Saturday sunrise run'}
                 placeholderTextColor={colors.mist}
                 style={styles.input}
                 maxLength={60}
@@ -407,6 +418,7 @@ export default function ScheduleGroupRunModal({
                         organizerLogoUrl: organizerLogoUrl.trim(),
                         eventBannerUrl: eventBannerUrl.trim(),
                         eventLogoUrl: eventLogoUrl.trim(),
+                        eventTitle: prefillRace?.eventTitle,
                       }
                     : null,
                 )
@@ -484,6 +496,23 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.ink,
     ...elevation('subtle'),
+  },
+  eventNameBanner: {
+    backgroundColor: colors.cream,
+    borderRadius: radii.sm,
+    padding: 12,
+  },
+  eventNameBannerLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.6,
+    color: colors.stone,
+  },
+  eventNameBannerText: {
+    fontFamily: fonts.extraBold,
+    fontSize: 15,
+    color: colors.ink,
+    marginTop: 2,
   },
   textArea: {
     minHeight: 70,

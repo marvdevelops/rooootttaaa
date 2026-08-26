@@ -350,6 +350,7 @@ function AuthedApp({
     setAddCategoryContext({
       eventGroupId: raceDetails.eventGroupId ?? groupRun.id,
       prefillRace: {
+        eventTitle: raceDetails.eventTitle ?? groupRun.title,
         raceDate: new Date(`${raceDetails.raceDate}T00:00:00`),
         organizerName: raceDetails.organizerName ?? '',
         organizerLogoUrl: raceDetails.organizerLogoUrl ?? '',
@@ -386,7 +387,7 @@ function AuthedApp({
         setResumedRecording(false);
         setRecordingRoute(route);
         setRecordingRaceRsvpId(rsvpId);
-        setRecordingRaceContext(raceDetails ? { raceDetails, raceTitle: groupRun.title } : null);
+        setRecordingRaceContext(raceDetails ? { raceDetails, raceTitle: raceDetails.eventTitle ?? groupRun.title } : null);
         setRecordingActivityType(route.activityType);
         navigateTo('recording');
       } catch (e) {
@@ -406,7 +407,7 @@ function AuthedApp({
         const [raceDetails, stats] = await Promise.all([getRaceDetails(groupRun.id), getRecordedRunStats(rsvp.recordedRunId)]);
         if (!raceDetails) throw new Error("Couldn't load this race's branding.");
         setRecordingRaceRsvpId(rsvp.id);
-        setRecordingRaceContext({ raceDetails, raceTitle: groupRun.title });
+        setRecordingRaceContext({ raceDetails, raceTitle: raceDetails.eventTitle ?? groupRun.title });
         setRaceFinishStats({
           distanceMeters: stats.distanceMeters,
           finishTimeSeconds: rsvp.finishTimeSeconds ?? stats.movingTimeSeconds,
@@ -487,6 +488,7 @@ function AuthedApp({
                   eventBannerUrl: race.eventBannerUrl || null,
                   eventLogoUrl: race.eventLogoUrl || null,
                   eventGroupId: addCategoryContext?.eventGroupId ?? null,
+                  eventTitle: race.eventTitle ?? null,
                 }
               : null,
           });
