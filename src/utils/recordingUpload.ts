@@ -245,6 +245,12 @@ export async function uploadRecording(
   return { recordedRunId: data.id as string, routeId: finalRouteId };
 }
 
+/** run_splits cascades via its FK — no separate delete needed there. */
+export async function deleteRecordedRun(runId: string): Promise<void> {
+  const { error } = await supabase.from('recorded_runs').delete().eq('id', runId);
+  if (error) throw new Error(error.message);
+}
+
 export interface RecordedRunFeedItem {
   id: string;
   activityType: ActivityType;
