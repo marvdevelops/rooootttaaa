@@ -17,6 +17,14 @@ function formatPace(secondsPerKm: number | null): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function formatDuration(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
 function formatStaleness(updatedAt: number | null): string {
   if (!updatedAt) return 'no updates yet';
   const seconds = Math.max(0, Math.round((Date.now() - updatedAt) / 1000));
@@ -76,14 +84,24 @@ export default function LiveMapClient({ token, initial }: Props) {
       {isFinished ? (
         <div style={overlayCardStyle}>
           <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', color: 'var(--coral, #E84B2A)', textTransform: 'uppercase' }}>
-            Finished!
+            🏁 Race finisher
           </span>
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: '4px 0 2px' }}>{position.athleteUsername}</h1>
-          <p style={{ fontSize: 13, color: 'var(--stone, #8C8078)', margin: 0 }}>{position.raceTitle}</p>
+          <p style={{ fontSize: 13, color: 'var(--stone, #8C8078)', margin: 0 }}>
+            {position.athleteUsername} finished {position.raceTitle}!
+          </p>
           <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
             <div style={statTileStyle}>
-              <div style={statValueStyle}>{Math.round((position.finishTimeSeconds ?? 0) / 60)} min</div>
+              <div style={statValueStyle}>{position.lastDistanceMeters ? (position.lastDistanceMeters / 1000).toFixed(1) : '0.0'} km</div>
+              <div style={statLabelStyle}>Distance</div>
+            </div>
+            <div style={statTileStyle}>
+              <div style={statValueStyle}>{formatDuration(position.finishTimeSeconds ?? 0)}</div>
               <div style={statLabelStyle}>Finish time</div>
+            </div>
+            <div style={statTileStyle}>
+              <div style={statValueStyle}>{formatPace(position.lastPaceSecondsPerKm)}</div>
+              <div style={statLabelStyle}>Pace /km</div>
             </div>
           </div>
           <a href="https://rootah.com/#download" style={ctaStyle}>
