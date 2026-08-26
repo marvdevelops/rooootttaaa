@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BackIcon, CalendarIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { GroupRun } from '../types/route';
 import { FreeJoinLimitError, listUpcomingGroupRuns, setGroupRunRsvp } from '../utils/groupRunsApi';
 
@@ -148,7 +148,9 @@ export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePayw
                       ? "I'M IN"
                       : item.myRsvpStatus === 'pending'
                         ? 'REQUESTED'
-                        : 'RSVP'}
+                        : item.category === 'race'
+                          ? "I'M JOINING THIS RACE"
+                          : 'RSVP'}
                   </Text>
                 </Pressable>
               )}
@@ -176,28 +178,28 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   errorBanner: {
     marginHorizontal: 16,
     marginBottom: 12,
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
     padding: 10,
   },
   errorText: {
-    color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    color: colors.surface,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   emptyState: {
@@ -207,15 +209,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
+    letterSpacing: -0.3,
     color: colors.ink,
     textAlign: 'center',
   },
   emptyBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -225,11 +228,11 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.lg,
     gap: 4,
-    ...brutalShadow(4),
+    ...elevation('card'),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -240,29 +243,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   whenText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.08 * 9,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
   cardTitle: {
-    fontFamily: fonts.display,
-    fontSize: 17,
+    fontFamily: fonts.extraBold,
+    fontSize: 16,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   cardRoute: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    color: colors.muted,
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.stone,
   },
   cardDescription: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
     lineHeight: 18,
@@ -275,25 +279,24 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   rsvpCount: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 12,
-    color: colors.mutedLight,
+    fontFamily: fonts.semiBold,
+    fontSize: 11,
+    color: colors.stone,
   },
   rsvpButton: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    backgroundColor: colors.sand,
+    borderRadius: radii.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+    backgroundColor: colors.coral,
+    ...elevation('smallCta'),
   },
   rsvpButtonActive: {
-    backgroundColor: colors.green,
+    backgroundColor: colors.sage,
   },
   rsvpButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.white,
   },
   rsvpButtonTextActive: {
     color: colors.white,

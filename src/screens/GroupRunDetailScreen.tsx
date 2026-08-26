@@ -281,7 +281,11 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
     try {
       await setGroupRunRsvp(groupRun.id, requesting);
       if (requesting) {
-        notificationPrePermission.maybePrompt('Get notified when the host approves your request or posts updates.');
+        notificationPrePermission.maybePrompt(
+          groupRun.category === 'race'
+            ? 'Get notified about race updates and reminders.'
+            : 'Get notified when the host approves your request or posts updates.',
+        );
         // Races auto-approve on join (no host review) — this is the moment
         // "I'M JOINING THIS RACE" was tapped, so offer the live-tracking
         // link right here rather than making the runner hunt for it later.
