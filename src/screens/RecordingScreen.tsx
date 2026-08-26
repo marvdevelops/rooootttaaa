@@ -31,9 +31,9 @@ const COUNTDOWN_TICK_MS = 900;
 /** How far off a planned route someone can be and still start a route-aware recording — loose enough to cover parking/meet-point drift, tight enough that "record this route" from across town still gets blocked. */
 const ROUTE_START_MAX_DISTANCE_METERS = 150;
 /** Rolling window for the on-screen "current pace" stat — short enough to react within seconds of a pace change (not "wait for a full km"), long enough that per-point GPS noise doesn't make the number jump around. */
-const CURRENT_PACE_WINDOW_MS = 20_000;
-const CURRENT_PACE_MIN_WINDOW_SECONDS = 4;
-const CURRENT_PACE_MIN_WINDOW_METERS = 5;
+const CURRENT_PACE_WINDOW_MS = 10_000;
+const CURRENT_PACE_MIN_WINDOW_SECONDS = 3;
+const CURRENT_PACE_MIN_WINDOW_METERS = 4;
 
 type Phase = 'ready' | 'countdown' | 'recording';
 
