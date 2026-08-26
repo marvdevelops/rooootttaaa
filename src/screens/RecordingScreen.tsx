@@ -1,11 +1,11 @@
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useKeepAwake } from 'expo-keep-awake';
 import AutoPauseBanner from '../components/AutoPauseBanner';
 import DeviationBanner from '../components/DeviationBanner';
-import { CloseIcon, LockIcon, PauseIcon, PlayIcon } from '../components/icons';
+import { CloseIcon, LockIcon, PauseIcon, PlayIcon, ShareIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import RecordingMap from '../components/RecordingMap';
 import RecordingStats from '../components/RecordingStats';
@@ -16,7 +16,9 @@ import { colors, elevation, fonts, radii } from '../theme/theme';
 import { ActivityType, RouteSegment } from '../types/route';
 import { RecordingSession } from '../types/recording';
 import { buildRouteProgressIndex, findNextClimb, getRouteProgress, UpcomingClimb } from '../utils/routeProgress';
-import { startRaceRun, updateRaceLivePosition } from '../utils/racesApi';
+import { getRaceShareToken, startRaceRun, updateRaceLivePosition } from '../utils/racesApi';
+
+const LIVE_TRACKING_BASE_URL = 'https://app.rootah.com/live';
 
 const RACE_LIVE_UPDATE_MS = 30_000;
 
@@ -65,18 +67,32 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
   const [phase, setPhase] = useState<Phase>(alreadyStarted ? 'recording' : 'ready');
   const [countdownLabel, setCountdownLabel] = useState('3');
   const [checkingProximity, setCheckingProximity] = useState(false);
+  const [liveShareToken, setLiveShareToken] = useState<string | null>(null);
 
   const routeIndex = useMemo(() => (plannedSegments ? buildRouteProgressIndex(plannedSegments) : null), [plannedSegments]);
   const plannedPath = useMemo(() => plannedSegments?.flatMap((s) => s.path), [plannedSegments]);
   const offRouteStreak = useRef(0);
   const lastAheadUpdate = useRef(0);
 
+  // A crash-recovered race session skips beginRecording entirely (phase
+  // starts at 'recording' via alreadyStarted) — pick up its already-issued
+  // token instead of never having one to share.
+  useEffect(() => {
+    if (raceRsvpId && alreadyStarted) {
+      getRaceShareToken(raceRsvpId).then(setLiveShareToken).catch(() => {});
+    }
+  }, [raceRsvpId, alreadyStarted]);
+
   const beginRecording = useCallback(() => {
     setStarting(true);
     startRecording(activityType, routeId)
       .then(() => {
         setPhase('recording');
-        if (raceRsvpId) startRaceRun(raceRsvpId).catch(() => {}); // non-fatal — live tracking just won't have a token yet
+        if (raceRsvpId) {
+          startRaceRun(raceRsvpId)
+            .then(setLiveShareToken)
+            .catch(() => {}); // non-fatal — live tracking just won't have a token yet
+        }
       })
       .catch((e) => {
         const message =
@@ -197,6 +213,12 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastPoint]);
 
+  const handleShareLiveLink = useCallback(() => {
+    if (!liveShareToken) return;
+    const url = `${LIVE_TRACKING_BASE_URL}/${liveShareToken}`;
+    Share.share({ message: `Follow me live on Rootah: ${url}`, url }).catch(() => {});
+  }, [liveShareToken]);
+
   const handleManualPauseToggle = useCallback(() => {
     if (isPaused) {
       resumeRecording();
@@ -300,6 +322,11 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
         <View style={styles.brandRow}>
           <Logo size={36} />
           <View style={styles.topButtons}>
+            {raceRsvpId && liveShareToken && (
+              <Pressable style={styles.iconButton} onPress={handleShareLiveLink}>
+                <ShareIcon size={16} />
+              </Pressable>
+            )}
             <Pressable style={styles.iconButton} onPress={() => setLocked(true)}>
               <LockIcon size={16} />
             </Pressable>

@@ -84,6 +84,13 @@ function generateShareToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+/** Looks up an already-issued share token — used when a recording screen re-attaches to a crash-recovered race session instead of starting fresh. */
+export async function getRaceShareToken(rsvpId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('group_run_rsvps').select('live_share_token').eq('id', rsvpId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data?.live_share_token as string | null) ?? null;
+}
+
 /** Marks a race RSVP as started and issues its live-tracking share token. Call when the user taps "Run This Race" and recording actually begins. */
 export async function startRaceRun(rsvpId: string): Promise<string> {
   const token = generateShareToken();
