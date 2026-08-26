@@ -13,12 +13,15 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { CalendarIcon, CloseIcon, CompassIcon, ReplyIcon, SendIcon, ShareIcon, TrashIcon, UserIcon } from '../components/icons';
+import { CalendarIcon, CloseIcon, CompassIcon, EditIcon, ReplyIcon, SendIcon, ShareIcon, TrashIcon, UserIcon } from '../components/icons';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import RaceBadge from '../components/RaceBadge';
 import ReportModal from '../components/ReportModal';
 import RunThisRaceButton from '../components/RunThisRaceButton';
+import ScheduleGroupRunModal, { RaceInput, RecurrenceInput } from '../components/ScheduleGroupRunModal';
 import { useNotificationPrePermission } from '../hooks/useNotificationPrePermission';
+import { useAuth } from '../lib/AuthContext';
+import { useUserTier } from '../hooks/useUserTier';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import {
   CloudRoute,
@@ -44,17 +47,22 @@ import ReviewModal from '../components/ReviewModal';
 import { navigateToStart } from '../utils/externalNav';
 import { deleteGroupRunComment, listGroupRunComments, postGroupRunComment } from '../utils/groupRunCommentsApi';
 import {
+  cancelGroupRun,
   FreeJoinLimitError,
   getGroupRun,
   listGroupRunParticipants,
   respondToJoinRequest,
   setGroupRunRsvp,
+  updateGroupRun,
 } from '../utils/groupRunsApi';
 import { createReport, ReportReason } from '../utils/reportsApi';
 import { getRoute } from '../utils/routesApi';
 import { buildStaticMapUrl } from '../utils/staticMap';
 
 const MAX_DEPTH = 2;
+// Matches OFFICIAL_ACCOUNT_ID in App.tsx and scripts/createRace.ts — kept
+// duplicated rather than threaded through props for this one gate.
+const OFFICIAL_ACCOUNT_ID = 'f9808b4f-125a-4841-bf5e-b244d9f6cf1f';
 
 interface Props {
   groupRunId: string;
@@ -111,7 +119,12 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [isSubscribedToSeries, setIsSubscribedToSeriesState] = useState(false);
   const [subscribingToSeries, setSubscribingToSeries] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const notificationPrePermission = useNotificationPrePermission();
+  const { session } = useAuth();
+  const tier = useUserTier();
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -276,6 +289,58 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
     navigateToStart(groupRun.startLat, groupRun.startLng, groupRun.title || 'the start');
   }, [groupRun]);
 
+  const handleSaveEdit = useCallback(
+    async (
+      title: string,
+      description: string,
+      scheduledAt: Date,
+      maxParticipants: number | null,
+      _recurrence: RecurrenceInput | null,
+      race: RaceInput | null,
+    ) => {
+      if (!groupRun) return;
+      setSavingEdit(true);
+      try {
+        await updateGroupRun(groupRun.id, {
+          title,
+          description,
+          scheduledAt,
+          maxParticipants,
+          raceDate: race?.raceDate ?? null,
+          raceTimezone: raceDetails?.raceTimezone,
+        });
+        await refresh();
+        setShowEditModal(false);
+      } catch (e) {
+        Alert.alert('Error', e instanceof Error ? e.message : 'Failed to save changes.');
+      } finally {
+        setSavingEdit(false);
+      }
+    },
+    [groupRun, raceDetails, refresh],
+  );
+
+  const handleDelete = useCallback(() => {
+    if (!groupRun) return;
+    Alert.alert('Delete this event?', 'This cannot be undone — participants will no longer see it.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await cancelGroupRun(groupRun.id);
+            onClose();
+          } catch (e) {
+            setDeleting(false);
+            Alert.alert('Error', e instanceof Error ? e.message : 'Failed to delete event.');
+          }
+        },
+      },
+    ]);
+  }, [groupRun, onClose]);
+
   const handleAddToCalendar = useCallback(() => {
     if (!groupRun) return;
     addGroupRunToCalendar({
@@ -429,9 +494,21 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
         <Text style={styles.headerTitle} numberOfLines={1}>
           {groupRun?.title ?? 'Group Run'}
         </Text>
-        <Pressable style={styles.backButton} onPress={onClose}>
-          <CloseIcon size={16} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          {groupRun?.isHostedByMe && !isArchived && (
+            <Pressable style={styles.backButton} onPress={() => setShowEditModal(true)}>
+              <EditIcon size={16} />
+            </Pressable>
+          )}
+          {groupRun?.isHostedByMe && (
+            <Pressable style={styles.backButton} onPress={handleDelete} disabled={deleting}>
+              {deleting ? <ActivityIndicator size="small" color={colors.stone} /> : <TrashIcon size={16} color={colors.stone} />}
+            </Pressable>
+          )}
+          <Pressable style={styles.backButton} onPress={onClose}>
+            <CloseIcon size={16} />
+          </Pressable>
+        </View>
       </View>
 
       {loading && (
@@ -778,6 +855,25 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
           }}
         />
       )}
+
+      {groupRun && (
+        <ScheduleGroupRunModal
+          visible={showEditModal}
+          isSaving={savingEdit}
+          tier={tier}
+          isOfficialAccount={session?.user.id === OFFICIAL_ACCOUNT_ID}
+          editing={{
+            title: groupRun.title,
+            description: groupRun.description,
+            scheduledAt: new Date(groupRun.scheduledAt),
+            maxParticipants: groupRun.maxParticipants,
+            raceDate: raceDetails ? new Date(`${raceDetails.raceDate}T00:00:00`) : null,
+          }}
+          onClose={() => setShowEditModal(false)}
+          onSchedule={handleSaveEdit}
+          onRequirePaywall={onRequirePaywall}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -798,6 +894,10 @@ const styles = StyleSheet.create({
     paddingTop: 60,
     paddingHorizontal: 16,
     paddingBottom: 16,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
   },
   backButton: {
     width: 40,

@@ -175,6 +175,46 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
   return toGroupRun(data as unknown as GroupRunRow, hostId, 'host');
 }
 
+export interface UpdateGroupRunInput {
+  title: string;
+  description: string;
+  scheduledAt: Date;
+  maxParticipants: number | null;
+  /** Only relevant for races (category is set at creation and isn't editable here) — updates race_details.race_date. */
+  raceDate?: Date | null;
+  raceTimezone?: string;
+}
+
+/** RLS restricts this to the run's own host — see "hosts can update their own group runs" in 0002_social_and_groups.sql. */
+export async function updateGroupRun(id: string, input: UpdateGroupRunInput): Promise<GroupRun> {
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase
+    .from('group_runs')
+    .update({
+      title: input.title,
+      description: input.description,
+      scheduled_at: input.scheduledAt.toISOString(),
+      max_participants: input.maxParticipants,
+    })
+    .eq('id', id)
+    .select(GROUP_RUN_SELECT)
+    .single();
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to update event.');
+
+  if (input.raceDate) {
+    const raceDate = new Intl.DateTimeFormat('en-CA', { timeZone: input.raceTimezone ?? 'Asia/Manila' }).format(input.raceDate);
+    const { error: raceDetailsError } = await supabase
+      .from('race_details')
+      .update({ race_date: raceDate })
+      .eq('group_run_id', id);
+    if (raceDetailsError) throw new Error(raceDetailsError.message);
+  }
+
+  return toGroupRun(data as unknown as GroupRunRow, viewerId, 'host');
+}
+
 /** All upcoming (scheduled/active) group runs, soonest first — never includes archived runs. */
 /** Keeps only the next occurrence per series (already sorted soonest-first) so a weekly run doesn't show 4+ near-duplicate cards — non-recurring runs are always kept. */
 function dedupeBySeries(runs: GroupRun[]): GroupRun[] {

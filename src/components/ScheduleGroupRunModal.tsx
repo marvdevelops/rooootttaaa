@@ -27,12 +27,23 @@ export interface RecurrenceInput {
   endDate: Date | null;
 }
 
+export interface EditingGroupRun {
+  title: string;
+  description: string;
+  scheduledAt: Date;
+  maxParticipants: number | null;
+  /** Set when the event being edited is a race — shows the race-day picker without the "make this a race" toggle (category isn't editable after creation). */
+  raceDate: Date | null;
+}
+
 interface Props {
   visible: boolean;
   isSaving: boolean;
   tier: UserTier;
   /** Only the official Rootah account can create races — see docs/race-mode-plan.md. */
   isOfficialAccount?: boolean;
+  /** Present to edit an existing event instead of creating a new one — prefills fields, hides recurrence (out of scope for an edit), and relabels the sheet/button. */
+  editing?: EditingGroupRun | null;
   onClose: () => void;
   onSchedule: (
     title: string,
@@ -73,6 +84,7 @@ export default function ScheduleGroupRunModal({
   isSaving,
   tier,
   isOfficialAccount,
+  editing,
   onClose,
   onSchedule,
   onRequirePaywall,
@@ -89,17 +101,17 @@ export default function ScheduleGroupRunModal({
 
   useEffect(() => {
     if (visible) {
-      setTitle('');
-      setDescription('');
-      setScheduledAt(defaultTime());
-      setMaxParticipants(10);
+      setTitle(editing?.title ?? '');
+      setDescription(editing?.description ?? '');
+      setScheduledAt(editing?.scheduledAt ?? defaultTime());
+      setMaxParticipants(editing ? editing.maxParticipants : 10);
       setRecurrenceEnabled(false);
       setFrequency('weekly');
       setEndDate(null);
-      setIsRace(false);
-      setRaceDate(defaultTime());
+      setIsRace(!!editing?.raceDate);
+      setRaceDate(editing?.raceDate ?? defaultTime());
     }
-  }, [visible]);
+  }, [visible, editing]);
 
   const handleToggleRecurrence = (v: boolean) => {
     if (v && tier === 'free') {
@@ -124,7 +136,7 @@ export default function ScheduleGroupRunModal({
         <View style={styles.sheet}>
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
             <View style={styles.headerRow}>
-              <Text style={styles.title}>Schedule group run</Text>
+              <Text style={styles.title}>{editing ? 'Edit event' : 'Schedule group run'}</Text>
               <Pressable style={styles.closeButton} onPress={onClose}>
                 <CloseIcon size={16} />
               </Pressable>
@@ -204,66 +216,70 @@ export default function ScheduleGroupRunModal({
               </View>
             </View>
 
-            <View>
-              <Pressable style={styles.recurrenceRow} onPress={() => handleToggleRecurrence(!recurrenceEnabled)}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.recurrenceLabel}>Repeat this run</Text>
-                  {tier === 'free' && <Text style={styles.recurrenceSub}>Upgrade to Pro for recurring runs</Text>}
-                </View>
-                {tier === 'free' ? (
-                  <LockIcon size={16} color={colors.stone} />
-                ) : (
-                  <Switch
-                    value={recurrenceEnabled}
-                    onValueChange={handleToggleRecurrence}
-                    trackColor={{ true: colors.coral, false: '#E0DAD2' }}
-                    thumbColor={colors.white}
-                  />
-                )}
-              </Pressable>
-
-              {recurrenceEnabled && (
-                <View style={styles.recurrenceDetails}>
-                  <View style={styles.frequencyRow}>
-                    {FREQUENCY_OPTIONS.map((opt) => (
-                      <Pressable
-                        key={opt.value}
-                        style={[styles.frequencyChip, frequency === opt.value && styles.frequencyChipActive]}
-                        onPress={() => setFrequency(opt.value)}
-                      >
-                        <Text
-                          style={[
-                            styles.frequencyChipText,
-                            frequency === opt.value && styles.frequencyChipTextActive,
-                          ]}
-                          numberOfLines={1}
-                          adjustsFontSizeToFit
-                          minimumFontScale={0.7}
-                        >
-                          {opt.label}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                  <Text style={styles.recurrencePreview}>{recurrencePreview(frequency, scheduledAt)}</Text>
-                </View>
-              )}
-            </View>
-
-            {isOfficialAccount && (
+            {!editing && (
               <View>
-                <Pressable style={styles.recurrenceRow} onPress={() => setIsRace((v) => !v)}>
+                <Pressable style={styles.recurrenceRow} onPress={() => handleToggleRecurrence(!recurrenceEnabled)}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.recurrenceLabel}>Make this a race</Text>
-                    <Text style={styles.recurrenceSub}>Adds a RACE badge and a day-of "Run This Race" button.</Text>
+                    <Text style={styles.recurrenceLabel}>Repeat this run</Text>
+                    {tier === 'free' && <Text style={styles.recurrenceSub}>Upgrade to Pro for recurring runs</Text>}
                   </View>
-                  <Switch
-                    value={isRace}
-                    onValueChange={setIsRace}
-                    trackColor={{ true: colors.coral, false: '#E0DAD2' }}
-                    thumbColor={colors.white}
-                  />
+                  {tier === 'free' ? (
+                    <LockIcon size={16} color={colors.stone} />
+                  ) : (
+                    <Switch
+                      value={recurrenceEnabled}
+                      onValueChange={handleToggleRecurrence}
+                      trackColor={{ true: colors.coral, false: '#E0DAD2' }}
+                      thumbColor={colors.white}
+                    />
+                  )}
                 </Pressable>
+
+                {recurrenceEnabled && (
+                  <View style={styles.recurrenceDetails}>
+                    <View style={styles.frequencyRow}>
+                      {FREQUENCY_OPTIONS.map((opt) => (
+                        <Pressable
+                          key={opt.value}
+                          style={[styles.frequencyChip, frequency === opt.value && styles.frequencyChipActive]}
+                          onPress={() => setFrequency(opt.value)}
+                        >
+                          <Text
+                            style={[
+                              styles.frequencyChipText,
+                              frequency === opt.value && styles.frequencyChipTextActive,
+                            ]}
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            minimumFontScale={0.7}
+                          >
+                            {opt.label}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Text style={styles.recurrencePreview}>{recurrencePreview(frequency, scheduledAt)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {isOfficialAccount && (!editing || editing.raceDate) && (
+              <View>
+                {!editing && (
+                  <Pressable style={styles.recurrenceRow} onPress={() => setIsRace((v) => !v)}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.recurrenceLabel}>Make this a race</Text>
+                      <Text style={styles.recurrenceSub}>Adds a RACE badge and a day-of "Run This Race" button.</Text>
+                    </View>
+                    <Switch
+                      value={isRace}
+                      onValueChange={setIsRace}
+                      trackColor={{ true: colors.coral, false: '#E0DAD2' }}
+                      thumbColor={colors.white}
+                    />
+                  </Pressable>
+                )}
 
                 {isRace && (
                   <View style={styles.recurrenceDetails}>
@@ -299,7 +315,9 @@ export default function ScheduleGroupRunModal({
               {isSaving ? (
                 <ActivityIndicator color={colors.white} />
               ) : (
-                <Text style={styles.scheduleButtonText}>{isOfficialAccount && isRace ? 'CREATE RACE' : 'SCHEDULE RUN'}</Text>
+                <Text style={styles.scheduleButtonText}>
+                  {editing ? 'SAVE CHANGES' : isOfficialAccount && isRace ? 'CREATE RACE' : 'SCHEDULE RUN'}
+                </Text>
               )}
             </Pressable>
           </ScrollView>
