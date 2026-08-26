@@ -103,30 +103,49 @@ export async function ensureLiveShareToken(rsvpId: string): Promise<string> {
   if (existing) return existing;
 
   const token = generateShareToken();
-  const { error } = await supabase.from('group_run_rsvps').update({ live_share_token: token }).eq('id', rsvpId);
-  if (error) throw new Error(error.message);
+  // .select().single() is load-bearing here, not decoration — without it, a
+  // write RLS silently blocks (0 rows affected, no error) reports success
+  // anyway, handing out a token that was never actually saved. That exact
+  // gap caused every non-host participant's live link to 404 until the
+  // "participants can update their own rsvp tracking fields" policy
+  // (0050 migration) was added — this makes the same class of bug loud
+  // instead of silent if it ever regresses.
+  const { error, data } = await supabase.from('group_run_rsvps').update({ live_share_token: token }).eq('id', rsvpId).select('id').single();
+  if (error || !data) throw new Error(error?.message ?? 'Failed to issue your live tracking link.');
   return token;
 }
 
 /** Marks a race RSVP as started and issues its live-tracking share token (reusing one already shared ahead of time via ensureLiveShareToken, if any — the link a runner shared before race day should keep working during the run). */
 export async function startRaceRun(rsvpId: string): Promise<string> {
   const token = await ensureLiveShareToken(rsvpId);
-  const { error } = await supabase.from('group_run_rsvps').update({ started_at: new Date().toISOString() }).eq('id', rsvpId);
-  if (error) throw new Error(error.message);
+  const { error, data } = await supabase
+    .from('group_run_rsvps')
+    .update({ started_at: new Date().toISOString() })
+    .eq('id', rsvpId)
+    .select('id')
+    .single();
+  if (error || !data) throw new Error(error?.message ?? 'Failed to start this race run.');
   return token;
 }
 
 export async function finishRaceRun(rsvpId: string, finishTimeSeconds: number, recordedRunId: string): Promise<void> {
-  const { error } = await supabase
+  const { error, data } = await supabase
     .from('group_run_rsvps')
     .update({ finished_at: new Date().toISOString(), finish_time_seconds: finishTimeSeconds, recorded_run_id: recordedRunId })
-    .eq('id', rsvpId);
-  if (error) throw new Error(error.message);
+    .eq('id', rsvpId)
+    .select('id')
+    .single();
+  if (error || !data) throw new Error(error?.message ?? 'Failed to record your finish.');
 }
 
 export async function saveShareCardPath(rsvpId: string, storagePath: string): Promise<void> {
-  const { error } = await supabase.from('group_run_rsvps').update({ share_card_storage_path: storagePath }).eq('id', rsvpId);
-  if (error) throw new Error(error.message);
+  const { error, data } = await supabase
+    .from('group_run_rsvps')
+    .update({ share_card_storage_path: storagePath })
+    .eq('id', rsvpId)
+    .select('id')
+    .single();
+  if (error || !data) throw new Error(error?.message ?? 'Failed to save your share card.');
 }
 
 /** Throttled live-position broadcast — called from the background location task, not per GPS point. */
