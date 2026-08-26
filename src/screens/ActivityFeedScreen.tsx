@@ -150,11 +150,19 @@ export default function ActivityFeedScreen({ onClose, onOpenDetail }: Props) {
                 disabled={!item.recording.routeId}
               >
                 <View style={[styles.iconBadge, styles.iconBadgeCoral]}>
-                  <RecordIcon size={14} color={colors.white} />
+                  {item.recording.raceTitle ? <Text style={styles.raceFinishFlag}>🏁</Text> : <RecordIcon size={14} color={colors.white} />}
                 </View>
                 <View style={styles.cardBody}>
                   <Text style={styles.cardText} numberOfLines={2}>
-                    You recorded a <Text style={styles.cardTextBold}>{ACTIVITY_LABEL[item.recording.activityType] ?? 'activity'}</Text>
+                    {item.recording.raceTitle ? (
+                      <>
+                        You finished <Text style={styles.cardTextBold}>{item.recording.raceTitle}</Text>
+                      </>
+                    ) : (
+                      <>
+                        You recorded a <Text style={styles.cardTextBold}>{ACTIVITY_LABEL[item.recording.activityType] ?? 'activity'}</Text>
+                      </>
+                    )}
                   </Text>
                   <View style={styles.cardMetaRow}>
                     <Text style={styles.cardMeta}>{(item.recording.distanceMeters / 1000).toFixed(1)} km</Text>
@@ -255,6 +263,9 @@ const styles = StyleSheet.create({
   },
   iconBadgeCoral: {
     backgroundColor: colors.coral,
+  },
+  raceFinishFlag: {
+    fontSize: 15,
   },
   iconBadge: {
     width: 38,

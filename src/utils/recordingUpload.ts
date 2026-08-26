@@ -245,6 +245,27 @@ export async function uploadRecording(
   return { recordedRunId: data.id as string, routeId: finalRouteId };
 }
 
+export interface RecordedRunStats {
+  distanceMeters: number;
+  movingTimeSeconds: number;
+  avgPaceSecondsPerKm: number | null;
+}
+
+/** For reopening the race finish share card later — the finish screen's own summary is gone by then (SQLite session was already cleaned up on save), so this reads the saved recorded_runs row instead. */
+export async function getRecordedRunStats(runId: string): Promise<RecordedRunStats> {
+  const { data, error } = await supabase
+    .from('recorded_runs')
+    .select('distance_meters, moving_time_seconds, avg_pace_seconds_per_km')
+    .eq('id', runId)
+    .single();
+  if (error || !data) throw new Error(error?.message ?? 'Could not load this run.');
+  return {
+    distanceMeters: data.distance_meters as number,
+    movingTimeSeconds: data.moving_time_seconds as number,
+    avgPaceSecondsPerKm: data.avg_pace_seconds_per_km as number | null,
+  };
+}
+
 /** run_splits cascades via its FK — no separate delete needed there. */
 export async function deleteRecordedRun(runId: string): Promise<void> {
   const { error } = await supabase.from('recorded_runs').delete().eq('id', runId);
@@ -258,6 +279,13 @@ export interface RecordedRunFeedItem {
   distanceMeters: number;
   movingTimeSeconds: number;
   finishedAt: number;
+  /** Set when this recording finished a race — the race's title, for "You finished {race}" instead of the generic activity line. */
+  raceTitle: string | null;
+}
+
+interface RaceLinkRow {
+  recorded_run_id: string;
+  group_runs: { title: string; category: string } | { title: string; category: string }[] | null;
 }
 
 /** For the profile activity feed — GPS-recorded runs, separate from manually-logged route completions. */
@@ -270,12 +298,32 @@ export async function listMyRecordedRuns(userId: string, limit = 30): Promise<Re
     .limit(limit);
 
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => ({
+  const rows = data ?? [];
+  const runIds = rows.map((r) => r.id as string);
+
+  // Reverse lookup: which of these recordings finished a race — a
+  // group_run_rsvps row links back via recorded_run_id once finishRaceRun
+  // runs. Batched in one query rather than per-row, same reasoning as
+  // toGroupRunBatch's RSVP-status batching elsewhere.
+  const raceTitleByRunId = new Map<string, string>();
+  if (runIds.length > 0) {
+    const { data: raceLinks } = await supabase
+      .from('group_run_rsvps')
+      .select('recorded_run_id, group_runs(title, category)')
+      .in('recorded_run_id', runIds);
+    for (const row of (raceLinks ?? []) as unknown as RaceLinkRow[]) {
+      const run = Array.isArray(row.group_runs) ? row.group_runs[0] : row.group_runs;
+      if (run?.category === 'race' && row.recorded_run_id) raceTitleByRunId.set(row.recorded_run_id, run.title);
+    }
+  }
+
+  return rows.map((row) => ({
     id: row.id as string,
     activityType: row.activity_type as ActivityType,
     routeId: row.route_id as string | null,
     distanceMeters: row.distance_meters as number,
     movingTimeSeconds: row.moving_time_seconds as number,
     finishedAt: new Date(row.finished_at as string).getTime(),
+    raceTitle: raceTitleByRunId.get(row.id as string) ?? null,
   }));
 }

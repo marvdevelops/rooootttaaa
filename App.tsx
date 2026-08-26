@@ -51,7 +51,7 @@ import ScheduleGroupRunModal from './src/components/ScheduleGroupRunModal';
 import { useNotificationPrePermission } from './src/hooks/useNotificationPrePermission';
 import { useUserTier } from './src/hooks/useUserTier';
 import { colors, fonts } from './src/theme/theme';
-import { ActivityType, CloudRoute, GroupRun, RaceDetails } from './src/types/route';
+import { ActivityType, CloudRoute, GroupRun, RaceDetails, RaceRsvp } from './src/types/route';
 import { RecordingSession } from './src/types/recording';
 import { countMyActiveGroupRuns, createGroupRun } from './src/utils/groupRunsApi';
 import { countUnreadNotifications } from './src/utils/notificationsApi';
@@ -59,6 +59,7 @@ import { useRecording } from './src/hooks/useRecording';
 import { useRecordingStore } from './src/stores/recordingStore';
 import { getRoute } from './src/utils/routesApi';
 import { getRaceDetails } from './src/utils/racesApi';
+import { getRecordedRunStats } from './src/utils/recordingUpload';
 import { RaceInput, RecurrenceInput } from './src/components/ScheduleGroupRunModal';
 import { createSeries, getFirstUpcomingOccurrence } from './src/utils/recurringSeriesApi';
 
@@ -158,6 +159,10 @@ function AuthedApp({
   const [recordingRaceRsvpId, setRecordingRaceRsvpId] = useState<string | null>(null);
   const [recordingRaceContext, setRecordingRaceContext] = useState<{ raceDetails: RaceDetails; raceTitle: string } | null>(null);
   const [raceFinishStats, setRaceFinishStats] = useState<{ distanceMeters: number; finishTimeSeconds: number; paceSecondsPerKm: number | null } | null>(null);
+  // True only when the share card was reopened later from the race event
+  // page (not right after finishing) — changes onDone to go back to that
+  // page instead of closing out to the map with a "Run saved" toast.
+  const [shareCardReopened, setShareCardReopened] = useState(false);
   const { checkForActiveSession, resumeActiveSession, finishRecording, discardSession } = useRecording();
 
   useEffect(() => {
@@ -366,6 +371,31 @@ function AuthedApp({
         navigateTo('recording');
       } catch (e) {
         Alert.alert('Error', e instanceof Error ? e.message : "Couldn't load this race's route.");
+      } finally {
+        setResolvingRoute(false);
+      }
+    },
+    [navigateTo],
+  );
+
+  const handleReopenShareCard = useCallback(
+    async (groupRun: GroupRun, rsvp: RaceRsvp) => {
+      if (!rsvp.recordedRunId) return;
+      setResolvingRoute(true);
+      try {
+        const [raceDetails, stats] = await Promise.all([getRaceDetails(groupRun.id), getRecordedRunStats(rsvp.recordedRunId)]);
+        if (!raceDetails) throw new Error("Couldn't load this race's branding.");
+        setRecordingRaceRsvpId(rsvp.id);
+        setRecordingRaceContext({ raceDetails, raceTitle: groupRun.title });
+        setRaceFinishStats({
+          distanceMeters: stats.distanceMeters,
+          finishTimeSeconds: rsvp.finishTimeSeconds ?? stats.movingTimeSeconds,
+          paceSecondsPerKm: stats.avgPaceSecondsPerKm,
+        });
+        setShareCardReopened(true);
+        navigateTo('raceShareCard');
+      } catch (e) {
+        Alert.alert('Error', e instanceof Error ? e.message : "Couldn't load your finish card.");
       } finally {
         setResolvingRoute(false);
       }
@@ -698,9 +728,14 @@ function AuthedApp({
               setRecordingRaceRsvpId(null);
               setRecordingRaceContext(null);
               setRaceFinishStats(null);
-              setToast('Run saved.');
-              setOverlay(null);
-              setNavStack([]);
+              if (shareCardReopened) {
+                setShareCardReopened(false);
+                navigateBack();
+              } else {
+                setToast('Run saved.');
+                setOverlay(null);
+                setNavStack([]);
+              }
             }}
           />
         </View>
@@ -793,6 +828,7 @@ function AuthedApp({
             onRequirePaywall={() => openPaywall('group_run_join_limit')}
             onOpenProfile={openProfile}
             onRunRace={handleRunRace}
+            onReopenShareCard={handleReopenShareCard}
           />
         </View>
       )}

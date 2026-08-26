@@ -71,6 +71,7 @@ interface Props {
   onRequirePaywall: () => void;
   onOpenProfile: (userId: string) => void;
   onRunRace: (groupRun: GroupRun, rsvpId: string) => void;
+  onReopenShareCard: (groupRun: GroupRun, rsvp: RaceRsvp) => void;
 }
 
 interface ReplyTarget {
@@ -97,7 +98,7 @@ function formatCommentTime(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute, onRequirePaywall, onOpenProfile, onRunRace }: Props) {
+export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute, onRequirePaywall, onOpenProfile, onRunRace, onReopenShareCard }: Props) {
   const [groupRun, setGroupRun] = useState<GroupRun | null>(null);
   const [raceDetails, setRaceDetails] = useState<RaceDetails | null>(null);
   const [myRaceRsvp, setMyRaceRsvp] = useState<RaceRsvp | null>(null);
@@ -710,11 +711,15 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
             {groupRun.category === 'race' && groupRun.myRsvpStatus === 'approved' && raceDetails && (
               <View style={styles.raceRunWrap}>
                 {myRaceRsvp?.finishedAt ? (
-                  <View style={[styles.rsvpButton, styles.rsvpButtonActive]}>
+                  <Pressable
+                    style={[styles.rsvpButton, styles.rsvpButtonActive]}
+                    onPress={() => myRaceRsvp.recordedRunId && onReopenShareCard(groupRun, myRaceRsvp)}
+                    disabled={!myRaceRsvp.recordedRunId}
+                  >
                     <Text style={[styles.rsvpButtonText, styles.rsvpButtonTextActive]}>
-                      ✓ FINISHED{myRaceRsvp.finishTimeSeconds ? ` · ${Math.round(myRaceRsvp.finishTimeSeconds / 60)} MIN` : ''}
+                      ✓ FINISHED{myRaceRsvp.finishTimeSeconds ? ` · ${Math.round(myRaceRsvp.finishTimeSeconds / 60)} MIN` : ''} · VIEW SHARE CARD
                     </Text>
-                  </View>
+                  </Pressable>
                 ) : (
                   <RunThisRaceButton
                     raceDetails={raceDetails}
