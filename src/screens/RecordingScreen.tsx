@@ -72,7 +72,26 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
   const routeIndex = useMemo(() => (plannedSegments ? buildRouteProgressIndex(plannedSegments) : null), [plannedSegments]);
   const plannedPath = useMemo(() => plannedSegments?.flatMap((s) => s.path), [plannedSegments]);
   const offRouteStreak = useRef(0);
+  // Last-matched flat path index — passed back into getRouteProgress as a
+  // continuity hint so a u-turn or repeated loop doesn't snap onto the
+  // wrong pass (see routeProgress.ts). Shared between the deviation effect
+  // and finish-detection effect below since both track the same moving
+  // position over time.
+  const lastMatchedIndexRef = useRef<number | null>(null);
   const lastAheadUpdate = useRef(0);
+
+  // Seed continuity at the route's start rather than leaving it unset — on
+  // a looping route the start and finish coordinates are the same (or
+  // nearly so), so an unseeded first GPS fix falls back to the global
+  // nearest-point search, which can ambiguously snap onto the route's LAST
+  // point instead of its first at the exact moment the runner is standing
+  // on the start line. That's what made "finished" fire immediately on
+  // starting a loop race. Anchoring here means even the very first fix
+  // uses the windowed search, which correctly prefers the nearby start
+  // over the far-away-in-path-order end.
+  useEffect(() => {
+    lastMatchedIndexRef.current = routeIndex ? 0 : null;
+  }, [routeIndex]);
 
   // A crash-recovered race session skips beginRecording entirely (phase
   // starts at 'recording' via alreadyStarted) — pick up its already-issued
@@ -183,8 +202,9 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
   useEffect(() => {
     if (!routeIndex || !plannedSegments || !lastPoint || lastPoint.isPaused) return;
 
-    const progress = getRouteProgress(routeIndex, plannedSegments, { latitude: lastPoint.lat, longitude: lastPoint.lng });
+    const progress = getRouteProgress(routeIndex, plannedSegments, { latitude: lastPoint.lat, longitude: lastPoint.lng }, lastMatchedIndexRef.current);
     if (!progress) return;
+    lastMatchedIndexRef.current = progress.nearestPointIndex;
 
     if (progress.deviationMeters > DEVIATION_TRIGGER_METERS) {
       offRouteStreak.current += 1;
@@ -260,7 +280,7 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
   useEffect(() => {
     if (!raceRsvpId || !routeIndex || !plannedSegments || !lastPoint || lastPoint.isPaused || hasPromptedFinish.current) return;
 
-    const progress = getRouteProgress(routeIndex, plannedSegments, { latitude: lastPoint.lat, longitude: lastPoint.lng });
+    const progress = getRouteProgress(routeIndex, plannedSegments, { latitude: lastPoint.lat, longitude: lastPoint.lng }, lastMatchedIndexRef.current);
     if (!progress) return;
 
     const traveledFraction = routeIndex.totalMeters > 0 ? progress.traveledMeters / routeIndex.totalMeters : 0;

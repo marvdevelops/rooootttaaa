@@ -34,8 +34,70 @@ export interface RouteProgress {
   nearestPointIndex: number;
 }
 
-/** Projects the runner's current position onto the route and reports how far along they are. */
-export function getRouteProgress(index: RouteProgressIndex, segments: RouteSegment[], position: LatLng): RouteProgress | null {
+// A pure global nearest-point search has no notion of "which pass" — on a
+// route with a u-turn or a repeated loop, the runner's position near the
+// turnaround/overlap is physically close to BOTH the outbound and return
+// leg (or both lap 1 and lap 2), and picking whichever is spatially
+// closest can snap onto the wrong one: traveled distance jumps backward,
+// or finish detection fires early because the line near the loop's
+// start/end reads as "near the finish" a lap too soon. Once we have a
+// last-known position along the path (hintFlatIndex), searching only a
+// window around it keeps continuity — the wrong-pass candidate is usually
+// far away in path-order even though it's nearby in raw distance.
+const WINDOW_METERS = 250;
+// If the windowed search's best match is still this far from the runner,
+// the hint is stale (GPS dropout, a genuine detour, or the very first fix)
+// — fall back to the full global search rather than force a bad match.
+const LOST_THRESHOLD_METERS = 150;
+
+function nearestIndexInWindow(index: RouteProgressIndex, hintFlatIndex: number, position: LatLng): { flatIndex: number; distanceMeters: number } {
+  const { points, cumulativeMeters } = index;
+  const hintCum = cumulativeMeters[hintFlatIndex] ?? 0;
+  let bestIdx = hintFlatIndex;
+  let bestDist = haversineDistance(position, points[hintFlatIndex]);
+
+  for (let i = hintFlatIndex + 1; i < points.length && cumulativeMeters[i] - hintCum <= WINDOW_METERS; i++) {
+    const d = haversineDistance(position, points[i]);
+    if (d < bestDist) {
+      bestDist = d;
+      bestIdx = i;
+    }
+  }
+  for (let i = hintFlatIndex - 1; i >= 0 && hintCum - cumulativeMeters[i] <= WINDOW_METERS; i--) {
+    const d = haversineDistance(position, points[i]);
+    if (d < bestDist) {
+      bestDist = d;
+      bestIdx = i;
+    }
+  }
+  return { flatIndex: bestIdx, distanceMeters: bestDist };
+}
+
+/**
+ * Projects the runner's current position onto the route and reports how
+ * far along they are. Pass the previous call's `nearestPointIndex` back in
+ * as `hintFlatIndex` to keep continuity through u-turns and repeated loops
+ * (see WINDOW_METERS above) — omit it only for the first call.
+ */
+export function getRouteProgress(
+  index: RouteProgressIndex,
+  segments: RouteSegment[],
+  position: LatLng,
+  hintFlatIndex?: number | null,
+): RouteProgress | null {
+  if (hintFlatIndex != null && index.points[hintFlatIndex]) {
+    const windowed = nearestIndexInWindow(index, hintFlatIndex, position);
+    if (windowed.distanceMeters <= LOST_THRESHOLD_METERS) {
+      const traveledMeters = index.cumulativeMeters[windowed.flatIndex] ?? 0;
+      return {
+        deviationMeters: windowed.distanceMeters,
+        traveledMeters,
+        remainingMeters: Math.max(0, index.totalMeters - traveledMeters),
+        nearestPointIndex: windowed.flatIndex,
+      };
+    }
+  }
+
   const nearest: NearestPointResult | null = findNearestPointOnPath(position, segments);
   if (!nearest) return null;
 

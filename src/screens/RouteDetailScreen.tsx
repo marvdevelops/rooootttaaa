@@ -53,6 +53,7 @@ import { canReviewRoute, getMyReview, listRouteReviews } from '../utils/reviewsA
 import { RouteCompletion, RouteReview } from '../types/route';
 import ReviewModal from '../components/ReviewModal';
 import { kilometerMarkers } from '../utils/distance';
+import { findUTurns } from '../utils/uturns';
 import { buildGpx } from '../utils/gpx';
 import {
   countMyActiveGroupRuns,
@@ -269,6 +270,8 @@ export default function RouteDetailScreen({
     }
     return points;
   }, [route.waypoints, route.segments]);
+
+  const uTurnPoints = useMemo(() => findUTurns(route.segments).map((u) => u.coordinate), [route.segments]);
 
   useEffect(() => {
     // Frame the whole route on open instead of just the start point — the
@@ -599,6 +602,7 @@ export default function RouteDetailScreen({
           waypointsDraggable={false}
           showWaypointMarkers={false}
           notes={route.notes}
+          uTurnPoints={uTurnPoints}
         />
 
         <Pressable style={styles.backButton} onPress={() => (sheetExpanded ? setExpanded(false) : onClose())}>

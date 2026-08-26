@@ -13,8 +13,8 @@ import Mapbox, {
 import type { Feature, LineString, Point } from 'geojson';
 import React, { forwardRef, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
-import { LatLng, Waypoint } from '../types/route';
+import { colors, elevation, fonts, radii } from '../theme/theme';
+import { LatLng, RouteNote, Waypoint } from '../types/route';
 import { KilometerMarker } from '../utils/distance';
 import '../utils/mapboxInit';
 import { ColoredSegment } from '../utils/routeColor';
@@ -35,8 +35,10 @@ interface Props {
   is3D: boolean;
   waypointsDraggable?: boolean;
   showWaypointMarkers?: boolean;
-  /** Shows a tappable flag + callout for any waypoint with a note. View-mode only — not used while building/editing. */
-  showNoteMarkers?: boolean;
+  /** Notes are their own entity, independent of waypoints — pass whatever should render as tappable flags. */
+  notes?: RouteNote[];
+  /** Coordinates where the route's direction of travel sharply reverses (see utils/uturns.ts) — marked so a runner can see the turnaround before they hit it. */
+  uTurnPoints?: LatLng[];
   onMapPress?: (coord: LatLng) => void;
   onMarkerDragEnd?: (id: string, coord: LatLng) => void;
   onMarkerPress?: (id: string) => void;
@@ -54,7 +56,8 @@ const RouteMap = forwardRef<React.ElementRef<typeof Camera>, Props>(function Rou
     is3D,
     waypointsDraggable = true,
     showWaypointMarkers = true,
-    showNoteMarkers = false,
+    notes = [],
+    uTurnPoints = [],
     onMapPress,
     onMarkerDragEnd,
     onMarkerPress,
@@ -66,7 +69,6 @@ const RouteMap = forwardRef<React.ElementRef<typeof Camera>, Props>(function Rou
   // on top of the repositioned one. Suppress presses that land right after a drag.
   const isDraggingRef = useRef(false);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
-  const notedWaypoints = showNoteMarkers ? waypoints.filter((wp) => !!wp.note?.trim()) : [];
 
   return (
     <View style={styles.map}>
@@ -144,6 +146,19 @@ const RouteMap = forwardRef<React.ElementRef<typeof Camera>, Props>(function Rou
           </PointAnnotation>
         ))}
 
+        {uTurnPoints.map((point, i) => (
+          <PointAnnotation
+            key={`uturn-${i}`}
+            id={`uturn-${i}`}
+            coordinate={[point.longitude, point.latitude]}
+            anchor={{ x: 0.5, y: 0.5 }}
+          >
+            <View style={styles.uTurnMarker}>
+              <Text style={styles.uTurnMarkerText}>U</Text>
+            </View>
+          </PointAnnotation>
+        ))}
+
         {showWaypointMarkers && waypoints.map((wp) => (
           <PointAnnotation
             key={wp.id}
@@ -167,19 +182,19 @@ const RouteMap = forwardRef<React.ElementRef<typeof Camera>, Props>(function Rou
           </PointAnnotation>
         ))}
 
-        {notedWaypoints.map((wp) => (
+        {notes.map((note) => (
           // MarkerView, not PointAnnotation — PointAnnotation's touch handling
           // for interactive content has been unreliable (see waypoint-delete
           // history); MarkerView is a real RN view and doesn't have that issue.
-          <MarkerView key={`note-${wp.id}`} coordinate={[wp.longitude, wp.latitude]} anchor={{ x: 0.5, y: 1 }}>
+          <MarkerView key={`note-${note.id}`} coordinate={[note.longitude, note.latitude]} anchor={{ x: 0.5, y: 1 }}>
             <Pressable
               hitSlop={10}
-              onPress={() => setActiveNoteId((prev) => (prev === wp.id ? null : wp.id))}
+              onPress={() => setActiveNoteId((prev) => (prev === note.id ? null : note.id))}
               style={styles.noteMarkerWrap}
             >
-              {activeNoteId === wp.id && (
+              {activeNoteId === note.id && !!note.text.trim() && (
                 <View style={styles.noteCallout}>
-                  <Text style={styles.noteCalloutText}>{wp.note}</Text>
+                  <Text style={styles.noteCalloutText}>{note.text}</Text>
                 </View>
               )}
               <View style={styles.noteFlag}>
@@ -210,14 +225,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   kmBadge: {
-    backgroundColor: colors.sand,
-    borderRadius: 11,
+    backgroundColor: colors.surface,
+    borderRadius: radii.icon,
     width: 22,
     height: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: colors.ink,
+    ...elevation('subtle'),
   },
   kmBadgeTail: {
     width: 2,
@@ -225,8 +239,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.ink,
     marginTop: -1,
   },
+  uTurnMarker: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.ink,
+    borderWidth: 2,
+    borderColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...elevation('subtle'),
+  },
+  uTurnMarkerText: {
+    fontFamily: fonts.extraBold,
+    fontSize: 11,
+    color: colors.white,
+  },
   kmBadgeText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 9,
     color: colors.ink,
   },
@@ -236,23 +266,22 @@ const styles = StyleSheet.create({
   noteFlag: {
     width: 26,
     height: 26,
-    borderRadius: 9,
+    borderRadius: radii.icon,
     backgroundColor: colors.amber,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   noteCallout: {
     maxWidth: 180,
-    backgroundColor: colors.white,
-    borderRadius: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
     padding: 8,
     marginBottom: 6,
-    ...brutalShadow(2),
+    ...elevation('card'),
   },
   noteCalloutText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
     color: colors.ink,
   },
