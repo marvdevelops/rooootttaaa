@@ -7,20 +7,19 @@ interface Props {
   elapsedSeconds: number;
   distanceMeters: number;
   elevationGainMeters: number;
+  /** Average pace over moving time (excludes auto-paused stretches) — computed by the caller so this stays a pure display component. Null until there's enough distance/time to mean anything. */
+  paceSecondsPerKm: number | null;
 }
 
-function formatPace(elapsedSeconds: number, distanceMeters: number): string {
-  if (distanceMeters < 50) return '--:--';
-  const km = distanceMeters / 1000;
-  const secondsPerKm = elapsedSeconds / km;
-  if (!isFinite(secondsPerKm)) return '--:--';
+function formatPace(secondsPerKm: number | null): string {
+  if (!secondsPerKm || !isFinite(secondsPerKm)) return '--:--';
   const m = Math.floor(secondsPerKm / 60);
   const s = Math.round(secondsPerKm % 60);
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 /** Time / distance / pace / elevation panel — the primary readout on the recording screen. */
-export default function RecordingStats({ elapsedSeconds, distanceMeters, elevationGainMeters }: Props) {
+export default function RecordingStats({ elapsedSeconds, distanceMeters, elevationGainMeters, paceSecondsPerKm }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.primaryRow}>
@@ -34,7 +33,7 @@ export default function RecordingStats({ elapsedSeconds, distanceMeters, elevati
           <Text style={styles.statLabel}>KM</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statValue}>{formatPace(elapsedSeconds, distanceMeters)}</Text>
+          <Text style={styles.statValue}>{formatPace(paceSecondsPerKm)}</Text>
           <Text style={styles.statLabel}>/KM PACE</Text>
         </View>
         <View style={styles.stat}>

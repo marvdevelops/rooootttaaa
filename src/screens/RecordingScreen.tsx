@@ -185,16 +185,25 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
   // Moving time (excludes auto-paused stretches) — elapsedSeconds is raw
   // wall-clock and inflates pace after any pause (or a slow initial GPS
   // fix before startedAt's first point), which is what made the live-
-  // tracking pace broadcast read much slower than actual pace.
+  // tracking pace broadcast (and, before this, the on-screen pace stat —
+  // RecordingStats used to compute its own pace from elapsedSeconds) read
+  // much slower than actual pace. movingSeconds is state (not just the
+  // ref) so the on-screen stat actually re-renders each tick.
   const movingSecondsRef = useRef(0);
+  const [movingSeconds, setMovingSeconds] = useState(0);
   useEffect(() => {
     if (!startedAt) return;
     const interval = setInterval(() => {
       setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000));
-      if (!useRecordingStore.getState().isPaused) movingSecondsRef.current += 1;
+      if (!useRecordingStore.getState().isPaused) {
+        movingSecondsRef.current += 1;
+        setMovingSeconds(movingSecondsRef.current);
+      }
     }, 1000);
     return () => clearInterval(interval);
   }, [startedAt]);
+
+  const displayPaceSecondsPerKm = distanceMeters >= 50 && movingSeconds > 0 ? movingSeconds / (distanceMeters / 1000) : null;
 
   // Route-aware mode: on each incoming (non-paused) GPS point, check
   // deviation from the planned route. Remaining distance and the next-climb
@@ -371,7 +380,12 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
         {isOffRoute && <DeviationBanner onPress={() => setIsOffRoute(false)} />}
         {isPaused && <AutoPauseBanner onResume={resumeRecording} />}
 
-        <RecordingStats elapsedSeconds={elapsedSeconds} distanceMeters={distanceMeters} elevationGainMeters={elevationGainMeters} />
+        <RecordingStats
+          elapsedSeconds={elapsedSeconds}
+          distanceMeters={distanceMeters}
+          elevationGainMeters={elevationGainMeters}
+          paceSecondsPerKm={displayPaceSecondsPerKm}
+        />
 
         <View style={styles.controlsRow}>
           <Pressable style={[styles.controlButton, styles.pauseButton]} onPress={handleManualPauseToggle} disabled={starting || finishing}>
