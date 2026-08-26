@@ -101,6 +101,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
   const [groupRun, setGroupRun] = useState<GroupRun | null>(null);
   const [raceDetails, setRaceDetails] = useState<RaceDetails | null>(null);
   const [myRaceRsvp, setMyRaceRsvp] = useState<RaceRsvp | null>(null);
+  const [myLiveLink, setMyLiveLink] = useState<string | null>(null);
   const [route, setRoute] = useState<CloudRoute | null>(null);
   const [comments, setComments] = useState<GroupRunComment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,6 +207,19 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       .then(setIsSubscribedToSeriesState)
       .catch(() => {});
   }, [groupRun?.seriesId]);
+
+  // Displayed on the event page for anyone who's joined a race — issues the
+  // token silently (no share-sheet prompt here, that's promptShareLiveLink's
+  // job right at join time) so the link is visible to copy/share again later.
+  useEffect(() => {
+    if (!myRaceRsvp || myRaceRsvp.finishedAt) {
+      setMyLiveLink(null);
+      return;
+    }
+    ensureLiveShareToken(myRaceRsvp.id)
+      .then((token) => setMyLiveLink(`https://app.rootah.com/live/${token}`))
+      .catch(() => {});
+  }, [myRaceRsvp]);
 
   const handleToggleSeriesSubscription = useCallback(async () => {
     if (!groupRun?.seriesId) return;
@@ -703,6 +717,18 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                     onPress={() => myRaceRsvp && onRunRace(groupRun, myRaceRsvp.id)}
                   />
                 )}
+                {myLiveLink && (
+                  <Pressable
+                    style={styles.liveLinkCard}
+                    onPress={() => Share.share({ message: `Follow me live on Rootah at "${groupRun.title}": ${myLiveLink}`, url: myLiveLink }).catch(() => {})}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.liveLinkLabel}>YOUR LIVE TRACKING LINK</Text>
+                      <Text style={styles.liveLinkUrl} numberOfLines={1}>{myLiveLink}</Text>
+                    </View>
+                    <ShareIcon size={16} color={colors.ink} />
+                  </Pressable>
+                )}
               </View>
             )}
 
@@ -1199,6 +1225,27 @@ const styles = StyleSheet.create({
   raceRunWrap: {
     marginTop: 14,
     gap: 8,
+  },
+  liveLinkCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.cream,
+    borderRadius: radii.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  liveLinkLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.5,
+    color: colors.stone,
+  },
+  liveLinkUrl: {
+    fontFamily: fonts.medium,
+    fontSize: 12.5,
+    color: colors.ink,
+    marginTop: 2,
   },
   seriesBadgeText: {
     fontFamily: fonts.bold,
