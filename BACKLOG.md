@@ -2,7 +2,26 @@
 
 Deferred feature plans — not scheduled yet, kept here so they aren't lost.
 
+## Race Mode — HIGH PRIORITY
+
+Full plan: `docs/race-mode-plan.md`. A race is just a group run with
+`category = 'race'` (official account only, for now) — reuses the existing
+join/RSVP flow and group run screens entirely, no new browse UI. Adds:
+race-day-gated "Run This Race" (unlocks at midnight in the race's own
+timezone), route-aware run tracking (builds on T3 Activity Recording),
+auto-detected finish with confirmation, a branded finish share card (race +
+Rootah branding, stats overlay, selfie), and a public unique link so
+friends/family can watch a runner's live position, pace, and distance on
+the course during the race. Supersedes the "Live athlete tracking" entry
+below — the live spectator page is being built as
+part of this instead.
+
 ## Live athlete tracking
+
+> **Superseded by Race Mode** (see `docs/race-mode-plan.md`) — the live
+> spectator page described below is being built as part of that feature
+> instead, scoped to race participants rather than any run. Left here for
+> the general-purpose (non-race) version, in case that's still wanted later.
 
 Athlete starts a live-tracking session (mobile), gets a unique unguessable
 share link, anyone with the link watches live position/progress/safety
