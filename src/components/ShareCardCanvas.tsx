@@ -8,6 +8,7 @@ interface Props {
   brandPrimaryColor: string;
   brandAccentColor: string;
   organizerLogoUrl: string | null;
+  organizerName: string | null;
   athleteUsername: string;
   athleteAvatarUrl: string | null;
   distanceMeters: number;
@@ -36,6 +37,7 @@ export default function ShareCardCanvas({
   brandPrimaryColor,
   brandAccentColor,
   organizerLogoUrl,
+  organizerName,
   athleteUsername,
   athleteAvatarUrl,
   distanceMeters,
@@ -62,6 +64,7 @@ export default function ShareCardCanvas({
         <Text style={[styles.raceTitle, { color: brandPrimaryColor }]} numberOfLines={2}>
           {raceTitle}
         </Text>
+        {organizerName && <Text style={styles.organizerName}>by {organizerName}</Text>}
         <Text style={styles.athleteName}>{athleteUsername}</Text>
       </View>
 
@@ -134,6 +137,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.extraBold,
     fontSize: 15,
     textAlign: 'center',
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowRadius: 6,
+  },
+  organizerName: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 2,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowRadius: 6,
   },

@@ -6,6 +6,9 @@ interface RaceDetailsRow {
   race_date: string;
   race_timezone: string;
   organizer_logo_url: string | null;
+  organizer_name: string | null;
+  event_banner_url: string | null;
+  event_logo_url: string | null;
   brand_primary_color: string;
   brand_accent_color: string;
 }
@@ -16,6 +19,9 @@ function toRaceDetails(row: RaceDetailsRow): RaceDetails {
     raceDate: row.race_date,
     raceTimezone: row.race_timezone,
     organizerLogoUrl: row.organizer_logo_url,
+    organizerName: row.organizer_name,
+    eventBannerUrl: row.event_banner_url,
+    eventLogoUrl: row.event_logo_url,
     brandPrimaryColor: row.brand_primary_color,
     brandAccentColor: row.brand_accent_color,
   };
@@ -91,13 +97,21 @@ export async function getRaceShareToken(rsvpId: string): Promise<string | null> 
   return (data?.live_share_token as string | null) ?? null;
 }
 
-/** Marks a race RSVP as started and issues its live-tracking share token. Call when the user taps "Run This Race" and recording actually begins. */
-export async function startRaceRun(rsvpId: string): Promise<string> {
+/** Returns the RSVP's live-tracking token, issuing one now if it doesn't have one yet — lets a joined runner grab and share their link ahead of race day, without marking the run as started (unlike startRaceRun). */
+export async function ensureLiveShareToken(rsvpId: string): Promise<string> {
+  const existing = await getRaceShareToken(rsvpId);
+  if (existing) return existing;
+
   const token = generateShareToken();
-  const { error } = await supabase
-    .from('group_run_rsvps')
-    .update({ started_at: new Date().toISOString(), live_share_token: token })
-    .eq('id', rsvpId);
+  const { error } = await supabase.from('group_run_rsvps').update({ live_share_token: token }).eq('id', rsvpId);
+  if (error) throw new Error(error.message);
+  return token;
+}
+
+/** Marks a race RSVP as started and issues its live-tracking share token (reusing one already shared ahead of time via ensureLiveShareToken, if any — the link a runner shared before race day should keep working during the run). */
+export async function startRaceRun(rsvpId: string): Promise<string> {
+  const token = await ensureLiveShareToken(rsvpId);
+  const { error } = await supabase.from('group_run_rsvps').update({ started_at: new Date().toISOString() }).eq('id', rsvpId);
   if (error) throw new Error(error.message);
   return token;
 }

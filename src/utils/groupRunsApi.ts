@@ -126,6 +126,15 @@ async function toGroupRunBatch(rows: GroupRunRow[], viewerId: string | null): Pr
   });
 }
 
+export interface RaceMetaInput {
+  raceDate: Date;
+  raceTimezone?: string;
+  organizerName?: string | null;
+  organizerLogoUrl?: string | null;
+  eventBannerUrl?: string | null;
+  eventLogoUrl?: string | null;
+}
+
 export interface CreateGroupRunInput {
   routeId: string;
   title: string;
@@ -136,7 +145,7 @@ export interface CreateGroupRunInput {
   /** Tags this run as a club event — shows the club name/avatar on the card and notifies members. */
   clubId?: string | null;
   /** Only the official Rootah account is allowed to set this — enforced server-side by the group_runs insert RLS policy. */
-  race?: { raceDate: Date; raceTimezone?: string } | null;
+  race?: RaceMetaInput | null;
 }
 
 export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupRun> {
@@ -167,6 +176,10 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
       group_run_id: (data as { id: string }).id,
       race_date: raceDate,
       race_timezone: input.race.raceTimezone ?? 'Asia/Manila',
+      organizer_name: input.race.organizerName ?? null,
+      organizer_logo_url: input.race.organizerLogoUrl ?? null,
+      event_banner_url: input.race.eventBannerUrl ?? null,
+      event_logo_url: input.race.eventLogoUrl ?? null,
     });
     if (raceDetailsError) throw new Error(raceDetailsError.message);
   }
@@ -180,9 +193,8 @@ export interface UpdateGroupRunInput {
   description: string;
   scheduledAt: Date;
   maxParticipants: number | null;
-  /** Only relevant for races (category is set at creation and isn't editable here) — updates race_details.race_date. */
-  raceDate?: Date | null;
-  raceTimezone?: string;
+  /** Only relevant for races (category is set at creation and isn't editable here) — updates race_details. */
+  race?: RaceMetaInput | null;
 }
 
 /** RLS restricts this to the run's own host — see "hosts can update their own group runs" in 0002_social_and_groups.sql. */
@@ -203,11 +215,17 @@ export async function updateGroupRun(id: string, input: UpdateGroupRunInput): Pr
 
   if (error || !data) throw new Error(error?.message ?? 'Failed to update event.');
 
-  if (input.raceDate) {
-    const raceDate = new Intl.DateTimeFormat('en-CA', { timeZone: input.raceTimezone ?? 'Asia/Manila' }).format(input.raceDate);
+  if (input.race) {
+    const raceDate = new Intl.DateTimeFormat('en-CA', { timeZone: input.race.raceTimezone ?? 'Asia/Manila' }).format(input.race.raceDate);
     const { error: raceDetailsError } = await supabase
       .from('race_details')
-      .update({ race_date: raceDate })
+      .update({
+        race_date: raceDate,
+        organizer_name: input.race.organizerName ?? null,
+        organizer_logo_url: input.race.organizerLogoUrl ?? null,
+        event_banner_url: input.race.eventBannerUrl ?? null,
+        event_logo_url: input.race.eventLogoUrl ?? null,
+      })
       .eq('group_run_id', id);
     if (raceDetailsError) throw new Error(raceDetailsError.message);
   }

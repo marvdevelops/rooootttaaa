@@ -106,7 +106,8 @@ export default function RaceShareCardScreen({
               raceTitle={raceTitle}
               brandPrimaryColor={raceDetails.brandPrimaryColor}
               brandAccentColor={raceDetails.brandAccentColor}
-              organizerLogoUrl={raceDetails.organizerLogoUrl}
+              organizerLogoUrl={raceDetails.eventLogoUrl ?? raceDetails.organizerLogoUrl}
+              organizerName={raceDetails.organizerName}
               athleteUsername={profile?.username ?? ''}
               athleteAvatarUrl={profile?.avatarUrl ?? null}
               distanceMeters={distanceMeters}

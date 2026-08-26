@@ -20,6 +20,10 @@ import { UserTier } from '../hooks/useUserTier';
 
 export interface RaceInput {
   raceDate: Date;
+  organizerName: string;
+  organizerLogoUrl: string;
+  eventBannerUrl: string;
+  eventLogoUrl: string;
 }
 
 export interface RecurrenceInput {
@@ -32,8 +36,12 @@ export interface EditingGroupRun {
   description: string;
   scheduledAt: Date;
   maxParticipants: number | null;
-  /** Set when the event being edited is a race — shows the race-day picker without the "make this a race" toggle (category isn't editable after creation). */
+  /** Set when the event being edited is a race — shows the race-day picker and branding fields without the "make this a race" toggle (category isn't editable after creation). */
   raceDate: Date | null;
+  organizerName?: string;
+  organizerLogoUrl?: string;
+  eventBannerUrl?: string;
+  eventLogoUrl?: string;
 }
 
 interface Props {
@@ -98,6 +106,10 @@ export default function ScheduleGroupRunModal({
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [isRace, setIsRace] = useState(false);
   const [raceDate, setRaceDate] = useState<Date>(defaultTime());
+  const [organizerName, setOrganizerName] = useState('');
+  const [organizerLogoUrl, setOrganizerLogoUrl] = useState('');
+  const [eventBannerUrl, setEventBannerUrl] = useState('');
+  const [eventLogoUrl, setEventLogoUrl] = useState('');
 
   useEffect(() => {
     if (visible) {
@@ -109,6 +121,10 @@ export default function ScheduleGroupRunModal({
       setFrequency('weekly');
       setEndDate(null);
       setIsRace(!!editing?.raceDate);
+      setOrganizerName(editing?.organizerName ?? '');
+      setOrganizerLogoUrl(editing?.organizerLogoUrl ?? '');
+      setEventBannerUrl(editing?.eventBannerUrl ?? '');
+      setEventLogoUrl(editing?.eventLogoUrl ?? '');
       setRaceDate(editing?.raceDate ?? defaultTime());
     }
   }, [visible, editing]);
@@ -293,6 +309,49 @@ export default function ScheduleGroupRunModal({
                         style={styles.picker}
                       />
                     </View>
+
+                    <Text style={styles.label}>ORGANIZER NAME</Text>
+                    <TextInput
+                      value={organizerName}
+                      onChangeText={setOrganizerName}
+                      placeholder="e.g. Milo Philippines"
+                      placeholderTextColor={colors.mist}
+                      style={styles.input}
+                      maxLength={60}
+                    />
+
+                    <Text style={styles.label}>ORGANIZER LOGO URL</Text>
+                    <TextInput
+                      value={organizerLogoUrl}
+                      onChangeText={setOrganizerLogoUrl}
+                      placeholder="https://…"
+                      placeholderTextColor={colors.mist}
+                      style={styles.input}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                    />
+
+                    <Text style={styles.label}>EVENT LOGO URL</Text>
+                    <TextInput
+                      value={eventLogoUrl}
+                      onChangeText={setEventLogoUrl}
+                      placeholder="https://…"
+                      placeholderTextColor={colors.mist}
+                      style={styles.input}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                    />
+
+                    <Text style={styles.label}>EVENT BANNER URL</Text>
+                    <TextInput
+                      value={eventBannerUrl}
+                      onChangeText={setEventBannerUrl}
+                      placeholder="https://… (wide image, shown at the top of the event page)"
+                      placeholderTextColor={colors.mist}
+                      style={styles.input}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                    />
                   </View>
                 )}
               </View>
@@ -307,7 +366,15 @@ export default function ScheduleGroupRunModal({
                   scheduledAt,
                   maxParticipants,
                   recurrenceEnabled ? { frequency, endDate } : null,
-                  isOfficialAccount && isRace ? { raceDate } : null,
+                  isOfficialAccount && isRace
+                    ? {
+                        raceDate,
+                        organizerName: organizerName.trim(),
+                        organizerLogoUrl: organizerLogoUrl.trim(),
+                        eventBannerUrl: eventBannerUrl.trim(),
+                        eventLogoUrl: eventLogoUrl.trim(),
+                      }
+                    : null,
                 )
               }
               disabled={!title.trim() || isSaving}

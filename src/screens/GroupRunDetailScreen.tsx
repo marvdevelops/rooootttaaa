@@ -37,7 +37,7 @@ import {
 import { addGroupRunToCalendar } from '../utils/calendar';
 import { getTodayCompletion, logRouteCompletion } from '../utils/completionsApi';
 import { getMyReview } from '../utils/reviewsApi';
-import { getMyRaceRsvp, getRaceDetails } from '../utils/racesApi';
+import { ensureLiveShareToken, getMyRaceRsvp, getRaceDetails } from '../utils/racesApi';
 import {
   isSubscribedToSeries as checkIsSubscribedToSeries,
   subscribeToSeries,
@@ -122,6 +122,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
   const [showEditModal, setShowEditModal] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [sharingLiveLink, setSharingLiveLink] = useState(false);
   const notificationPrePermission = useNotificationPrePermission();
   const { session } = useAuth();
   const tier = useUserTier();
@@ -306,8 +307,16 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
           description,
           scheduledAt,
           maxParticipants,
-          raceDate: race?.raceDate ?? null,
-          raceTimezone: raceDetails?.raceTimezone,
+          race: race
+            ? {
+                raceDate: race.raceDate,
+                raceTimezone: raceDetails?.raceTimezone,
+                organizerName: race.organizerName || null,
+                organizerLogoUrl: race.organizerLogoUrl || null,
+                eventBannerUrl: race.eventBannerUrl || null,
+                eventLogoUrl: race.eventLogoUrl || null,
+              }
+            : null,
         });
         await refresh();
         setShowEditModal(false);
@@ -349,6 +358,20 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       startDate: new Date(groupRun.scheduledAt),
     });
   }, [groupRun]);
+
+  const handleShareLiveLink = useCallback(async () => {
+    if (!myRaceRsvp || !groupRun) return;
+    setSharingLiveLink(true);
+    try {
+      const token = await ensureLiveShareToken(myRaceRsvp.id);
+      const url = `https://app.rootah.com/live/${token}`;
+      await Share.share({ message: `Follow me live on Rootah at "${groupRun.title}": ${url}`, url });
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to get your live tracking link.');
+    } finally {
+      setSharingLiveLink(false);
+    }
+  }, [myRaceRsvp, groupRun]);
 
   const handleShare = useCallback(async () => {
     if (!groupRun) return;
@@ -559,6 +582,10 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
             </View>
           )}
 
+          {groupRun.category === 'race' && raceDetails?.eventBannerUrl && (
+            <Image source={{ uri: raceDetails.eventBannerUrl }} style={styles.eventBanner} resizeMode="cover" />
+          )}
+
           <View style={styles.eventCard}>
             {routeMapUrl && (
               <Pressable style={styles.routePreviewWrap} onPress={() => onOpenRoute(groupRun.routeId)}>
@@ -577,6 +604,25 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
             )}
 
             {groupRun.category === 'race' && <RaceBadge />}
+
+            {groupRun.category === 'race' && (raceDetails?.organizerName || raceDetails?.eventLogoUrl) && (
+              <View style={styles.organizerRow}>
+                {(raceDetails.eventLogoUrl || raceDetails.organizerLogoUrl) && (
+                  <Image
+                    source={{ uri: raceDetails.eventLogoUrl ?? raceDetails.organizerLogoUrl! }}
+                    style={styles.organizerLogo}
+                    resizeMode="contain"
+                  />
+                )}
+                {raceDetails.organizerName && (
+                  <View>
+                    <Text style={styles.organizerLabel}>ORGANIZED BY</Text>
+                    <Text style={styles.organizerName}>{raceDetails.organizerName}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
             <View style={styles.whenBadge}>
               <CalendarIcon size={13} />
               <Text style={styles.whenText}>{formatWhen(groupRun.scheduledAt)}</Text>
@@ -586,7 +632,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               <Pressable onPress={() => onOpenRoute(groupRun.routeId)}>
                 <Text style={styles.eventRoute}>{groupRun.routeName}</Text>
               </Pressable>
-              {groupRun.hostUsername !== 'unknown' && (
+              {groupRun.category !== 'race' && groupRun.hostUsername !== 'unknown' && (
                 <>
                   <Text style={styles.eventRoute}> · hosted by </Text>
                   <Pressable onPress={() => onOpenProfile(groupRun.hostId)}>
@@ -637,6 +683,14 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                     onPress={() => myRaceRsvp && onRunRace(groupRun, myRaceRsvp.id)}
                   />
                 )}
+                {myRaceRsvp && !myRaceRsvp.finishedAt && (
+                  <Pressable style={styles.shareLiveLinkButton} onPress={handleShareLiveLink} disabled={sharingLiveLink}>
+                    <ShareIcon size={14} color={colors.ink} />
+                    <Text style={styles.shareLiveLinkText}>
+                      {sharingLiveLink ? 'Getting your link…' : 'Share my live tracking link'}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             )}
 
@@ -673,7 +727,9 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                         ? "I'M IN"
                         : groupRun.myRsvpStatus === 'pending'
                           ? 'REQUESTED'
-                          : 'REQUEST TO JOIN'}
+                          : groupRun.category === 'race'
+                            ? "I'M JOINING THIS RACE"
+                            : 'REQUEST TO JOIN'}
                     </Text>
                   </Pressable>
                 ))
@@ -868,6 +924,10 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
             scheduledAt: new Date(groupRun.scheduledAt),
             maxParticipants: groupRun.maxParticipants,
             raceDate: raceDetails ? new Date(`${raceDetails.raceDate}T00:00:00`) : null,
+            organizerName: raceDetails?.organizerName ?? '',
+            organizerLogoUrl: raceDetails?.organizerLogoUrl ?? '',
+            eventBannerUrl: raceDetails?.eventBannerUrl ?? '',
+            eventLogoUrl: raceDetails?.eventLogoUrl ?? '',
           }}
           onClose={() => setShowEditModal(false)}
           onSchedule={handleSaveEdit}
@@ -996,6 +1056,35 @@ const styles = StyleSheet.create({
     color: colors.coral,
     textDecorationLine: 'underline',
   },
+  eventBanner: {
+    width: '100%',
+    height: 160,
+    borderRadius: radii.md,
+    marginBottom: spacing.sm,
+  },
+  organizerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  organizerLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: radii.xs,
+  },
+  organizerLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.6,
+    color: colors.stone,
+  },
+  organizerName: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.ink,
+  },
   eventCard: {
     backgroundColor: colors.surface,
     borderRadius: radii.md,
@@ -1097,6 +1186,21 @@ const styles = StyleSheet.create({
   },
   raceRunWrap: {
     marginTop: 14,
+    gap: 8,
+  },
+  shareLiveLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 42,
+    borderRadius: radii.pill,
+    backgroundColor: colors.cream,
+  },
+  shareLiveLinkText: {
+    fontFamily: fonts.bold,
+    fontSize: 12.5,
+    color: colors.ink,
   },
   seriesBadgeText: {
     fontFamily: fonts.bold,

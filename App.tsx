@@ -429,7 +429,15 @@ function AuthedApp({
             scheduledAt,
             maxParticipants,
             clubId: eventClubId,
-            race: race ? { raceDate: race.raceDate } : null,
+            race: race
+              ? {
+                  raceDate: race.raceDate,
+                  organizerName: race.organizerName || null,
+                  organizerLogoUrl: race.organizerLogoUrl || null,
+                  eventBannerUrl: race.eventBannerUrl || null,
+                  eventLogoUrl: race.eventLogoUrl || null,
+                }
+              : null,
           });
           setEventRouteId(null);
           setEventClubId(null);

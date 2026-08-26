@@ -17,7 +17,10 @@
  *   "raceTimezone": "Asia/Manila",
  *   "city": "Mariveles",
  *   "maxParticipants": null,
- *   "organizerLogoUrl": null,
+ *   "organizerName": "Milo Philippines",
+ *   "organizerLogoUrl": "https://…",
+ *   "eventLogoUrl": "https://…",
+ *   "eventBannerUrl": "https://…",
  *   "brandPrimaryColor": "#E84B2A",
  *   "brandAccentColor": "#1A1614"
  * }
@@ -50,6 +53,9 @@ interface RaceConfig {
   city?: string | null;
   maxParticipants?: number | null;
   organizerLogoUrl?: string | null;
+  organizerName?: string | null;
+  eventBannerUrl?: string | null;
+  eventLogoUrl?: string | null;
   brandPrimaryColor?: string;
   brandAccentColor?: string;
 }
@@ -88,6 +94,9 @@ async function main() {
     race_date: config.raceDate,
     race_timezone: config.raceTimezone ?? 'Asia/Manila',
     organizer_logo_url: config.organizerLogoUrl ?? null,
+    organizer_name: config.organizerName ?? null,
+    event_banner_url: config.eventBannerUrl ?? null,
+    event_logo_url: config.eventLogoUrl ?? null,
     brand_primary_color: config.brandPrimaryColor ?? '#E84B2A',
     brand_accent_color: config.brandAccentColor ?? '#1A1614',
   });

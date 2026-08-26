@@ -155,7 +155,11 @@ export interface RaceDetails {
   groupRunId: string;
   raceDate: string; // YYYY-MM-DD, in raceTimezone
   raceTimezone: string;
+  /** Shown on the finish share card (and organizer branding row) — kept distinct from eventLogoUrl, which is the race event's own mark. */
   organizerLogoUrl: string | null;
+  organizerName: string | null;
+  eventBannerUrl: string | null;
+  eventLogoUrl: string | null;
   brandPrimaryColor: string;
   brandAccentColor: string;
 }
