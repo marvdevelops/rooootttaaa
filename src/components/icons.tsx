@@ -1,5 +1,5 @@
 import React from 'react';
-import Svg, { Path, Polygon } from 'react-native-svg';
+import Svg, { Path, Polygon, Rect } from 'react-native-svg';
 import { colors } from '../theme/theme';
 
 export function UndoIcon({ size = 22, color = colors.ink }: { size?: number; color?: string }) {
@@ -535,6 +535,22 @@ export function TrophyIcon({ size = 16, color = colors.ink }: { size?: number; c
         strokeLinejoin="round"
       />
       <Path d="M12 14v3M9 20h6M9.5 17h5l.5 3H9l.5-3z" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** Checkered race flag — replaces the raw 🏁 emoji (RaceBadge, activity feed, share cards), which rendered inconsistently across platforms and didn't match the rest of the icon set's drawn style. */
+export function RaceFlagIcon({ size = 16, color = colors.white }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M5 21V3" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Path d="M5 4h15v11H5V4z" fill={color} fillOpacity={0.18} stroke={color} strokeWidth={1.6} strokeLinejoin="round" />
+      <Rect x={5} y={4} width={3.75} height={3.67} fill={color} />
+      <Rect x={12.5} y={4} width={3.75} height={3.67} fill={color} />
+      <Rect x={8.75} y={7.67} width={3.75} height={3.66} fill={color} />
+      <Rect x={16.25} y={7.67} width={3.75} height={3.66} fill={color} />
+      <Rect x={5} y={11.33} width={3.75} height={3.67} fill={color} />
+      <Rect x={12.5} y={11.33} width={3.75} height={3.67} fill={color} />
     </Svg>
   );
 }

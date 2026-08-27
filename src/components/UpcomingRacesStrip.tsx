@@ -3,6 +3,7 @@ import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { colors, fonts } from '../theme/theme';
 import { RaceEventSummary } from '../types/route';
 import RaceCard from './RaceCard';
+import { RaceFlagIcon } from './icons';
 
 interface Props {
   events: RaceEventSummary[];
@@ -17,7 +18,8 @@ export default function UpcomingRacesStrip({ events, onOpenRace }: Props) {
   return (
     <View style={styles.wrap}>
       <View style={styles.header}>
-        <Text style={styles.title}>🏁 Upcoming races</Text>
+        <RaceFlagIcon size={14} color={colors.coral} />
+        <Text style={styles.title}>Upcoming races</Text>
       </View>
       <FlatList
         horizontal
@@ -38,7 +40,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
   },
   title: {
     fontFamily: fonts.extraBold,

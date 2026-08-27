@@ -133,21 +133,21 @@ export default function RecordedRunDetailScreen({ runId, onClose, onOpenRoute, o
             <Text style={styles.date}>{formatDate(run.startedAt)}</Text>
 
             <View style={styles.statGrid}>
-              <View style={styles.statTile}>
-                <Text style={styles.statValue}>{(run.distanceMeters / 1000).toFixed(2)}</Text>
-                <Text style={styles.statLabel}>KM</Text>
+              <View style={[styles.statTile, styles.statTileCoral]}>
+                <Text style={[styles.statValue, styles.statValueOnColor]}>{(run.distanceMeters / 1000).toFixed(2)}</Text>
+                <Text style={[styles.statLabel, styles.statLabelOnColor]}>KM</Text>
               </View>
               <View style={styles.statTile}>
                 <Text style={styles.statValue}>{formatDuration(run.movingTimeSeconds)}</Text>
                 <Text style={styles.statLabel}>MOVING TIME</Text>
               </View>
-              <View style={styles.statTile}>
-                <Text style={styles.statValue}>{formatPace(run.avgPaceSecondsPerKm)}</Text>
-                <Text style={styles.statLabel}>/KM PACE</Text>
+              <View style={[styles.statTile, styles.statTileTeal]}>
+                <Text style={[styles.statValue, styles.statValueOnColor]}>{formatPace(run.avgPaceSecondsPerKm)}</Text>
+                <Text style={[styles.statLabel, styles.statLabelOnColor]}>/KM PACE</Text>
               </View>
-              <View style={styles.statTile}>
-                <Text style={styles.statValue}>+{Math.round(run.elevationGainMeters)}m</Text>
-                <Text style={styles.statLabel}>ELEVATION</Text>
+              <View style={[styles.statTile, styles.statTileSage]}>
+                <Text style={[styles.statValue, styles.statValueOnColor]}>+{Math.round(run.elevationGainMeters)}m</Text>
+                <Text style={[styles.statLabel, styles.statLabelOnColor]}>ELEVATION</Text>
               </View>
             </View>
 
@@ -276,10 +276,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     ...elevation('subtle'),
   },
+  statTileCoral: {
+    backgroundColor: colors.coral,
+  },
+  statTileTeal: {
+    backgroundColor: colors.teal,
+  },
+  statTileSage: {
+    backgroundColor: colors.sage,
+  },
   statValue: {
     fontFamily: fonts.extraBold,
     fontSize: 24,
     color: colors.ink,
+  },
+  statValueOnColor: {
+    color: colors.white,
   },
   statLabel: {
     fontFamily: fonts.bold,
@@ -287,6 +299,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     color: colors.stone,
     marginTop: 4,
+  },
+  statLabelOnColor: {
+    color: 'rgba(255,255,255,0.85)',
   },
   splitsCard: {
     backgroundColor: colors.surface,

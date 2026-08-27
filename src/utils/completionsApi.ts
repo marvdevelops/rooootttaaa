@@ -81,7 +81,7 @@ export async function hasCompletedRoute(routeId: string): Promise<boolean> {
  */
 export async function logRouteCompletion(
   routeId: string,
-  opts: { groupRunId?: string; source?: RouteCompletion['source']; completedAt?: Date } = {},
+  opts: { groupRunId?: string; source?: RouteCompletion['source']; completedAt?: Date; durationSeconds?: number } = {},
 ): Promise<RouteCompletion> {
   const userId = await currentUserId();
   if (!userId) throw new Error('You must be signed in to log a run.');
@@ -94,6 +94,7 @@ export async function logRouteCompletion(
       group_run_id: opts.groupRunId ?? null,
       source: opts.source ?? 'manual',
       completed_at: (opts.completedAt ?? new Date()).toISOString(),
+      duration_seconds: opts.durationSeconds ?? null,
     })
     .select('*')
     .single();
@@ -101,7 +102,16 @@ export async function logRouteCompletion(
   if (error) {
     if (error.code === '23505') {
       const existing = await getTodayCompletion(routeId);
-      if (existing) return existing;
+      if (existing) {
+        // Same-day completion already existed (e.g. a manual "I ran it" tap
+        // earlier) — a GPS recording finishing afterward should still
+        // attach its actual duration rather than silently losing it.
+        if (opts.durationSeconds != null && existing.durationSeconds == null) {
+          await updateCompletion(existing.id, { durationSeconds: opts.durationSeconds });
+          return { ...existing, durationSeconds: opts.durationSeconds };
+        }
+        return existing;
+      }
     }
     throw new Error(error.message);
   }

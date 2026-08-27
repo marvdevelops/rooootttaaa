@@ -6,6 +6,7 @@ import { getSessionPoints } from '../lib/recordingDb';
 import { annotateElevation } from './elevation';
 import { haversineDistance } from './distance';
 import { reverseGeocodeCity } from './geocoding';
+import { logRouteCompletion } from './completionsApi';
 
 const ACTIVITY_LABEL: Record<ActivityType, string> = {
   run: 'Run',
@@ -49,9 +50,30 @@ function downsample<T>(points: T[], maxPoints: number): T[] {
   return result;
 }
 
+// Raw GPS/barometric altitude jitters by several meters between consecutive
+// points even standing still — summing every positive raw delta massively
+// overcounts elevation gain (this is what made Rootah report ~3x what Coros
+// showed for the same run: 152m vs 54m). Standard fix, same idea Strava/
+// Garmin use: smooth the altitude series with a moving average first, then
+// only count a delta once it clears a small noise threshold.
+const ELEVATION_SMOOTHING_WINDOW = 5;
+const ELEVATION_MIN_DELTA_METERS = 1;
+
+/** Centered moving-average smoothing — nulls pass through unchanged (a missing altitude reading shouldn't smear into its neighbors). */
+function smoothAltitudes(altitudes: (number | null)[]): (number | null)[] {
+  const half = Math.floor(ELEVATION_SMOOTHING_WINDOW / 2);
+  return altitudes.map((alt, i) => {
+    if (alt === null) return null;
+    const windowValues = altitudes.slice(Math.max(0, i - half), i + half + 1).filter((v): v is number => v !== null);
+    return windowValues.reduce((sum, v) => sum + v, 0) / windowValues.length;
+  });
+}
+
 function computeSplits(points: RecordingPoint[]): RecordedRunSplit[] {
   const splits: RecordedRunSplit[] = [];
   if (points.length < 2) return splits;
+
+  const smoothed = smoothAltitudes(points.map((p) => p.altitude));
 
   let cumulativeMeters = 0;
   let nextTargetMeters = 1000;
@@ -62,8 +84,11 @@ function computeSplits(points: RecordingPoint[]): RecordedRunSplit[] {
     const prev = points[i - 1];
     const cur = points[i];
     cumulativeMeters += haversineDistance({ latitude: prev.lat, longitude: prev.lng }, { latitude: cur.lat, longitude: cur.lng });
-    if (prev.altitude !== null && cur.altitude !== null && cur.altitude > prev.altitude) {
-      splitElevationGain += cur.altitude - prev.altitude;
+    const prevAlt = smoothed[i - 1];
+    const curAlt = smoothed[i];
+    if (prevAlt !== null && curAlt !== null) {
+      const delta = curAlt - prevAlt;
+      if (delta >= ELEVATION_MIN_DELTA_METERS) splitElevationGain += delta;
     }
 
     if (cumulativeMeters >= nextTargetMeters) {
@@ -91,14 +116,19 @@ export function summarizeSession(sessionId: string): RecordedRunSummary {
   let elevationLossMeters = 0;
   let movingTimeMs = 0;
 
+  const smoothed = smoothAltitudes(points.map((p) => p.altitude));
+
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1];
     const cur = points[i];
     distanceMeters += haversineDistance({ latitude: prev.lat, longitude: prev.lng }, { latitude: cur.lat, longitude: cur.lng });
     movingTimeMs += Math.min(cur.timestamp - prev.timestamp, MAX_PLAUSIBLE_GAP_MS);
 
-    if (prev.altitude !== null && cur.altitude !== null) {
-      const delta = cur.altitude - prev.altitude;
+    const prevAlt = smoothed[i - 1];
+    const curAlt = smoothed[i];
+    if (prevAlt !== null && curAlt !== null) {
+      const delta = curAlt - prevAlt;
+      if (Math.abs(delta) < ELEVATION_MIN_DELTA_METERS) continue;
       if (delta > 0) elevationGainMeters += delta;
       else elevationLossMeters += -delta;
     }
@@ -240,6 +270,20 @@ export async function uploadRecording(
         elevation_gain_meters: s.elevationGainMeters,
       })),
     );
+  }
+
+  // Recording against an existing saved route counts as actually running
+  // it — with a real duration this time, not just the manual "I ran it"
+  // tap. Only when routeId was passed in (an existing route); a free-form
+  // recording auto-creates its OWN new route above, and logging a
+  // "completion" of a route the user just created from their own path
+  // would be circular. Non-fatal — the run itself is already saved.
+  if (routeId) {
+    await logRouteCompletion(routeId, {
+      source: 'recording',
+      completedAt: new Date(startedAt),
+      durationSeconds: summary.movingTimeSeconds,
+    }).catch(() => {});
   }
 
   return { recordedRunId: data.id as string, routeId: finalRouteId };

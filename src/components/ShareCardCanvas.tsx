@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Logo from './Logo';
+import { RaceFlagIcon } from './icons';
 import { colors, fonts, radii } from '../theme/theme';
 import { formatDuration } from '../utils/completionsApi';
 
@@ -72,7 +73,8 @@ export default function ShareCardCanvas({
 
       <View style={styles.topRow}>
         <View style={[styles.finisherPill, { backgroundColor: brandPrimaryColor }]}>
-          <Text style={styles.finisherPillText}>🏁 FINISHER</Text>
+          <RaceFlagIcon size={11} color={colors.white} />
+          <Text style={styles.finisherPillText}>FINISHER</Text>
         </View>
         {organizerLogoUrl && <Image source={{ uri: organizerLogoUrl }} style={styles.orgLogo} resizeMode="contain" />}
       </View>
@@ -162,6 +164,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   finisherPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: radii.pill,

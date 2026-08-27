@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BackIcon, CheckIcon, ClockIcon, RecordIcon } from '../components/icons';
+import { BackIcon, CheckIcon, ClockIcon, RaceFlagIcon, RecordIcon } from '../components/icons';
 import SwipeToDeleteRow from '../components/SwipeToDeleteRow';
 import { useAuth } from '../lib/AuthContext';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
@@ -147,7 +147,7 @@ export default function ActivityFeedScreen({ onClose, onOpenDetail, onOpenRecord
             <SwipeToDeleteRow onDelete={() => handleDeleteRecording(item.recording)}>
               <Pressable style={styles.card} onPress={() => onOpenRecordedRun(item.recording.id)}>
                 <View style={[styles.iconBadge, styles.iconBadgeCoral]}>
-                  {item.recording.raceTitle ? <Text style={styles.raceFinishFlag}>🏁</Text> : <RecordIcon size={14} color={colors.white} />}
+                  {item.recording.raceTitle ? <RaceFlagIcon size={14} color={colors.white} /> : <RecordIcon size={14} color={colors.white} />}
                 </View>
                 <View style={styles.cardBody}>
                   <Text style={styles.cardText} numberOfLines={2}>
@@ -260,9 +260,6 @@ const styles = StyleSheet.create({
   },
   iconBadgeCoral: {
     backgroundColor: colors.coral,
-  },
-  raceFinishFlag: {
-    fontSize: 15,
   },
   iconBadge: {
     width: 38,
