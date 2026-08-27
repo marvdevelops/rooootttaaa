@@ -918,6 +918,7 @@ function AuthedApp({
             onOpenSettings={() => setOverlay('settings')}
             onOpenClub={(clubId) => openClubProfile(clubId)}
             onOpenCreateClub={() => navigateTo('createClub')}
+            onOpenPaywall={() => openPaywall('direct')}
           />
         </View>
       )}

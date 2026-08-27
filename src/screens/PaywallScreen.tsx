@@ -4,7 +4,7 @@ import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases
 import { CheckIcon, CloseIcon, LockIcon } from '../components/icons';
 import { useAuth } from '../lib/AuthContext';
 import { getDefaultOffering, isRevenueCatAvailable } from '../lib/revenuecat';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import Purchases from 'react-native-purchases';
 
 export type PaywallTrigger =
@@ -14,7 +14,11 @@ export type PaywallTrigger =
   | 'group_run_limit'
   | 'group_run_join_limit'
   | 'leg_distance'
-  | 'flyby_video';
+  | 'flyby_video'
+  // Opened directly from the Profile screen's "Rootah Pro" card, not from
+  // hitting a specific limit — needed so App Review (and any user just
+  // browsing) can find and reach the IAP without first tripping a gate.
+  | 'direct';
 
 interface Props {
   /** Which locked feature sent the user here — drives a tailored, motivation-specific headline; no gating logic depends on it. */
@@ -33,6 +37,7 @@ const TRIGGER_HEADLINE: Record<NonNullable<Props['trigger']>, string> = {
   group_run_join_limit: "You've joined your one free event",
   leg_distance: 'This leg is longer than the free limit',
   flyby_video: 'Flyby videos are a Pro feature',
+  direct: 'Get more out of every run',
 };
 
 const TRIGGER_SUBHEAD: Record<NonNullable<Props['trigger']>, string> = {
@@ -43,6 +48,7 @@ const TRIGGER_SUBHEAD: Record<NonNullable<Props['trigger']>, string> = {
   group_run_join_limit: 'Go Pro to join unlimited events, any time.',
   leg_distance: 'Go Pro for legs up to 50km — plan bigger routes.',
   flyby_video: 'Go Pro to create cinematic flyby videos of your routes.',
+  direct: 'Unlock unlimited routes, unlimited group runs, and room to plan bigger.',
 };
 
 const DEFAULT_HEADLINE = 'Get more out of every run';
@@ -219,7 +225,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
         </View>
 
         {loadingOffering ? (
-          <ActivityIndicator color={colors.rust} style={{ marginTop: 24 }} />
+          <ActivityIndicator color={colors.coral} style={{ marginTop: 24 }} />
         ) : packages.length > 0 ? (
           <View style={styles.packageList}>
             {packages.map((pkg) => {
@@ -266,17 +272,17 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
           onPress={handlePurchase}
           disabled={!selectedPackage || purchasing || restoring}
         >
-          {purchasing ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.ctaButtonText}>{ctaLabel}</Text>}
+          {purchasing ? <ActivityIndicator color={colors.white} /> : <Text style={styles.ctaButtonText}>{ctaLabel}</Text>}
         </Pressable>
 
         <View style={styles.trustRow}>
-          <LockIcon size={12} color={colors.mutedLight} />
+          <LockIcon size={12} color={colors.mist} />
           <Text style={styles.trustText}>Secure payment · Cancel anytime</Text>
         </View>
 
         <Pressable style={styles.restoreButton} onPress={handleRestore} disabled={restoring || purchasing}>
           {restoring ? (
-            <ActivityIndicator color={colors.muted} size="small" />
+            <ActivityIndicator color={colors.stone} size="small" />
           ) : (
             <Text style={styles.restoreButtonText}>Restore purchases</Text>
           )}
@@ -316,12 +322,11 @@ const styles = StyleSheet.create({
   closeButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   unavailableWrap: {
     flex: 1,
@@ -337,28 +342,30 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   eyebrow: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
+    fontFamily: fonts.bold,
+    fontSize: 11,
     letterSpacing: 1.5,
-    color: colors.rust,
+    textTransform: 'uppercase',
+    color: colors.coral,
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 26,
+    letterSpacing: -0.4,
     color: colors.ink,
     lineHeight: 32,
   },
   subheadline: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 15,
-    color: colors.muted,
+    color: colors.stone,
     lineHeight: 21,
     marginTop: -8,
   },
   subtitle: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 16,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     marginTop: 8,
   },
@@ -374,15 +381,13 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: colors.green,
-    borderWidth: 1.5,
-    borderColor: colors.ink,
+    backgroundColor: colors.sage,
     alignItems: 'center',
     justifyContent: 'center',
   },
   featureText: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 16,
     color: colors.ink,
   },
@@ -395,35 +400,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     minHeight: 68,
-    borderRadius: 14,
+    borderRadius: radii.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    backgroundColor: colors.white,
-    borderWidth: 2.5,
-    borderColor: colors.sand,
+    backgroundColor: colors.surface,
+    ...elevation('subtle'),
   },
   packageCardSelected: {
-    ...brutalShadow(3),
-    borderColor: colors.rust,
-    backgroundColor: colors.cream,
+    ...elevation('card'),
+    backgroundColor: colors.surface,
   },
   radio: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: colors.mutedLight,
+    borderColor: colors.mist,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioSelected: {
-    borderColor: colors.rust,
+    borderColor: colors.coral,
   },
   radioDot: {
     width: 11,
     height: 11,
     borderRadius: 5.5,
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   packageInfo: {
     flex: 1,
@@ -435,8 +438,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   packageTitle: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 16,
+    letterSpacing: -0.2,
     color: colors.ink,
   },
   savingsBadge: {
@@ -444,26 +448,24 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderWidth: 1.5,
-    borderColor: colors.ink,
   },
   savingsBadgeText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 10,
-    color: colors.ink,
+    color: colors.white,
   },
   packageTrial: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.green,
+    color: colors.sage,
   },
   packageSubprice: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   packagePrice: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 15,
     color: colors.ink,
   },
@@ -472,25 +474,25 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 20,
     gap: 10,
-    borderTopWidth: 2,
-    borderTopColor: colors.sand,
   },
   ctaButton: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(4),
+    paddingHorizontal: 24,
+    ...elevation('primaryBtn'),
   },
   ctaButtonDisabled: {
     opacity: 0.6,
   },
   ctaButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 16,
-    color: colors.sand,
-    letterSpacing: 0.5,
+    color: colors.white,
+    lineHeight: 20,
+    letterSpacing: 0.2,
   },
   trustRow: {
     flexDirection: 'row',
@@ -499,18 +501,18 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   trustText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   restoreButton: {
     alignItems: 'center',
-    paddingVertical: 2,
+    paddingVertical: 9,
   },
   restoreButtonText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textDecorationLine: 'underline',
   },
   legalRow: {
@@ -520,13 +522,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   legalText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.mutedLight,
+    color: colors.mist,
     textDecorationLine: 'underline',
   },
   legalDivider: {
     fontSize: 13,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
 });

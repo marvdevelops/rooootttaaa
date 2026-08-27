@@ -1,9 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import BadgeStrip from '../components/BadgeStrip';
 import { BackIcon, CalendarIcon, ClockIcon, CompassIcon, GearIcon, PlusIcon } from '../components/icons';
+import ProBadge from '../components/ProBadge';
 import { useAuth } from '../lib/AuthContext';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { RunClub } from '../types/club';
 import { listMyClubs } from '../utils/clubsApi';
 
@@ -15,6 +24,7 @@ interface Props {
   onOpenSettings: () => void;
   onOpenClub: (clubId: string) => void;
   onOpenCreateClub: () => void;
+  onOpenPaywall: () => void;
 }
 
 export default function ProfileScreen({
@@ -25,8 +35,9 @@ export default function ProfileScreen({
   onOpenSettings,
   onOpenClub,
   onOpenCreateClub,
+  onOpenPaywall,
 }: Props) {
-  const { profile } = useAuth();
+  const { profile, tier } = useAuth();
   const [clubs, setClubs] = useState<RunClub[]>([]);
   const [loadingClubs, setLoadingClubs] = useState(true);
 
@@ -69,31 +80,44 @@ export default function ProfileScreen({
             </View>
           )}
           <View style={styles.identityText}>
-            <Text style={styles.username}>@{profile?.username ?? 'runner'}</Text>
+            <View style={styles.usernameRow}>
+              <Text style={styles.username}>@{profile?.username ?? 'runner'}</Text>
+              {tier === 'paid' && <ProBadge />}
+            </View>
             {!!profile?.bio && <Text style={styles.bio}>{profile.bio}</Text>}
           </View>
         </View>
+
+        <Pressable style={styles.proCard} onPress={onOpenPaywall}>
+          <View style={styles.proCardText}>
+            <Text style={styles.proCardTitle}>{tier === 'paid' ? 'Rootah Pro' : 'Go Rootah Pro'}</Text>
+            <Text style={styles.proCardSubtitle}>
+              {tier === 'paid' ? 'Manage your plan or restore a purchase' : 'Unlimited routes, group runs, and more'}
+            </Text>
+          </View>
+          <Text style={styles.proCardArrow}>→</Text>
+        </Pressable>
 
         {profile && <BadgeStrip userId={profile.id} />}
 
         <View style={styles.navGrid}>
           <Pressable style={styles.navButton} onPress={onOpenMyMaps}>
-            <View style={[styles.navIconBadge, styles.navIconBadgeAqua]}>
-              <CompassIcon size={26} color={colors.ink} />
+            <View style={[styles.navIconBadge, styles.navIconBadgeTeal]}>
+              <CompassIcon size={26} color={colors.white} />
             </View>
             <Text style={styles.navButtonText}>ROUTES</Text>
           </Pressable>
 
           <Pressable style={styles.navButton} onPress={onOpenActivity}>
             <View style={[styles.navIconBadge, styles.navIconBadgeAmber]}>
-              <ClockIcon size={26} color={colors.ink} />
+              <ClockIcon size={26} color={colors.white} />
             </View>
             <Text style={styles.navButtonText}>ACTIVITY</Text>
           </Pressable>
 
           <Pressable style={styles.navButton} onPress={onOpenEvents}>
-            <View style={[styles.navIconBadge, styles.navIconBadgeRust]}>
-              <CalendarIcon size={26} color={colors.sand} />
+            <View style={[styles.navIconBadge, styles.navIconBadgeCoral]}>
+              <CalendarIcon size={26} color={colors.white} />
             </View>
             <Text style={styles.navButtonText}>EVENTS</Text>
           </Pressable>
@@ -140,108 +164,140 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   contentInner: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
     gap: 18,
   },
   identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: spacing.base,
   },
   avatarImage: {
     width: 72,
     height: 72,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.lg,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarPlaceholderText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 26,
-    color: colors.ink,
+    color: colors.white,
   },
   identityText: {
     flex: 1,
     gap: 2,
   },
+  usernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   username: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   bio: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
+  },
+  proCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.ink,
+    borderRadius: radii.md,
+    paddingVertical: 16,
+    paddingHorizontal: spacing.base,
+    ...elevation('card'),
+  },
+  proCardText: {
+    gap: 2,
+  },
+  proCardTitle: {
+    fontFamily: fonts.extraBold,
+    fontSize: 15,
+    color: colors.white,
+  },
+  proCardSubtitle: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  proCardArrow: {
+    fontFamily: fonts.extraBold,
+    fontSize: 18,
+    color: colors.coral,
   },
   navGrid: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   navButton: {
     flex: 1,
     height: 100,
-    borderRadius: 16,
-    backgroundColor: colors.white,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    ...brutalShadow(4),
+    gap: spacing.sm,
+    ...elevation('card'),
   },
   navIconBadge: {
     width: 44,
     height: 44,
-    borderRadius: 13,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navIconBadgeAqua: {
-    backgroundColor: colors.aqua,
+  navIconBadgeTeal: {
+    backgroundColor: colors.teal,
   },
   navIconBadgeAmber: {
     backgroundColor: colors.amber,
   },
-  navIconBadgeRust: {
-    backgroundColor: colors.rust,
+  navIconBadgeCoral: {
+    backgroundColor: colors.coral,
   },
   navButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 11,
+    letterSpacing: 0.08,
     color: colors.ink,
     textAlign: 'center',
   },
   sectionHeader: {
-    fontFamily: fonts.display,
-    fontSize: 13,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    letterSpacing: 0.08,
+    textTransform: 'uppercase',
+    color: colors.stone,
     marginBottom: -8,
   },
   clubsRow: {
@@ -252,14 +308,13 @@ const styles = StyleSheet.create({
   clubChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.white,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 30,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     maxWidth: 180,
+    ...elevation('subtle'),
   },
   clubAvatar: {
     width: 26,
@@ -267,17 +322,17 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   clubAvatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
   },
   clubAvatarPlaceholderText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 12,
-    color: colors.ink,
+    color: colors.white,
   },
   clubChipText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
     flexShrink: 1,
@@ -286,12 +341,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.sand,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 30,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderStyle: 'dashed',
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,0,0,0.15)',
+    borderRadius: radii.pill,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
 });
