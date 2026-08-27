@@ -1,25 +1,25 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { colors, elevation, fonts } from '../theme/theme';
+import { ActivityType } from '../types/route';
 import { formatDuration } from '../utils/completionsApi';
+import { paceOrSpeedStat } from '../utils/activityStats';
 
 interface Props {
+  activityType: ActivityType;
   elapsedSeconds: number;
   distanceMeters: number;
   elevationGainMeters: number;
-  /** Average pace over moving time (excludes auto-paused stretches) — computed by the caller so this stays a pure display component. Null until there's enough distance/time to mean anything. */
+  /** Average pace over moving time (excludes auto-paused stretches) — computed by the caller so this stays a pure display component. Null until there's enough distance/time to mean anything. Used for every activity except bike. */
   paceSecondsPerKm: number | null;
+  /** Average speed over moving time — used instead of pace for bike, same split Strava uses. */
+  speedKmh: number | null;
 }
 
-function formatPace(secondsPerKm: number | null): string {
-  if (!secondsPerKm || !isFinite(secondsPerKm)) return '--:--';
-  const m = Math.floor(secondsPerKm / 60);
-  const s = Math.round(secondsPerKm % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
+/** Time / distance / pace-or-speed / elevation panel — the primary readout on the recording screen. Rides show average speed instead of pace, matching every other stat/moving-time screen in the app. */
+export default function RecordingStats({ activityType, elapsedSeconds, distanceMeters, elevationGainMeters, paceSecondsPerKm, speedKmh }: Props) {
+  const paceOrSpeed = paceOrSpeedStat(activityType, paceSecondsPerKm, speedKmh);
 
-/** Time / distance / pace / elevation panel — the primary readout on the recording screen. */
-export default function RecordingStats({ elapsedSeconds, distanceMeters, elevationGainMeters, paceSecondsPerKm }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.primaryRow}>
@@ -33,8 +33,8 @@ export default function RecordingStats({ elapsedSeconds, distanceMeters, elevati
           <Text style={styles.statLabel}>KM</Text>
         </View>
         <View style={styles.stat}>
-          <Text style={styles.statValue}>{formatPace(paceSecondsPerKm)}</Text>
-          <Text style={styles.statLabel}>/KM PACE</Text>
+          <Text style={styles.statValue}>{paceOrSpeed.value}</Text>
+          <Text style={styles.statLabel}>{paceOrSpeed.label}</Text>
         </View>
         <View style={styles.stat}>
           <Text style={styles.statValue}>+{Math.round(elevationGainMeters)}</Text>

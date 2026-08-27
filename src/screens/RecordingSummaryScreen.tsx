@@ -11,6 +11,7 @@ import { formatDuration } from '../utils/completionsApi';
 import { buildGpx } from '../utils/gpx';
 import { correctAndroidElevation, RecordedRunSummary, summarizeSession, uploadRecording } from '../utils/recordingUpload';
 import { finishRaceRun } from '../utils/racesApi';
+import { paceOrSpeedStat } from '../utils/activityStats';
 
 interface Props {
   sessionId: string;
@@ -34,13 +35,6 @@ const ACTIVITY_LABEL: Record<ActivityType, string> = {
   walk: 'Walk',
   other: 'Activity',
 };
-
-function formatPace(secondsPerKm: number | null): string {
-  if (!secondsPerKm) return '--:--';
-  const m = Math.floor(secondsPerKm / 60);
-  const s = Math.round(secondsPerKm % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
 
 export default function RecordingSummaryScreen({ sessionId, activityType, routeId, startedAt, raceRsvpId, onRaceFinished, onActivityFinished, onDone }: Props) {
   const [summary, setSummary] = useState<RecordedRunSummary | null>(null);
@@ -158,8 +152,8 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
             <Text style={styles.statLabel}>MOVING TIME</Text>
           </View>
           <View style={styles.statTile}>
-            <Text style={styles.statValue}>{formatPace(summary.avgPaceSecondsPerKm)}</Text>
-            <Text style={styles.statLabel}>/KM PACE</Text>
+            <Text style={styles.statValue}>{paceOrSpeedStat(activityType, summary.avgPaceSecondsPerKm, summary.avgSpeedKmh).value}</Text>
+            <Text style={styles.statLabel}>{paceOrSpeedStat(activityType, summary.avgPaceSecondsPerKm, summary.avgSpeedKmh).label}</Text>
           </View>
           <View style={styles.statTile}>
             <Text style={styles.statValue}>+{summary.elevationGainMeters}m</Text>

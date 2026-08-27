@@ -418,10 +418,12 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
         {isPaused && <AutoPauseBanner onResume={resumeRecording} />}
 
         <RecordingStats
+          activityType={activityType}
           elapsedSeconds={elapsedSeconds}
           distanceMeters={distanceMeters}
           elevationGainMeters={elevationGainMeters}
           paceSecondsPerKm={displayPaceSecondsPerKm}
+          speedKmh={displayPaceSecondsPerKm ? 3600 / displayPaceSecondsPerKm : null}
         />
 
         <View style={styles.controlsRow}>

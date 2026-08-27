@@ -5,6 +5,7 @@ import Logo from './Logo';
 import { colors, fonts, radii } from '../theme/theme';
 import { ActivityType } from '../types/route';
 import { formatDuration } from '../utils/completionsApi';
+import { paceOrSpeedStat } from '../utils/activityStats';
 
 const ACTIVITY_LABEL: Record<ActivityType, string> = {
   run: 'RUN',
@@ -20,16 +21,10 @@ interface Props {
   distanceMeters: number;
   movingTimeSeconds: number;
   paceSecondsPerKm: number | null;
+  speedKmh: number | null;
   athleteAvatarUrl: string | null;
   /** Local file URI of the selfie, once captured. Shown as a placeholder cutout until then. */
   selfieUri: string | null;
-}
-
-function formatPace(secondsPerKm: number | null): string {
-  if (!secondsPerKm) return '--:--';
-  const m = Math.floor(secondsPerKm / 60);
-  const s = Math.round(secondsPerKm % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
 }
 
 /**
@@ -44,9 +39,11 @@ export default function ActivityShareCardCanvas({
   distanceMeters,
   movingTimeSeconds,
   paceSecondsPerKm,
+  speedKmh,
   athleteAvatarUrl,
   selfieUri,
 }: Props) {
+  const paceOrSpeed = paceOrSpeedStat(activityType, paceSecondsPerKm, speedKmh);
   return (
     <View style={styles.card}>
       <View style={styles.photoWrap}>
@@ -82,8 +79,8 @@ export default function ActivityShareCardCanvas({
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statTile}>
-            <Text style={styles.statValue}>{formatPace(paceSecondsPerKm)}</Text>
-            <Text style={styles.statLabel}>/KM PACE</Text>
+            <Text style={styles.statValue}>{paceOrSpeed.value}</Text>
+            <Text style={styles.statLabel}>{paceOrSpeed.label}</Text>
           </View>
         </View>
 

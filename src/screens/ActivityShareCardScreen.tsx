@@ -84,6 +84,7 @@ export default function ActivityShareCardScreen({ activityType, distanceMeters, 
                 distanceMeters={distanceMeters}
                 movingTimeSeconds={movingTimeSeconds}
                 paceSecondsPerKm={paceSecondsPerKm}
+                speedKmh={movingTimeSeconds > 0 ? distanceMeters / 1000 / (movingTimeSeconds / 3600) : null}
                 athleteAvatarUrl={profile?.avatarUrl ?? null}
                 selfieUri={selfieUri}
               />

@@ -9,6 +9,7 @@ import { ActivityType } from '../types/route';
 import { formatDuration } from '../utils/completionsApi';
 import { buildGpx } from '../utils/gpx';
 import { deleteRecordedRun, getRecordedRun, RecordedRunDetail } from '../utils/recordingUpload';
+import { paceOrSpeedStat } from '../utils/activityStats';
 
 interface Props {
   runId: string;
@@ -25,13 +26,6 @@ const ACTIVITY_LABEL: Record<ActivityType, string> = {
   walk: 'Walk',
   other: 'Activity',
 };
-
-function formatPace(secondsPerKm: number | null): string {
-  if (!secondsPerKm) return '--:--';
-  const m = Math.floor(secondsPerKm / 60);
-  const s = Math.round(secondsPerKm % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
 
 function formatDate(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
@@ -142,8 +136,12 @@ export default function RecordedRunDetailScreen({ runId, onClose, onOpenRoute, o
                 <Text style={styles.statLabel}>MOVING TIME</Text>
               </View>
               <View style={[styles.statTile, styles.statTileTeal]}>
-                <Text style={[styles.statValue, styles.statValueOnColor]}>{formatPace(run.avgPaceSecondsPerKm)}</Text>
-                <Text style={[styles.statLabel, styles.statLabelOnColor]}>/KM PACE</Text>
+                <Text style={[styles.statValue, styles.statValueOnColor]}>
+                  {paceOrSpeedStat(run.activityType, run.avgPaceSecondsPerKm, run.avgSpeedKmh).value}
+                </Text>
+                <Text style={[styles.statLabel, styles.statLabelOnColor]}>
+                  {paceOrSpeedStat(run.activityType, run.avgPaceSecondsPerKm, run.avgSpeedKmh).label}
+                </Text>
               </View>
               <View style={[styles.statTile, styles.statTileSage]}>
                 <Text style={[styles.statValue, styles.statValueOnColor]}>+{Math.round(run.elevationGainMeters)}m</Text>
