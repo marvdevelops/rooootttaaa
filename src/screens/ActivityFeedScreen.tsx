@@ -11,6 +11,7 @@ import { deleteRecordedRun, listMyRecordedRuns, RecordedRunFeedItem } from '../u
 interface Props {
   onClose: () => void;
   onOpenDetail: (routeId: string) => void;
+  onOpenRecordedRun: (runId: string) => void;
 }
 
 type FeedItem =
@@ -38,7 +39,7 @@ function timeAgo(ms: number): string {
   return new Date(ms).toLocaleDateString();
 }
 
-export default function ActivityFeedScreen({ onClose, onOpenDetail }: Props) {
+export default function ActivityFeedScreen({ onClose, onOpenDetail, onOpenRecordedRun }: Props) {
   const { session } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,11 +145,7 @@ export default function ActivityFeedScreen({ onClose, onOpenDetail }: Props) {
             </Pressable>
           ) : (
             <SwipeToDeleteRow onDelete={() => handleDeleteRecording(item.recording)}>
-              <Pressable
-                style={styles.card}
-                onPress={() => item.recording.routeId && onOpenDetail(item.recording.routeId)}
-                disabled={!item.recording.routeId}
-              >
+              <Pressable style={styles.card} onPress={() => onOpenRecordedRun(item.recording.id)}>
                 <View style={[styles.iconBadge, styles.iconBadgeCoral]}>
                   {item.recording.raceTitle ? <Text style={styles.raceFinishFlag}>🏁</Text> : <RecordIcon size={14} color={colors.white} />}
                 </View>

@@ -266,6 +266,55 @@ export async function getRecordedRunStats(runId: string): Promise<RecordedRunSta
   };
 }
 
+export interface RecordedRunDetail extends RecordedRunSummary {
+  activityType: ActivityType;
+  routeId: string | null;
+  startedAt: number;
+  finishedAt: number;
+  elevationGainMeters: number;
+  elevationLossMeters: number;
+}
+
+/** For reopening a saved run's full stats later (activity feed -> "review this run") — reads back everything the summary screen showed right after finishing, from the saved row instead of the (by-then-deleted) SQLite session. */
+export async function getRecordedRun(runId: string): Promise<RecordedRunDetail> {
+  const [{ data: run, error: runError }, { data: splitRows, error: splitError }] = await Promise.all([
+    supabase
+      .from('recorded_runs')
+      .select(
+        'id, activity_type, route_id, started_at, finished_at, moving_time_seconds, elapsed_time_seconds, distance_meters, elevation_gain_meters, elevation_loss_meters, avg_pace_seconds_per_km, avg_speed_kmh, track_geojson',
+      )
+      .eq('id', runId)
+      .single(),
+    supabase.from('run_splits').select('km_number, split_seconds, elevation_gain_meters').eq('run_id', runId).order('km_number', { ascending: true }),
+  ]);
+  if (runError || !run) throw new Error(runError?.message ?? 'Could not load this run.');
+  if (splitError) throw new Error(splitError.message);
+
+  const track = run.track_geojson as { coordinates: [number, number][] } | null;
+  const path: LatLng[] = (track?.coordinates ?? []).map(([longitude, latitude]) => ({ latitude, longitude }));
+
+  return {
+    id: run.id as string,
+    activityType: run.activity_type as ActivityType,
+    routeId: run.route_id as string | null,
+    startedAt: new Date(run.started_at as string).getTime(),
+    finishedAt: new Date(run.finished_at as string).getTime(),
+    distanceMeters: run.distance_meters as number,
+    movingTimeSeconds: run.moving_time_seconds as number,
+    elapsedTimeSeconds: run.elapsed_time_seconds as number,
+    elevationGainMeters: (run.elevation_gain_meters as number | null) ?? 0,
+    elevationLossMeters: (run.elevation_loss_meters as number | null) ?? 0,
+    avgPaceSecondsPerKm: run.avg_pace_seconds_per_km as number | null,
+    avgSpeedKmh: run.avg_speed_kmh as number | null,
+    path,
+    splits: (splitRows ?? []).map((s) => ({
+      kmNumber: s.km_number as number,
+      splitSeconds: s.split_seconds as number,
+      elevationGainMeters: (s.elevation_gain_meters as number | null) ?? 0,
+    })),
+  };
+}
+
 /** run_splits cascades via its FK — no separate delete needed there. */
 export async function deleteRecordedRun(runId: string): Promise<void> {
   const { error } = await supabase.from('recorded_runs').delete().eq('id', runId);

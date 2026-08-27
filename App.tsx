@@ -27,6 +27,7 @@ import RecordingScreen from './src/screens/RecordingScreen';
 import RecordingSummaryScreen from './src/screens/RecordingSummaryScreen';
 import RaceShareCardScreen from './src/screens/RaceShareCardScreen';
 import ActivityShareCardScreen from './src/screens/ActivityShareCardScreen';
+import RecordedRunDetailScreen from './src/screens/RecordedRunDetailScreen';
 import ClubsListScreen from './src/screens/ClubsListScreen';
 import CreateClubScreen from './src/screens/CreateClubScreen';
 import CreateEventScreen from './src/screens/CreateEventScreen';
@@ -97,6 +98,7 @@ type Overlay =
   | 'recordingSummary'
   | 'raceShareCard'
   | 'activityShareCard'
+  | 'recordedRunDetail'
   | null;
 
 interface AuthedAppProps {
@@ -131,6 +133,7 @@ function AuthedApp({
   const [selectedRoute, setSelectedRoute] = useState<CloudRoute | null>(null);
   const [viewedUserId, setViewedUserId] = useState<string | null>(null);
   const [selectedGroupRunId, setSelectedGroupRunId] = useState<string | null>(null);
+  const [selectedRecordedRunId, setSelectedRecordedRunId] = useState<string | null>(null);
   const [routeToLoad, setRouteToLoad] = useState<CloudRoute | null>(null);
   const [resolvingRoute, setResolvingRoute] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -289,6 +292,14 @@ function AuthedApp({
       }
     },
     [openDetail],
+  );
+
+  const openRecordedRunDetail = useCallback(
+    (runId: string) => {
+      setSelectedRecordedRunId(runId);
+      navigateTo('recordedRunDetail');
+    },
+    [navigateTo],
   );
 
   const openOnMap = useCallback((route: CloudRoute) => {
@@ -619,6 +630,22 @@ function AuthedApp({
           <ActivityFeedScreen
             onClose={() => setOverlay('profile')}
             onOpenDetail={(routeId) => openDetailById(routeId)}
+            onOpenRecordedRun={openRecordedRunDetail}
+          />
+        </View>
+      )}
+
+      {overlay === 'recordedRunDetail' && selectedRecordedRunId && (
+        <View style={StyleSheet.absoluteFill}>
+          <RecordedRunDetailScreen
+            runId={selectedRecordedRunId}
+            onClose={() => navigateBack()}
+            onOpenRoute={(routeId) => openDetailById(routeId)}
+            onDeleted={() => {
+              setSelectedRecordedRunId(null);
+              setToast('Run deleted.');
+              navigateBack();
+            }}
           />
         </View>
       )}
