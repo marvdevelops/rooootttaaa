@@ -21,6 +21,8 @@ interface Props {
   raceRsvpId?: string;
   /** Called instead of onDone when a race run finishes saving — hands off to the share-card screen with the stats it needs. */
   onRaceFinished?: (distanceMeters: number, finishTimeSeconds: number, paceSecondsPerKm: number | null) => void;
+  /** Called instead of onDone when a normal (non-race) activity finishes saving — hands off to the generic selfie share-card screen. */
+  onActivityFinished?: (distanceMeters: number, movingTimeSeconds: number, paceSecondsPerKm: number | null) => void;
   onDone: () => void;
 }
 
@@ -40,7 +42,7 @@ function formatPace(secondsPerKm: number | null): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export default function RecordingSummaryScreen({ sessionId, activityType, routeId, startedAt, raceRsvpId, onRaceFinished, onDone }: Props) {
+export default function RecordingSummaryScreen({ sessionId, activityType, routeId, startedAt, raceRsvpId, onRaceFinished, onActivityFinished, onDone }: Props) {
   const [summary, setSummary] = useState<RecordedRunSummary | null>(null);
   const [saving, setSaving] = useState(false);
   const [discarding, setDiscarding] = useState(false);
@@ -75,6 +77,8 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
       deleteSession(sessionId); // raw points only needed until a successful upload
       if (raceRsvpId && onRaceFinished) {
         onRaceFinished(summary.distanceMeters, summary.movingTimeSeconds, summary.avgPaceSecondsPerKm);
+      } else if (onActivityFinished) {
+        onActivityFinished(summary.distanceMeters, summary.movingTimeSeconds, summary.avgPaceSecondsPerKm);
       } else {
         onDone();
       }
@@ -83,7 +87,7 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
     } finally {
       setSaving(false);
     }
-  }, [summary, activityType, routeId, startedAt, raceRsvpId, onRaceFinished, sessionId, onDone]);
+  }, [summary, activityType, routeId, startedAt, raceRsvpId, onRaceFinished, onActivityFinished, sessionId, onDone]);
 
   const handleExportGpx = useCallback(async () => {
     setExporting(true);

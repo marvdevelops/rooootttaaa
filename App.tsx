@@ -26,6 +26,7 @@ import NotificationsScreen from './src/screens/NotificationsScreen';
 import RecordingScreen from './src/screens/RecordingScreen';
 import RecordingSummaryScreen from './src/screens/RecordingSummaryScreen';
 import RaceShareCardScreen from './src/screens/RaceShareCardScreen';
+import ActivityShareCardScreen from './src/screens/ActivityShareCardScreen';
 import ClubsListScreen from './src/screens/ClubsListScreen';
 import CreateClubScreen from './src/screens/CreateClubScreen';
 import CreateEventScreen from './src/screens/CreateEventScreen';
@@ -95,6 +96,7 @@ type Overlay =
   | 'recording'
   | 'recordingSummary'
   | 'raceShareCard'
+  | 'activityShareCard'
   | null;
 
 interface AuthedAppProps {
@@ -164,6 +166,7 @@ function AuthedApp({
   const [recordingRaceRsvpId, setRecordingRaceRsvpId] = useState<string | null>(null);
   const [recordingRaceContext, setRecordingRaceContext] = useState<{ raceDetails: RaceDetails; raceTitle: string } | null>(null);
   const [raceFinishStats, setRaceFinishStats] = useState<{ distanceMeters: number; finishTimeSeconds: number; paceSecondsPerKm: number | null } | null>(null);
+  const [activityFinishStats, setActivityFinishStats] = useState<{ activityType: ActivityType; distanceMeters: number; movingTimeSeconds: number; paceSecondsPerKm: number | null } | null>(null);
   // True only when the share card was reopened later from the race event
   // page (not right after finishing) — changes onDone to go back to that
   // page instead of closing out to the map with a "Run saved" toast.
@@ -722,12 +725,35 @@ function AuthedApp({
                   }
                 : undefined
             }
+            onActivityFinished={(distanceMeters, movingTimeSeconds, paceSecondsPerKm) => {
+              setActivityFinishStats({ activityType: finishedRecordingSession.activityType, distanceMeters, movingTimeSeconds, paceSecondsPerKm });
+              setFinishedRecordingSession(null);
+              setDiscoverRefreshSignal((n) => n + 1);
+              setOverlay('activityShareCard');
+            }}
             onDone={() => {
               setFinishedRecordingSession(null);
               setRecordingRaceRsvpId(null);
               setRecordingRaceContext(null);
               setToast('Run saved.');
               setDiscoverRefreshSignal((n) => n + 1);
+              setOverlay(null);
+              setNavStack([]);
+            }}
+          />
+        </View>
+      )}
+
+      {overlay === 'activityShareCard' && activityFinishStats && (
+        <View style={StyleSheet.absoluteFill}>
+          <ActivityShareCardScreen
+            activityType={activityFinishStats.activityType}
+            distanceMeters={activityFinishStats.distanceMeters}
+            movingTimeSeconds={activityFinishStats.movingTimeSeconds}
+            paceSecondsPerKm={activityFinishStats.paceSecondsPerKm}
+            onDone={() => {
+              setActivityFinishStats(null);
+              setToast('Run saved.');
               setOverlay(null);
               setNavStack([]);
             }}
