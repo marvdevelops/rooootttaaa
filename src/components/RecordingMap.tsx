@@ -10,6 +10,8 @@ interface Props {
   livePath: LatLng[];
   /** The planned route, when recording in route-aware mode. */
   plannedPath?: LatLng[];
+  /** True during an active recording — locks the map to the user's position (see scrollEnabled below). False for the post-run summary review, where panning around the finished track is the point. */
+  isLive?: boolean;
 }
 
 function toLineFeature(path: LatLng[]): Feature<LineString> {
@@ -21,10 +23,27 @@ function toLineFeature(path: LatLng[]): Feature<LineString> {
 }
 
 /** Full-bleed live tracking map — follows the user, draws the recorded track (and the planned route, if any) as it grows. */
-export default function RecordingMap({ livePath, plannedPath }: Props) {
+export default function RecordingMap({ livePath, plannedPath, isLive = true }: Props) {
   return (
     <View style={styles.map}>
-      <MapView style={styles.map} styleURL={StyleURL.Light} scaleBarEnabled={false} compassEnabled={false} attributionEnabled={false} logoEnabled={false}>
+      <MapView
+        style={styles.map}
+        styleURL={StyleURL.Light}
+        scaleBarEnabled={false}
+        compassEnabled={false}
+        attributionEnabled={false}
+        logoEnabled={false}
+        // A manual pan/rotate permanently cancels @rnmapbox/maps' Camera
+        // followUserLocation — there's no "resume following" event to hook,
+        // so the only reliable fix during an active recording is to not let
+        // the gesture happen at all. Pinch-zoom still works; the center
+        // point just can't be dragged away from the live position, same
+        // lock Strava/Nike Run Club use. Not applied to the post-run
+        // summary review, where panning around the finished track is the point.
+        scrollEnabled={!isLive}
+        rotateEnabled={!isLive}
+        pitchEnabled={!isLive}
+      >
         <Camera followUserLocation followZoomLevel={17} followPitch={0} animationDuration={500} />
 
         <UserLocation visible showsUserHeadingIndicator />

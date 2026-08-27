@@ -139,7 +139,7 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
   return (
     <View style={styles.container}>
       <View style={styles.mapWrap}>
-        <RecordingMap livePath={summary.path} />
+        <RecordingMap livePath={summary.path} isLive={false} />
         <Pressable style={styles.backButton} onPress={handleDiscard} disabled={saving || discarding}>
           <BackIcon />
         </Pressable>
