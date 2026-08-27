@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Line, Polyline } from 'react-native-svg';
-import { colors, fonts } from '../theme/theme';
+import Svg, { Circle, Line, Polyline } from 'react-native-svg';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { PathPoint } from '../types/route';
 import { buildElevationProfile, ChartPoint, ElevationSegment } from '../utils/elevationProfile';
 
@@ -10,6 +10,10 @@ interface Props {
   compact?: boolean;
   /** Omits the card's own background/border, for use inside another card (e.g. a glass overlay). */
   transparent?: boolean;
+  /** Distance covered so far along `path`, in km — draws a marker at the runner's current position on the profile (live recording overlay). */
+  progressKm?: number;
+  /** Light text/axis colors for use over a dark, translucent card (e.g. the live recording overlay). */
+  onDark?: boolean;
 }
 
 const VB_WIDTH = 100;
@@ -30,8 +34,21 @@ function toChartXY(point: ChartPoint, totalKm: number, minElevation: number, max
   return { x, y };
 }
 
-export default function ElevationProfileChart({ path, compact = false, transparent = false }: Props) {
+export default function ElevationProfileChart({ path, compact = false, transparent = false, progressKm, onDark = false }: Props) {
   const profile = useMemo(() => buildElevationProfile(path), [path]);
+
+  const progressMarker = useMemo(() => {
+    if (progressKm == null || profile.totalKm === 0 || profile.points.length < 2) return null;
+    const clampedKm = Math.min(Math.max(progressKm, 0), profile.totalKm);
+    // Find the elevation at clampedKm by interpolating between the two bracketing points.
+    let i = 1;
+    while (i < profile.points.length - 1 && profile.points[i].km < clampedKm) i++;
+    const a = profile.points[i - 1];
+    const b = profile.points[i];
+    const t = b.km === a.km ? 0 : (clampedKm - a.km) / (b.km - a.km);
+    const elevationAtKm = a.elevation + (b.elevation - a.elevation) * t;
+    return toChartXY({ km: clampedKm, elevation: elevationAtKm }, profile.totalKm, profile.minElevation, profile.maxElevation);
+  }, [progressKm, profile]);
 
   const polylines = useMemo<PolylinePiece[]>(() => {
     if (profile.points.length < 2) return [];
@@ -42,7 +59,7 @@ export default function ElevationProfileChart({ path, compact = false, transpare
       while (segIdx < profile.segments.length - 1 && profile.points[i].km > profile.segments[segIdx].endKm) {
         segIdx++;
       }
-      const color = profile.segments[segIdx]?.color ?? colors.rust;
+      const color = profile.segments[segIdx]?.color ?? colors.coral;
       const a = toChartXY(profile.points[i - 1], profile.totalKm, profile.minElevation, profile.maxElevation);
       const b = toChartXY(profile.points[i], profile.totalKm, profile.minElevation, profile.maxElevation);
 
@@ -89,12 +106,12 @@ export default function ElevationProfileChart({ path, compact = false, transpare
 
   return (
     <View style={[styles.card, compact && styles.cardCompact, transparent && styles.cardTransparent]}>
-      <Text style={[styles.title, compact && styles.titleCompact]}>Elevation Profile</Text>
+      <Text style={[styles.title, compact && styles.titleCompact, onDark && styles.titleOnDark]}>Elevation Profile</Text>
 
       <View style={[styles.chartRow, compact && styles.chartRowCompact]}>
         <View style={styles.yAxis}>
           {yLabels.map((v, i) => (
-            <Text key={i} style={styles.axisLabel}>
+            <Text key={i} style={[styles.axisLabel, onDark && styles.axisLabelOnDark]}>
               {v} m
             </Text>
           ))}
@@ -109,7 +126,7 @@ export default function ElevationProfileChart({ path, compact = false, transpare
                 x2={VB_WIDTH}
                 y1={PLOT_TOP + ((PLOT_BOTTOM - PLOT_TOP) * i) / 3}
                 y2={PLOT_TOP + ((PLOT_BOTTOM - PLOT_TOP) * i) / 3}
-                stroke={colors.mutedLight}
+                stroke={colors.mist}
                 strokeWidth={0.2}
                 strokeOpacity={0.4}
               />
@@ -126,6 +143,22 @@ export default function ElevationProfileChart({ path, compact = false, transpare
                 vectorEffect="non-scaling-stroke"
               />
             ))}
+            {progressMarker && (
+              <>
+                <Line
+                  x1={progressMarker.x}
+                  x2={progressMarker.x}
+                  y1={PLOT_TOP}
+                  y2={PLOT_BOTTOM}
+                  stroke={onDark ? colors.white : colors.ink}
+                  strokeOpacity={0.55}
+                  strokeWidth={0.6}
+                  strokeDasharray="1.5,1.2"
+                  vectorEffect="non-scaling-stroke"
+                />
+                <Circle cx={progressMarker.x} cy={progressMarker.y} r={1.8} fill={colors.coral} stroke={onDark ? colors.white : colors.surface} strokeWidth={0.6} />
+              </>
+            )}
           </Svg>
         </View>
       </View>
@@ -133,7 +166,7 @@ export default function ElevationProfileChart({ path, compact = false, transpare
       {!compact && (
         <View style={styles.xAxisRow}>
           {xLabels.map((km, i) => (
-            <Text key={i} style={styles.axisLabel}>
+            <Text key={i} style={[styles.axisLabel, onDark && styles.axisLabelOnDark]}>
               {km.toFixed(1)} km
             </Text>
           ))}
@@ -162,42 +195,45 @@ export default function ElevationProfileChart({ path, compact = false, transpare
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
     padding: 14,
     gap: 8,
+    ...elevation('card'),
   },
   cardCompact: {
     padding: 8,
     gap: 4,
-    borderRadius: 12,
+    borderRadius: radii.sm,
   },
   cardTransparent: {
     backgroundColor: 'transparent',
-    borderWidth: 0,
     padding: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   emptyCard: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
     padding: 14,
+    ...elevation('card'),
   },
   emptyText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 14,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   titleCompact: {
     fontSize: 11,
+  },
+  titleOnDark: {
+    color: colors.white,
   },
   chartRow: {
     flexDirection: 'row',
@@ -215,9 +251,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   axisLabel: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 9,
-    color: colors.muted,
+    color: colors.stone,
+  },
+  axisLabelOnDark: {
+    color: 'rgba(255,255,255,0.6)',
   },
   xAxisRow: {
     flexDirection: 'row',
@@ -239,7 +278,7 @@ const styles = StyleSheet.create({
     minWidth: 2,
   },
   segmentText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 10,
     color: colors.ink,
   },

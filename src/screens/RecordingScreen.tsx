@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } fr
 import { useKeepAwake } from 'expo-keep-awake';
 import AutoPauseBanner from '../components/AutoPauseBanner';
 import DeviationBanner from '../components/DeviationBanner';
+import ElevationProfileChart from '../components/ElevationProfileChart';
 import { CloseIcon, LockIcon, PauseIcon, PlayIcon, ShareIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import RecordingMap from '../components/RecordingMap';
@@ -69,6 +70,8 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
   const [isOffRoute, setIsOffRoute] = useState(false);
   const [remainingMeters, setRemainingMeters] = useState<number | null>(null);
   const [nextClimb, setNextClimb] = useState<UpcomingClimb | null>(null);
+  const [traveledKm, setTraveledKm] = useState(0);
+  const [showElevationOverlay, setShowElevationOverlay] = useState(true);
   const [phase, setPhase] = useState<Phase>(alreadyStarted ? 'recording' : 'ready');
   const [countdownLabel, setCountdownLabel] = useState('3');
   const [checkingProximity, setCheckingProximity] = useState(false);
@@ -263,6 +266,8 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
       if (progress.deviationMeters < DEVIATION_CLEAR_METERS) setIsOffRoute(false);
     }
 
+    setTraveledKm(progress.traveledMeters / 1000);
+
     const now = Date.now();
     if (now - lastAheadUpdate.current >= ROUTE_AHEAD_UPDATE_MS || lastAheadUpdate.current === 0) {
       lastAheadUpdate.current = now;
@@ -396,6 +401,11 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
         <View style={styles.brandRow}>
           <Logo size={36} />
           <View style={styles.topButtons}>
+            {plannedPath && (
+              <Pressable style={styles.iconButton} onPress={() => setShowElevationOverlay((v) => !v)}>
+                <Text style={styles.elevationToggleGlyph}>⛰</Text>
+              </Pressable>
+            )}
             {raceRsvpId && liveShareToken && (
               <Pressable style={styles.iconButton} onPress={handleShareLiveLink}>
                 <ShareIcon size={16} />
@@ -410,6 +420,12 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
           </View>
         </View>
       </View>
+
+      {plannedPath && showElevationOverlay && !locked && (
+        <View style={styles.elevationOverlay} pointerEvents="none">
+          <ElevationProfileChart path={plannedPath} progressKm={traveledKm} compact transparent onDark />
+        </View>
+      )}
 
       <View style={styles.bottomOverlay} pointerEvents={locked ? 'none' : 'auto'}>
         {routeIndex && remainingMeters !== null && <RouteAheadPanel remainingMeters={remainingMeters} nextClimb={nextClimb} />}
@@ -467,6 +483,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...elevation('subtle'),
+  },
+  elevationToggleGlyph: {
+    fontSize: 16,
+  },
+  elevationOverlay: {
+    position: 'absolute',
+    top: 118,
+    left: 16,
+    right: 16,
+    backgroundColor: 'rgba(26,22,20,0.78)',
+    borderRadius: radii.md,
+    padding: 10,
   },
   bottomOverlay: {
     position: 'absolute',
