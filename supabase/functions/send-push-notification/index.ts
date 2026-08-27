@@ -8,6 +8,7 @@
 //   - group_run_rsvps UPDATE OF status (host decision -> notifies the requester)
 //   - group_runs INSERT with club_id set (new club run -> notifies all active club members)
 //   - club_memberships INSERT with status='pending' (private club join request -> notifies admins/owner)
+//   - race_cheers INSERT (a spectator on the public /live/[token] page sent a quick message -> notifies the runner)
 //
 // Deploy with:
 //   supabase functions deploy send-push-notification --no-verify-jwt
@@ -295,6 +296,21 @@ serve(async (req) => {
           await sendAndCleanup(recipientId, fanOut.title, fanOut.body, fanOut.data);
         }
       }
+    }
+    return new Response('OK', { status: 200 });
+  }
+
+  // Race cheers come from an anonymous public spectator (no account, no
+  // actor to block-check) — handled as its own branch rather than through
+  // the generic `target` path below, which always runs isBlocked.
+  if (payload.type === 'INSERT' && payload.table === 'race_cheers') {
+    const rsvpId = payload.record.rsvp_id as string;
+    const message = payload.record.message as string;
+    const { data: rsvp } = await supabase.from('group_run_rsvps').select('user_id').eq('id', rsvpId).maybeSingle();
+    if (rsvp && (await isPreferenceEnabled(rsvp.user_id, 'rsvps_enabled'))) {
+      const title = '📣 Someone is cheering for you!';
+      await insertNotification(rsvp.user_id, null, 'race_cheer', title, message, { type: 'race_cheer', rsvp_id: rsvpId });
+      await sendAndCleanup(rsvp.user_id, title, message, { type: 'race_cheer', rsvp_id: rsvpId });
     }
     return new Response('OK', { status: 200 });
   }

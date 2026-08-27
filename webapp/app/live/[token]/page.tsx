@@ -21,6 +21,7 @@ interface RaceLivePositionRow {
   last_updated_at: string | null;
   started_at: string | null;
   finish_time_seconds: number | null;
+  live_view_count: number;
 }
 
 async function fetchPosition(token: string): Promise<RaceLivePositionRow | null> {
@@ -34,8 +35,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const row = await fetchPosition(token);
   if (!row) return { title: 'Live tracking not found — Rootah' };
 
-  const title = `${row.athlete_username} · ${row.race_title} — Live on Rootah`;
-  const description = `Watch ${row.athlete_username}'s live position, pace, and distance during ${row.race_title}.`;
+  const isFinished = row.finish_time_seconds != null;
+  const title = isFinished
+    ? `${row.athlete_username} finished ${row.race_title} — Rootah`
+    : `🔴 ${row.athlete_username} is live in ${row.race_title} — Rootah`;
+  const description = isFinished
+    ? `${row.athlete_username} just finished ${row.race_title}. See their finish time, pace, and the course on Rootah.`
+    : `${row.athlete_username} is racing ${row.race_title} right now. Follow their live position, pace, and distance on the course — and send a quick cheer.`;
 
   return {
     title,
@@ -68,6 +74,7 @@ export default async function LiveTrackingPage({ params }: Props) {
         lastUpdatedAt: row.last_updated_at ? new Date(row.last_updated_at).getTime() : null,
         startedAt: row.started_at ? new Date(row.started_at).getTime() : null,
         finishTimeSeconds: row.finish_time_seconds,
+        liveViewCount: row.live_view_count,
       }}
     />
   );

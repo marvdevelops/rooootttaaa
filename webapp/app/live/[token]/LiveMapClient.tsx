@@ -1,10 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ElevationChart from '../../../components/ElevationChart';
 import LiveTrackMap from '../../../components/LiveTrackMap';
 import { createClient } from '../../../lib/supabase/client';
-import { getRaceLivePosition, getRaceRoute, RaceLivePosition, RaceRoute } from '../../../lib/racesApi';
+import {
+  getRaceLivePosition,
+  getRaceRoute,
+  incrementRaceView,
+  QUICK_CHEER_MESSAGES,
+  QuickCheerMessage,
+  RaceLivePosition,
+  RaceRoute,
+  sendRaceCheer,
+} from '../../../lib/racesApi';
 
 interface Props {
   token: string;
@@ -38,6 +47,9 @@ export default function LiveMapClient({ token, initial }: Props) {
   const [position, setPosition] = useState(initial);
   const [route, setRoute] = useState<RaceRoute | null>(null);
   const [, forceTick] = useState(0);
+  const [cheerSent, setCheerSent] = useState<QuickCheerMessage | null>(null);
+  const [sendingCheer, setSendingCheer] = useState(false);
+  const hasCountedView = useRef(false);
 
   useEffect(() => {
     // Token-gated RPC, not a raw routes select — the course must stay
@@ -45,6 +57,28 @@ export default function LiveMapClient({ token, initial }: Props) {
     // race against a route they'd otherwise marked private.
     getRaceRoute(token).then(setRoute).catch(() => {});
   }, [token]);
+
+  useEffect(() => {
+    if (hasCountedView.current) return;
+    hasCountedView.current = true;
+    incrementRaceView(token).then((count) => {
+      if (count !== null) setPosition((p) => ({ ...p, liveViewCount: count }));
+    });
+  }, [token]);
+
+  const handleSendCheer = async (message: QuickCheerMessage) => {
+    if (sendingCheer) return;
+    setSendingCheer(true);
+    try {
+      await sendRaceCheer(token, message);
+      setCheerSent(message);
+      setTimeout(() => setCheerSent(null), 2500);
+    } catch {
+      // non-fatal — spectator sending encouragement isn't worth an error dialog
+    } finally {
+      setSendingCheer(false);
+    }
+  };
 
   useEffect(() => {
     const supabase = createClient();
@@ -82,6 +116,20 @@ export default function LiveMapClient({ token, initial }: Props) {
       <div style={{ position: 'absolute', inset: 0 }}>
         <LiveTrackMap segments={route?.segments ?? []} liveLat={position.lastLat} liveLng={position.lastLng} />
       </div>
+
+      {!isFinished && (
+        <div style={cheerBarStyle}>
+          {cheerSent ? (
+            <div style={cheerSentToastStyle}>Sent "{cheerSent}" 🎉</div>
+          ) : (
+            QUICK_CHEER_MESSAGES.map((message) => (
+              <button key={message} style={cheerButtonStyle} onClick={() => handleSendCheer(message)} disabled={sendingCheer}>
+                {message}
+              </button>
+            ))
+          )}
+        </div>
+      )}
 
       {isFinished ? (
         <div style={overlayCardStyle}>
@@ -122,7 +170,16 @@ export default function LiveMapClient({ token, initial }: Props) {
             {position.raceTitle}
           </span>
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: '4px 0 2px' }}>{position.athleteUsername}</h1>
-          <p style={{ fontSize: 12, color: 'var(--mist, #B0A898)', margin: '0 0 14px' }}>Updated {formatStaleness(position.lastUpdatedAt)}</p>
+          <p style={{ fontSize: 12, color: 'var(--mist, #B0A898)', margin: '0 0 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span>Updated {formatStaleness(position.lastUpdatedAt)}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.8 }}>
+                <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" stroke="currentColor" strokeWidth="1.8" />
+                <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+              </svg>
+              {position.liveViewCount}
+            </span>
+          </p>
           <div style={{ display: 'flex', gap: 10 }}>
             <div style={statTileStyle}>
               <div style={statValueStyle}>{position.lastDistanceMeters ? (position.lastDistanceMeters / 1000).toFixed(1) : '0.0'} km</div>
@@ -203,4 +260,38 @@ const ctaStyle: React.CSSProperties = {
   fontWeight: 700,
   fontSize: 13,
   textDecoration: 'none',
+};
+
+const cheerBarStyle: React.CSSProperties = {
+  position: 'absolute',
+  top: 16,
+  left: 16,
+  right: 16,
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  justifyContent: 'center',
+  zIndex: 2,
+};
+
+const cheerButtonStyle: React.CSSProperties = {
+  padding: '10px 14px',
+  borderRadius: 999,
+  border: 'none',
+  background: 'var(--panel, #fff)',
+  color: 'var(--ink, #1A1614)',
+  fontWeight: 700,
+  fontSize: 13,
+  cursor: 'pointer',
+  boxShadow: '0 4px 14px rgba(0,0,0,.15)',
+};
+
+const cheerSentToastStyle: React.CSSProperties = {
+  padding: '10px 18px',
+  borderRadius: 999,
+  background: 'var(--coral, #E84B2A)',
+  color: '#fff',
+  fontWeight: 700,
+  fontSize: 13,
+  boxShadow: '0 4px 14px rgba(0,0,0,.2)',
 };

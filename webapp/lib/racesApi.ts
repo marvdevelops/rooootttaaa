@@ -15,6 +15,7 @@ export interface RaceLivePosition {
   lastUpdatedAt: number | null;
   startedAt: number | null;
   finishTimeSeconds: number | null;
+  liveViewCount: number;
 }
 
 interface RaceLivePositionRow {
@@ -31,6 +32,7 @@ interface RaceLivePositionRow {
   last_updated_at: string | null;
   started_at: string | null;
   finish_time_seconds: number | null;
+  live_view_count: number;
 }
 
 function toRaceLivePosition(row: RaceLivePositionRow): RaceLivePosition {
@@ -48,7 +50,26 @@ function toRaceLivePosition(row: RaceLivePositionRow): RaceLivePosition {
     lastUpdatedAt: row.last_updated_at ? new Date(row.last_updated_at).getTime() : null,
     startedAt: row.started_at ? new Date(row.started_at).getTime() : null,
     finishTimeSeconds: row.finish_time_seconds,
+    liveViewCount: row.live_view_count,
   };
+}
+
+/** Fire-and-forget — increments and returns the new view count. Call once per page load, not on every Realtime update. */
+export async function incrementRaceView(token: string): Promise<number | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc('increment_race_view', { token });
+  if (error) return null;
+  return data as number;
+}
+
+export const QUICK_CHEER_MESSAGES = ["Let's go! 🔥", "Don't give up! 💪", 'You got this! 🙌', 'Congratulations! 🎉'] as const;
+export type QuickCheerMessage = (typeof QUICK_CHEER_MESSAGES)[number];
+
+/** Sends one of the fixed quick-cheer messages — the server only accepts these exact strings (see send_race_cheer's check constraint), so this is never a free-text channel to a stranger's phone. */
+export async function sendRaceCheer(token: string, message: QuickCheerMessage): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.rpc('send_race_cheer', { token, cheer_message: message });
+  if (error) throw new Error(error.message);
 }
 
 /** Public lookup by an unguessable share token — never a raw table select, this is the access control. */
