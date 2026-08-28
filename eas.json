@@ -19,12 +19,26 @@
       },
       "channel": "preview"
     },
+    "staging": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "channel": "staging"
+    },
     "production": {
       "autoIncrement": true,
       "channel": "production"
     }
   },
   "submit": {
-    "production": {}
+    "staging": {
+      "ios": {
+        "ascAppId": "6799631983"
+      }
+    },
+    "production": {
+      "ios": {
+        "ascAppId": "6799631983"
+      }
+    }
   }
 }
