@@ -1192,7 +1192,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 56,
     left: 16,
     width: 44,
     height: 44,
@@ -1205,7 +1204,6 @@ const styles = StyleSheet.create({
   },
   topRightActions: {
     position: 'absolute',
-    top: 56,
     right: 16,
     flexDirection: 'row',
     gap: 10,

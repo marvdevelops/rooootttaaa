@@ -1044,7 +1044,6 @@ const styles = StyleSheet.create({
   },
   topOverlay: {
     position: 'absolute',
-    top: 60,
     left: 16,
     right: 16,
     gap: 10,

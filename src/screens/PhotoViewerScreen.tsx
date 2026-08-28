@@ -10,6 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ReportModal from '../components/ReportModal';
 import { BackIcon, TrashIcon, UserIcon } from '../components/icons';
 import { colors, fonts, radii } from '../theme/theme';
@@ -30,6 +31,7 @@ function formatDate(ms: number): string {
 }
 
 export default function PhotoViewerScreen({ routeId, initialPhotoId, onClose, onDeleted }: Props) {
+  const insets = useSafeAreaInsets();
   const [photos, setPhotos] = useState<RoutePhoto[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -141,7 +143,12 @@ export default function PhotoViewerScreen({ routeId, initialPhotoId, onClose, on
         )}
       />
 
-      <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
+      <Pressable
+        style={[styles.closeButton, { top: insets.top + 8 }]}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+      >
         <BackIcon color={colors.cream} />
       </Pressable>
 
@@ -229,7 +236,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 56,
     left: 16,
     width: 40,
     height: 40,

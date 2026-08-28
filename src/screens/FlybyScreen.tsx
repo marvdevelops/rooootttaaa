@@ -12,6 +12,7 @@ import * as Sharing from 'expo-sharing';
 import type { Feature, LineString } from 'geojson';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon, MapStyleIcon, SatelliteIcon, ShareIcon, TerrainIcon } from '../components/icons';
 import FlybyRunnerMarker, { FlybyRunnerMarkerHandle } from '../components/FlybyRunnerMarker';
 import FlybyStatCard from '../components/FlybyStatCard';
@@ -39,6 +40,7 @@ const STYLE_ICON: Record<FlybyStyleKey, (props: { size?: number; color?: string 
 };
 
 export default function FlybyScreen({ route, onClose }: Props) {
+  const insets = useSafeAreaInsets();
   const [phase, setPhase] = useState<Phase>('preview');
   const [selectedStyle, setSelectedStyle] = useState<FlybyStyleKey>(defaultStyleForRoute(route));
   const [progress, setProgress] = useState(0);
@@ -275,7 +277,13 @@ export default function FlybyScreen({ route, onClose }: Props) {
       )}
 
       {/* Rendered last (after the phase overlays above) so it always sits on top and stays tappable/visible in every phase, including 'ready'. */}
-      <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
+      <Pressable
+        style={[styles.closeButton, { top: insets.top + 8 }]}
+        onPress={handleClose}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+      >
         <BackIcon color={colors.white} />
       </Pressable>
     </View>
@@ -298,7 +306,6 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 56,
     left: 16,
     width: 40,
     height: 40,

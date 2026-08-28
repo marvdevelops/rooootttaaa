@@ -2,6 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon } from '../components/icons';
 import RouteMap from '../components/RouteMap';
 import SaveRouteModal from '../components/SaveRouteModal';
@@ -48,6 +49,7 @@ const SIMPLIFY_TOLERANCE_METERS = 3;
 const RAW_PARSE_MAX_POINTS = 4000;
 
 export default function ImportGpxScreen({ onClose, onImported }: Props) {
+  const insets = useSafeAreaInsets();
   const [stage, setStage] = useState<Stage>('picking');
   const [points, setPoints] = useState<PathPoint[]>([]);
   const [distanceKm, setDistanceKm] = useState(0);
@@ -188,7 +190,12 @@ export default function ImportGpxScreen({ onClose, onImported }: Props) {
         showWaypointMarkers={false}
       />
 
-      <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
+      <Pressable
+        style={[styles.backButton, { top: insets.top + 8 }]}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
         <BackIcon />
       </Pressable>
 
@@ -231,7 +238,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 56,
     left: 16,
     width: 44,
     height: 44,
