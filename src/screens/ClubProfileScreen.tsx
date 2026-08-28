@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { BackIcon, CalendarIcon, LockIcon, UserIcon, UsersIcon } from '../components/icons';
+import { useAuth } from '../lib/AuthContext';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { GroupRun } from '../types/route';
 import { RunClub } from '../types/club';
@@ -57,8 +58,13 @@ export default function ClubProfileScreen({
   onRequireAuth,
   onScheduleClubRun,
 }: Props) {
+  const { session } = useAuth();
   const [club, setClub] = useState<RunClub | null>(null);
-  const [tab, setTab] = useState<Tab>('events');
+  // Events and members are membership-adjacent social data (who's going,
+  // the roster) — kept behind a session like GroupRunDetailScreen's
+  // who's-going/comments, unlike routes which are public content already
+  // browsable everywhere else. Guests land on Routes instead.
+  const [tab, setTab] = useState<Tab>(session ? 'events' : 'routes');
   const [events, setEvents] = useState<GroupRun[]>([]);
   const [routes, setRoutes] = useState<ClubRouteSummary[]>([]);
   const [members, setMembers] = useState<Awaited<ReturnType<typeof listClubMembers>>>([]);
@@ -197,9 +203,12 @@ export default function ClubProfileScreen({
             </View>
             {club.city && <Text style={styles.clubMeta}>📍 {club.city}</Text>}
             {club.memberCount > 1 && (
-              <Text style={styles.clubMeta}>
-                👥 {club.memberCount} member{club.memberCount === 1 ? '' : 's'}
-              </Text>
+              <View style={styles.memberCountRow}>
+                <UsersIcon size={12} color={colors.stone} />
+                <Text style={styles.clubMeta}>
+                  {club.memberCount} member{club.memberCount === 1 ? '' : 's'}
+                </Text>
+              </View>
             )}
           </View>
         </View>
@@ -227,7 +236,7 @@ export default function ClubProfileScreen({
         )}
 
         <View style={styles.tabRow}>
-          {(['events', 'routes', 'members'] as Tab[]).map((t) => (
+          {(session ? (['events', 'routes', 'members'] as Tab[]) : (['routes'] as Tab[])).map((t) => (
             <Pressable key={t} style={[styles.tabButton, tab === t && styles.tabButtonActive]} onPress={() => setTab(t)}>
               <Text style={[styles.tabButtonText, tab === t && styles.tabButtonTextActive]}>{t.toUpperCase()}</Text>
             </Pressable>
@@ -399,6 +408,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.stone,
+  },
+  memberCountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   description: {
     fontFamily: fonts.regular,

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { GroupRun, GroupRunParticipant, GroupRunStatus, RaceCategorySummary, RaceEventSummary, RsvpStatus } from '../types/route';
 import { track } from '../lib/analytics';
+import { OFFICIAL_ACCOUNT_ID } from '../constants/officialAccount';
 
 interface GroupRunRow {
   id: string;
@@ -62,7 +63,9 @@ function buildGroupRun(
     city: row.city,
     maxParticipants: row.max_participants,
     rsvpCount: row.approved_count ?? 0,
-    isHostedByMe: row.host_id === viewerId,
+    // Admin override for the official account — see routesApi.ts's
+    // isOwnedByMe comment and migration 0055 for the RLS backing this.
+    isHostedByMe: row.host_id === viewerId || viewerId === OFFICIAL_ACCOUNT_ID,
     isRsvpedByMe: myRsvpStatus === 'approved',
     myRsvpStatus,
     myRole,

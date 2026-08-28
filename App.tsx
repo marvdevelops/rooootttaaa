@@ -7,6 +7,7 @@ import {
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -60,17 +61,14 @@ import { countMyActiveGroupRuns, createGroupRun } from './src/utils/groupRunsApi
 import { countUnreadNotifications } from './src/utils/notificationsApi';
 import { useRecording } from './src/hooks/useRecording';
 import { useRecordingStore } from './src/stores/recordingStore';
-import { getRoute } from './src/utils/routesApi';
+import { findNearbyRoutes, getRoute } from './src/utils/routesApi';
+import { OFFICIAL_ACCOUNT_ID } from './src/constants/officialAccount';
 import { getRaceDetails } from './src/utils/racesApi';
 import { getRecordedRunStats } from './src/utils/recordingUpload';
 import { RaceInput, RacePrefill, RecurrenceInput } from './src/components/ScheduleGroupRunModal';
 import { createSeries, getFirstUpcomingOccurrence } from './src/utils/recurringSeriesApi';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
-
-// The only account allowed to create races (docs/race-mode-plan.md) — matches
-// OFFICIAL_ACCOUNT_ID in scripts/createRace.ts and the group_runs/race_details RLS policies.
-const OFFICIAL_ACCOUNT_ID = 'f9808b4f-125a-4841-bf5e-b244d9f6cf1f';
 
 // Copy for the guest sign-in gate (requireAuth) — names the exact action
 // that triggered the prompt, same MECLABS-style approach as the paywall's
@@ -538,6 +536,43 @@ function AuthedApp({
     [navigateTo],
   );
 
+  // After the activity type is picked, do a best-effort, non-blocking check
+  // for a public route starting near the runner right now. Never delays or
+  // fails the flow — any missing permission, timeout, or empty result just
+  // falls straight through to free-roam recording, same as before this
+  // existed.
+  const beginRecording = useCallback(
+    async (activityType: ActivityType) => {
+      setRecordingActivityType(activityType);
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          const nearby = await findNearbyRoutes(
+            { latitude: position.coords.latitude, longitude: position.coords.longitude },
+            activityType,
+          );
+          if (nearby.length > 0) {
+            const route = nearby[0];
+            Alert.alert(
+              'There’s a route right here',
+              `“${route.name}” starts near you — ${route.distanceKm.toFixed(1)} km. Follow it turn-by-turn, or just go free and record wherever today takes you.`,
+              [
+                { text: 'Free roam', onPress: () => navigateTo('recording') },
+                { text: `Run "${route.name}"`, onPress: () => handleRecordRoute(route) },
+              ],
+            );
+            return;
+          }
+        }
+      } catch {
+        // Best-effort only — fall through to free-roam below.
+      }
+      navigateTo('recording');
+    },
+    [navigateTo, handleRecordRoute],
+  );
+
   const handleStartRecording = useCallback(() => {
     requireAuth(() => {
       setResumedRecording(false);
@@ -545,15 +580,15 @@ function AuthedApp({
       setRecordingRaceRsvpId(null);
       setRecordingRaceContext(null);
       Alert.alert('Record activity', 'What are you doing?', [
-        { text: 'Run', onPress: () => { setRecordingActivityType('run'); navigateTo('recording'); } },
-        { text: 'Trail run', onPress: () => { setRecordingActivityType('trail_run'); navigateTo('recording'); } },
-        { text: 'Hike', onPress: () => { setRecordingActivityType('hike'); navigateTo('recording'); } },
-        { text: 'Ride', onPress: () => { setRecordingActivityType('bike'); navigateTo('recording'); } },
-        { text: 'Walk', onPress: () => { setRecordingActivityType('walk'); navigateTo('recording'); } },
+        { text: 'Run', onPress: () => beginRecording('run') },
+        { text: 'Trail run', onPress: () => beginRecording('trail_run') },
+        { text: 'Hike', onPress: () => beginRecording('hike') },
+        { text: 'Ride', onPress: () => beginRecording('bike') },
+        { text: 'Walk', onPress: () => beginRecording('walk') },
         { text: 'Cancel', style: 'cancel' },
       ]);
     }, 'record');
-  }, [navigateTo, requireAuth]);
+  }, [beginRecording, requireAuth]);
 
   const handleCreateNewRouteForEvent = useCallback(() => {
     setCreatingEventForNewRoute(true);

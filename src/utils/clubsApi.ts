@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { ClubMember, ClubMembershipStatus, ClubRole, RunClub } from '../types/club';
+import { OFFICIAL_ACCOUNT_ID } from '../constants/officialAccount';
 
 interface ClubRow {
   id: string;
@@ -56,6 +57,16 @@ async function toRunClub(row: ClubRow, viewerId: string | null): Promise<RunClub
       myRole = data.role as ClubRole;
       myStatus = data.status as ClubMembershipStatus;
     }
+  }
+
+  // Admin override for the official account — reported as 'owner' (the
+  // highest club role) even without an actual membership row, so every
+  // admin-only UI (edit, delete, manage members) just works. Backed by the
+  // official-account OR-clause on run_clubs' own update/delete RLS policies
+  // (migration 0055) rather than relying on club_memberships at all.
+  if (viewerId === OFFICIAL_ACCOUNT_ID) {
+    myRole = 'owner';
+    myStatus = myStatus ?? 'active';
   }
 
   return buildRunClub(row, myRole, myStatus);

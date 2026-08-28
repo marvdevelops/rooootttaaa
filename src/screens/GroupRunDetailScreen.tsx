@@ -455,7 +455,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
   const isArchived = groupRun?.status === 'archived';
   const isFull =
     !!groupRun && !groupRun.myRsvpStatus && groupRun.maxParticipants !== null && groupRun.rsvpCount >= groupRun.maxParticipants;
-  const canViewComments = !!groupRun && (groupRun.isRsvpedByMe || groupRun.isHostedByMe);
+  const canViewComments = !!session && !!groupRun && (groupRun.isRsvpedByMe || groupRun.isHostedByMe);
   const canComment = canViewComments && !isArchived;
   const pendingRequests = useMemo(() => participants.filter((p) => p.status === 'pending'), [participants]);
   const approvedParticipants = useMemo(
@@ -937,7 +937,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               </View>
             )}
 
-            {approvedParticipants.length > 0 && (
+            {!!session && approvedParticipants.length > 0 && (
               <View style={styles.whosGoingSection}>
                 <Text style={styles.whosGoingTitle}>Who&apos;s going</Text>
                 <View style={styles.whosGoingList}>
@@ -980,7 +980,9 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               {comments.length === 0 ? 'Comments' : `Comments (${countComments(comments)})`}
             </Text>
 
-            {!canViewComments ? (
+            {!session ? (
+              <Text style={styles.emptyCommentsText}>Sign in and RSVP to this run to see the comments.</Text>
+            ) : !canViewComments ? (
               <Text style={styles.emptyCommentsText}>RSVP to this run to see the comments.</Text>
             ) : comments.length === 0 ? (
               <Text style={styles.emptyCommentsText}>No comments yet — be the first to say something.</Text>

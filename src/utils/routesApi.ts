@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase';
-import { ActivityType, CloudRoute, PathPoint, RouteSegment, Waypoint } from '../types/route';
+import { ActivityType, CloudRoute, PathPoint, RouteNote, RouteSegment, Waypoint } from '../types/route';
 import { listBlockedIds } from './blocksApi';
+import { track } from '../lib/analytics';
+import { haversineDistance } from './distance';
+import { OFFICIAL_ACCOUNT_ID } from '../constants/officialAccount';
 
 interface OwnerProfile {
   username: string;
@@ -16,6 +19,7 @@ interface RouteRow {
   is_trail: boolean;
   waypoints: Waypoint[];
   segments: RouteSegment[];
+  notes: RouteNote[] | null;
   distance_km: number;
   elevation_gain_m: number;
   elevation_profile: PathPoint[] | null;
@@ -80,6 +84,7 @@ async function toCloudRoute(row: RouteRow, viewerId: string | null, savedAt?: st
     createdAt: new Date(row.created_at).getTime(),
     waypoints: row.waypoints,
     segments: row.segments,
+    notes: row.notes ?? [],
     distanceKm: row.distance_km,
     elevationGainM: row.elevation_gain_m,
     elevationProfile: row.elevation_profile ?? [],
@@ -91,7 +96,12 @@ async function toCloudRoute(row: RouteRow, viewerId: string | null, savedAt?: st
     reviewCount: row.review_count ?? 0,
     photoCount: row.photo_count ?? 0,
     ratingSum: row.rating_sum ?? 0,
-    isOwnedByMe: row.owner_id === viewerId,
+    // The official account gets an admin override (RLS backs this — see
+    // migration 0055) so it can edit/delete anyone's route; reusing the
+    // existing isOwnedByMe flag means every "you own this" UI (delete
+    // button, customize bypass, etc.) just works without touching each
+    // screen individually.
+    isOwnedByMe: row.owner_id === viewerId || viewerId === OFFICIAL_ACCOUNT_ID,
     isSavedByMe,
     isLikedByMe,
     savedAt: savedAt ? new Date(savedAt).getTime() : undefined,
@@ -104,6 +114,7 @@ export interface CreateRouteInput {
   activityType: ActivityType;
   waypoints: Waypoint[];
   segments: RouteSegment[];
+  notes: RouteNote[];
   distanceKm: number;
   elevationGainM: number;
   elevationProfile: PathPoint[];
@@ -123,6 +134,7 @@ export async function createRoute(input: CreateRouteInput): Promise<CloudRoute> 
       activity_type: input.activityType,
       waypoints: input.waypoints,
       segments: input.segments,
+      notes: input.notes,
       distance_km: input.distanceKm,
       elevation_gain_m: input.elevationGainM,
       elevation_profile: input.elevationProfile,
@@ -132,6 +144,7 @@ export async function createRoute(input: CreateRouteInput): Promise<CloudRoute> 
     .single();
 
   if (error || !data) throw new Error(error?.message ?? 'Failed to save route.');
+  track('route_created', { activity_type: input.activityType, distance_km: input.distanceKm });
   return toCloudRoute(data as unknown as RouteRow, ownerId);
 }
 
@@ -146,11 +159,27 @@ export async function updateRoute(id: string, input: CreateRouteInput): Promise<
       activity_type: input.activityType,
       waypoints: input.waypoints,
       segments: input.segments,
+      notes: input.notes,
       distance_km: input.distanceKm,
       elevation_gain_m: input.elevationGainM,
       elevation_profile: input.elevationProfile,
       city: input.city,
     })
+    .eq('id', id)
+    .select(ROUTE_SELECT)
+    .single();
+
+  if (error || !data) throw new Error(error?.message ?? 'Failed to update route.');
+  return toCloudRoute(data as unknown as RouteRow, viewerId);
+}
+
+/** Lightweight edit for the route owner — name/description only, no re-routing or geometry changes. RLS restricts this to the owner_id row already; the .eq('id', id) is enough, no separate owner check needed client-side. */
+export async function updateRouteMeta(id: string, name: string, description: string): Promise<CloudRoute> {
+  const viewerId = await currentUserId();
+
+  const { data, error } = await supabase
+    .from('routes')
+    .update({ name, description })
     .eq('id', id)
     .select(ROUTE_SELECT)
     .single();
@@ -241,6 +270,35 @@ export async function listPublicRoutes(filters: PublicRouteFilters = {}): Promis
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as unknown as RouteRow[];
   return Promise.all(rows.map((row) => toCloudRoute(row, viewerId)));
+}
+
+/**
+ * Public routes whose start point falls within `radiusMeters` of `origin`,
+ * nearest first — powers the "there's a route near you" prompt when
+ * starting a recording. No PostGIS/RPC yet: pulls a batch of recent public
+ * routes for the activity type and filters by Haversine distance to each
+ * route's first waypoint client-side. Fine at current volume; revisit with
+ * a proper geo query if the routes table grows large enough for this to
+ * matter.
+ */
+export async function findNearbyRoutes(
+  origin: { latitude: number; longitude: number },
+  activityType: ActivityType,
+  radiusMeters = 2000,
+  limit = 3,
+): Promise<CloudRoute[]> {
+  const candidates = await listPublicRoutes({ activityType, limit: 100 });
+  return candidates
+    .map((route) => {
+      const start = route.waypoints[0] ?? route.segments[0]?.path[0];
+      if (!start) return null;
+      const distanceMeters = haversineDistance(origin, { latitude: start.latitude, longitude: start.longitude });
+      return { route, distanceMeters };
+    })
+    .filter((r): r is { route: CloudRoute; distanceMeters: number } => r != null && r.distanceMeters <= radiusMeters)
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, limit)
+    .map((r) => r.route);
 }
 
 /** Fetches specific public routes by id — used by Top Routes to hydrate full CloudRoute objects for a set of ids already ranked by the top_routes view. Order is not guaranteed to match `ids`; callers that need ranked order should re-sort client-side. */
