@@ -19,6 +19,7 @@ import { ActivityType, RouteSegment } from '../types/route';
 import { RecordingSession } from '../types/recording';
 import { buildRouteProgressIndex, findNextClimb, getRouteProgress, UpcomingClimb } from '../utils/routeProgress';
 import { getRaceShareToken, startRaceRun, updateRaceLivePosition } from '../utils/racesApi';
+import { endLiveSession, startLiveSession, updateLivePosition } from '../utils/liveTrackingApi';
 import { haversineDistance } from '../utils/distance';
 
 const LIVE_TRACKING_BASE_URL = 'https://app.rootah.com/live';
@@ -78,6 +79,9 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
   const [countdownLabel, setCountdownLabel] = useState('3');
   const [checkingProximity, setCheckingProximity] = useState(false);
   const [liveShareToken, setLiveShareToken] = useState<string | null>(null);
+  // Set once the runner opts into live-location sharing for a non-race run.
+  const [liveSessionId, setLiveSessionId] = useState<string | null>(null);
+  const [startingLiveShare, setStartingLiveShare] = useState(false);
 
   const routeIndex = useMemo(() => (plannedSegments ? buildRouteProgressIndex(plannedSegments) : null), [plannedSegments]);
   const plannedPath = useMemo(() => plannedSegments?.flatMap((s) => s.path), [plannedSegments]);
@@ -294,11 +298,66 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastPoint]);
 
+  // Non-race live-tracking broadcast — same throttle, active only once the
+  // runner has opted in via the share button.
+  const lastLiveUpdate = useRef(0);
+  useEffect(() => {
+    if (!liveSessionId || !lastPoint || lastPoint.isPaused) return;
+    const now = Date.now();
+    if (now - lastLiveUpdate.current < RACE_LIVE_UPDATE_MS && lastLiveUpdate.current !== 0) return;
+    lastLiveUpdate.current = now;
+
+    const paceSecondsPerKm = distanceMeters > 50 ? movingSecondsRef.current / (distanceMeters / 1000) : null;
+    updateLivePosition(
+      liveSessionId,
+      lastPoint.lat,
+      lastPoint.lng,
+      distanceMeters,
+      movingSecondsRef.current,
+      paceSecondsPerKm,
+    ).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastPoint]);
+
   const handleShareLiveLink = useCallback(() => {
     if (!liveShareToken) return;
     const url = `${LIVE_TRACKING_BASE_URL}/${liveShareToken}`;
     Share.share({ message: `Follow me live on Rootah: ${url}`, url }).catch(() => {});
   }, [liveShareToken]);
+
+  // Non-race runs: opt in to live sharing. First tap asks for consent and
+  // opens the session; later taps just re-open the share sheet.
+  const handleToggleLiveShare = useCallback(() => {
+    if (liveShareToken) {
+      handleShareLiveLink();
+      return;
+    }
+    if (startingLiveShare) return;
+    Alert.alert(
+      'Share your live location?',
+      'Anyone with the link can see where you are, your pace, and your distance until you stop sharing or it expires in 12 hours.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Share',
+          onPress: async () => {
+            setStartingLiveShare(true);
+            try {
+              const session = await startLiveSession(activityType, routeId ?? null);
+              setLiveSessionId(session.id);
+              setLiveShareToken(session.shareToken);
+              const url = `${LIVE_TRACKING_BASE_URL}/${session.shareToken}`;
+              Share.share({ message: `Follow me live on Rootah: ${url}`, url }).catch(() => {});
+            } catch (e) {
+              Alert.alert('Could not start sharing', e instanceof Error ? e.message : 'Try again.');
+            } finally {
+              setStartingLiveShare(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [liveShareToken, startingLiveShare, activityType, routeId, handleShareLiveLink]);
 
   const handleManualPauseToggle = useCallback(() => {
     if (isPaused) {
@@ -313,9 +372,10 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
     setFinishing(true);
     const finishedSessionId = sessionId;
     const startedAtValue = startedAt ?? Date.now();
+    if (liveSessionId) endLiveSession(liveSessionId).catch(() => {});
     await finishRecording(finishedSessionId);
     onFinish({ id: finishedSessionId, activityType, routeId: routeId ?? null, startedAt: startedAtValue, status: 'finished' });
-  }, [sessionId, startedAt, finishRecording, onFinish, activityType, routeId]);
+  }, [sessionId, startedAt, finishRecording, onFinish, activityType, routeId, liveSessionId]);
 
   const handleFinish = useCallback(() => {
     if (!sessionId) return;
@@ -355,12 +415,13 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
         text: 'Discard',
         style: 'destructive',
         onPress: async () => {
+          if (liveSessionId) endLiveSession(liveSessionId).catch(() => {});
           if (sessionId) await discardSession(sessionId);
           onDiscard();
         },
       },
     ]);
-  }, [sessionId, discardSession, onDiscard]);
+  }, [sessionId, discardSession, onDiscard, liveSessionId]);
 
   if (phase !== 'recording') {
     return (
@@ -409,8 +470,27 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
               </Pressable>
             )}
             {raceRsvpId && liveShareToken && (
-              <Pressable style={styles.iconButton} onPress={handleShareLiveLink}>
+              <Pressable
+                style={styles.iconButton}
+                onPress={handleShareLiveLink}
+                accessibilityRole="button"
+                accessibilityLabel="Share live tracking link"
+              >
                 <ShareIcon size={16} />
+              </Pressable>
+            )}
+            {!raceRsvpId && (
+              <Pressable
+                style={[styles.iconButton, liveSessionId && styles.iconButtonLive]}
+                onPress={handleToggleLiveShare}
+                accessibilityRole="button"
+                accessibilityLabel={liveSessionId ? 'Sharing live location — share link again' : 'Share your live location'}
+              >
+                {startingLiveShare ? (
+                  <ActivityIndicator size="small" color={liveSessionId ? colors.white : colors.ink} />
+                ) : (
+                  <ShareIcon size={16} color={liveSessionId ? colors.white : colors.ink} />
+                )}
               </Pressable>
             )}
             <Pressable style={styles.iconButton} onPress={() => setLocked(true)}>
@@ -484,6 +564,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...elevation('subtle'),
+  },
+  iconButtonLive: {
+    backgroundColor: colors.coral,
   },
   elevationToggleGlyph: {
     fontSize: 16,
