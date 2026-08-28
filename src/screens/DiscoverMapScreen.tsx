@@ -193,7 +193,7 @@ function NearHereStrip({
                 )}
                 <View style={styles.runCardFooter}>
                   <Text style={styles.runCardMeta} numberOfLines={1}>
-                    {away ? `${away} away · ` : ''}Tap to run
+                    {away ?? 'View route'}
                   </Text>
                 </View>
               </Pressable>
@@ -232,7 +232,7 @@ function NearHereStrip({
               )}
               <View style={styles.runCardFooter}>
                 <Text style={styles.runCardMeta} numberOfLines={1}>
-                  {away ? `${away} away · ` : ''}
+                  {away ? `${away} · ` : ''}
                   {run.rsvpCount} going · {daysAway(run.scheduledAt)}
                 </Text>
               </View>
@@ -310,7 +310,7 @@ const DEFAULT_CENTER: [number, number] = [121.774, 12.8797];
 const COUNTRY_ZOOM_FALLBACK = 4.5;
 // Fixed height of a "runs near you" card — kept constant so the screen can
 // lift the create FAB by exactly the strip's height when it's on screen.
-const RUNS_STRIP_HEIGHT = 132;
+const RUNS_STRIP_HEIGHT = 140;
 const SHOW_UPCOMING_RACES_KEY = 'rootah_show_upcoming_races';
 
 // No safe-area-inset library wired into the app — this is a fixed
