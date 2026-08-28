@@ -248,7 +248,11 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: 16,
+    // Matches the top offset used everywhere else in the app for an
+    // absolutely-positioned back/close button (RecordingScreen,
+    // RaceShareCardScreen, etc.) — 16 sat right under the iPhone status
+    // bar/notch and was unreachable.
+    top: 60,
     right: 16,
     width: 36,
     height: 36,

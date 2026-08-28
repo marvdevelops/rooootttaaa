@@ -6,11 +6,12 @@ import {
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans';
 import { useFonts } from 'expo-font';
+import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, BackHandler, Linking, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, BackHandler, Linking, PanResponder, StyleSheet, Text, View } from 'react-native';
 import { AuthProvider, useAuth } from './src/lib/AuthContext';
 // Side-effect import — registers the background location task at module
 // load time, before any navigation renders. Must happen at the app root,
@@ -208,6 +209,20 @@ function AuthedApp({
     return () => clearTimeout(t);
   }, [toast]);
 
+  // On explicit sign-out (session goes from present to absent — not the
+  // initial mount, where it starts absent for a guest), bounce back to the
+  // home map. Without this, signing out from deep inside e.g. Settings just
+  // left the signed-out user stranded on a now-guest-inaccessible screen.
+  const wasSignedInRef = useRef(!!session);
+  useEffect(() => {
+    if (wasSignedInRef.current && !session) {
+      setOverlay(null);
+      setNavStack([]);
+      setToast('Signed out.');
+    }
+    wasSignedInRef.current = !!session;
+  }, [session]);
+
   // Crash recovery — the app died mid-recording (force-quit, OS kill) and
   // relaunched into a fresh session with no active overlay. Never silently
   // discard the in-progress run; ask the user what to do with it.
@@ -262,11 +277,6 @@ function AuthedApp({
   }, [overlay]);
 
   useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => overlay === 'recording');
-    return () => subscription.remove();
-  }, [overlay]);
-
-  useEffect(() => {
     const refreshUnread = () => countUnreadNotifications().then(setUnreadNotificationCount).catch(() => {});
     refreshUnread();
     const poll = setInterval(refreshUnread, 30_000);
@@ -296,6 +306,42 @@ function AuthedApp({
       return copy;
     });
   }, []);
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (overlay === 'recording') return true; // block — must use the in-screen discard/finish controls
+      if (overlay) {
+        navigateBack();
+        return true;
+      }
+      return false; // at the home screen — let the OS handle it (background/exit)
+    });
+    return () => subscription.remove();
+  }, [overlay, navigateBack]);
+
+  // Swipe-right-from-the-left-edge back gesture (iOS-style), implemented
+  // with plain PanResponder rather than react-native-gesture-handler — that
+  // library isn't installed, and adding it would pull in a native module
+  // requiring a fresh `eas build` instead of a JS-only OTA update. A thin
+  // capture strip pinned to the left edge, rendered topmost, intercepts the
+  // touch before any full-bleed map beneath it claims the gesture natively.
+  // Disabled on the map-heavy/destructive-if-lost screens (builder,
+  // recording) where an accidental swipe shouldn't discard progress and
+  // where the map's own pan gesture needs the edge anyway.
+  const EDGE_SWIPE_DISABLED_OVERLAYS = new Set<Overlay>(['builder', 'recording', 'recordingSummary', null]);
+  const edgeSwipeEnabled = !EDGE_SWIPE_DISABLED_OVERLAYS.has(overlay);
+  const edgeSwipeResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: (_evt, gestureState) => Math.abs(gestureState.dx) > 4 || Math.abs(gestureState.dy) > 4,
+      onPanResponderRelease: (_evt, gestureState) => {
+        if (gestureState.dx > 60 && Math.abs(gestureState.dy) < 60) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          navigateBack();
+        }
+      },
+    }),
+  ).current;
 
   const openDetail = useCallback(
     (route: CloudRoute) => {
@@ -682,7 +728,7 @@ function AuthedApp({
         </View>
       )}
 
-      {overlay === 'activity' && (
+      {overlay === 'activity' && session && (
         <View style={StyleSheet.absoluteFill}>
           <ActivityFeedScreen
             onClose={() => setOverlay('profile')}
@@ -713,6 +759,7 @@ function AuthedApp({
             onClose={() => setOverlay(null)}
             onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
             onRequirePaywall={() => openPaywall('group_run_join_limit')}
+            onRequireAuth={requireAuth}
           />
         </View>
       )}
@@ -968,7 +1015,7 @@ function AuthedApp({
         </View>
       )}
 
-      {overlay === 'profile' && (
+      {overlay === 'profile' && session && (
         <View style={StyleSheet.absoluteFill}>
           <ProfileScreen
             onClose={() => setOverlay(null)}
@@ -983,7 +1030,7 @@ function AuthedApp({
         </View>
       )}
 
-      {overlay === 'settings' && (
+      {overlay === 'settings' && session && (
         <View style={StyleSheet.absoluteFill}>
           <SettingsScreen onClose={() => setOverlay('profile')} onOpenBlockedUsers={() => setOverlay('blockedUsers')} />
         </View>
@@ -1075,6 +1122,10 @@ function AuthedApp({
         onAllow={notificationPrePermission.handleAllow}
         onDismiss={notificationPrePermission.handleDismiss}
       />
+
+      {edgeSwipeEnabled && (
+        <View style={styles.edgeSwipeZone} {...edgeSwipeResponder.panHandlers} />
+      )}
     </View>
   );
 }
@@ -1206,6 +1257,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
+  },
+  edgeSwipeZone: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 24,
   },
   loadingContainer: {
     flex: 1,

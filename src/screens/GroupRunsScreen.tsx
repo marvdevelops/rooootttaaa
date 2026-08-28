@@ -9,6 +9,7 @@ interface Props {
   onClose: () => void;
   onOpenGroupRun: (groupRunId: string) => void;
   onRequirePaywall: () => void;
+  onRequireAuth: (action: () => void, context?: string) => void;
 }
 
 function formatWhen(ms: number): string {
@@ -18,7 +19,7 @@ function formatWhen(ms: number): string {
     d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePaywall }: Props) {
+export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePaywall, onRequireAuth }: Props) {
   const [runs, setRuns] = useState<GroupRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +142,7 @@ export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePayw
               ) : (
                 <Pressable
                   style={[styles.rsvpButton, item.isRsvpedByMe && styles.rsvpButtonActive]}
-                  onPress={() => handleToggleRsvp(item)}
+                  onPress={() => onRequireAuth(() => handleToggleRsvp(item), 'rsvp')}
                 >
                   <Text style={[styles.rsvpButtonText, item.isRsvpedByMe && styles.rsvpButtonTextActive]}>
                     {item.myRsvpStatus === 'approved'

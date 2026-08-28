@@ -487,31 +487,35 @@ export default function RouteDetailScreen({
     }
   }, [fullPath, route.id, routeName]);
 
-  const handlePressSchedule = useCallback(async () => {
-    if (tier === 'free') {
-      setCheckingScheduleLimit(true);
-      try {
-        const activeCount = await countMyActiveGroupRuns();
-        if (activeCount >= ROUTE_LIMITS.maxActiveGroupRunsFree) {
-          onRequirePaywall('group_run_limit');
-          return;
+  const handlePressSchedule = useCallback(() => {
+    onRequireAuth(async () => {
+      if (tier === 'free') {
+        setCheckingScheduleLimit(true);
+        try {
+          const activeCount = await countMyActiveGroupRuns();
+          if (activeCount >= ROUTE_LIMITS.maxActiveGroupRunsFree) {
+            onRequirePaywall('group_run_limit');
+            return;
+          }
+        } catch {
+          // Don't block scheduling on a network hiccup — this is a soft UX gate only.
+        } finally {
+          setCheckingScheduleLimit(false);
         }
-      } catch {
-        // Don't block scheduling on a network hiccup — this is a soft UX gate only.
-      } finally {
-        setCheckingScheduleLimit(false);
       }
-    }
-    setShowScheduleModal(true);
-  }, [tier, onRequirePaywall]);
+      setShowScheduleModal(true);
+    }, 'host_run');
+  }, [tier, onRequirePaywall, onRequireAuth]);
 
   const handleCustomize = useCallback(() => {
-    if (tier === 'paid') {
-      onOpenOnMap(route);
-    } else {
-      onRequirePaywall('route_customize');
-    }
-  }, [tier, route, onOpenOnMap, onRequirePaywall]);
+    onRequireAuth(() => {
+      if (tier === 'paid') {
+        onOpenOnMap(route);
+      } else {
+        onRequirePaywall('route_customize');
+      }
+    }, 'generic');
+  }, [tier, route, onOpenOnMap, onRequirePaywall, onRequireAuth]);
 
   const handleSchedule = useCallback(
     async (
@@ -795,7 +799,7 @@ export default function RouteDetailScreen({
             key={`gallery-${photoRefreshSignal ?? 0}`}
             routeId={route.id}
             photoCount={route.photoCount}
-            onOpenUpload={() => onOpenPhotoUpload(route.id)}
+            onOpenUpload={() => onRequireAuth(() => onOpenPhotoUpload(route.id), 'generic')}
             onOpenPhoto={(photoId) => onOpenPhotoViewer(route.id, photoId)}
             onSeeAll={() => onOpenPhotoViewer(route.id, '')}
           />
@@ -1001,7 +1005,7 @@ export default function RouteDetailScreen({
                     ) : (
                       <Pressable
                         style={[styles.rsvpButton, run.isRsvpedByMe && styles.rsvpButtonActive]}
-                        onPress={() => handleToggleRsvp(run)}
+                        onPress={() => onRequireAuth(() => handleToggleRsvp(run), 'rsvp')}
                       >
                         <Text style={[styles.rsvpButtonText, run.isRsvpedByMe && styles.rsvpButtonTextActive]}>
                           {run.myRsvpStatus === 'approved'
