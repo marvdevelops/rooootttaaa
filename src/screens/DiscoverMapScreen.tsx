@@ -68,8 +68,8 @@ interface NearHereStripProps {
   refreshSignal?: number;
   /** Distance from the bottom of the screen — sits just above the home indicator. */
   bottomOffset: number;
-  /** Reports how many cards the strip is showing (0 when hidden) so the screen can lift the FAB above it. */
-  onCountChange: (count: number) => void;
+  /** Reports the strip's rendered height and card count (0 / 0 when hidden) so the screen can lift the FAB exactly above it. */
+  onMetrics: (m: { count: number; height: number }) => void;
 }
 
 const NEAR_HERE_MAX = 8;
@@ -84,7 +84,7 @@ function NearHereStrip({
   userLocation,
   refreshSignal,
   bottomOffset,
-  onCountChange,
+  onMetrics,
 }: NearHereStripProps) {
   const [runs, setRuns] = useState<GroupRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,8 +129,8 @@ function NearHereStrip({
 
   const visibleCount = loading && items.length === 0 ? 0 : items.length;
   useEffect(() => {
-    onCountChange(visibleCount);
-  }, [visibleCount, onCountChange]);
+    if (visibleCount === 0) onMetrics({ count: 0, height: 0 });
+  }, [visibleCount, onMetrics]);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,7 +159,11 @@ function NearHereStrip({
       : null;
 
   return (
-    <View style={[styles.nearStripWrap, { bottom: bottomOffset }]} pointerEvents="box-none">
+    <View
+      style={[styles.nearStripWrap, { bottom: bottomOffset }]}
+      pointerEvents="box-none"
+      onLayout={(e) => onMetrics({ count: visibleCount, height: e.nativeEvent.layout.height })}
+    >
       <Text style={styles.nearStripTitle}>Available here</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.runsStripContent}>
         {items.map((item) => {
@@ -310,7 +314,6 @@ const DEFAULT_CENTER: [number, number] = [121.774, 12.8797];
 const COUNTRY_ZOOM_FALLBACK = 4.5;
 // Fixed height of a "runs near you" card — kept constant so the screen can
 // lift the create FAB by exactly the strip's height when it's on screen.
-const RUNS_STRIP_HEIGHT = 140;
 const SHOW_UPCOMING_RACES_KEY = 'rootah_show_upcoming_races';
 
 // No safe-area-inset library wired into the app — this is a fixed
@@ -355,13 +358,13 @@ export default function DiscoverMapScreen({
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
-  const [nearHereCount, setNearHereCount] = useState(0);
+  const [nearHere, setNearHere] = useState({ count: 0, height: 0 });
   const [zoom, setZoom] = useState(COUNTRY_ZOOM_FALLBACK);
 
   // The "available here" strip is pinned to the bottom of the screen; when it's
-  // showing, the create FAB (and its menu) lift above it so they never overlap.
-  // + ~40 covers the strip's title line and the gap above the cards.
-  const fabBottom = insets.bottom + (nearHereCount > 0 ? RUNS_STRIP_HEIGHT + 52 : 40);
+  // showing, the create FAB (and its menu) lift to sit just above its measured
+  // height so they never overlap the cards.
+  const fabBottom = insets.bottom + 12 + (nearHere.count > 0 ? nearHere.height + 14 : 28);
 
   // Gentle looping pulse on the create FAB so it stays noticeable over the map.
   const fabPulse = useRef(new Animated.Value(0)).current;
@@ -858,7 +861,7 @@ export default function DiscoverMapScreen({
         userLocation={userLocation}
         refreshSignal={refreshSignal}
         bottomOffset={insets.bottom + 12}
-        onCountChange={setNearHereCount}
+        onMetrics={setNearHere}
       />
 
       {showAddMenu && (
@@ -1387,7 +1390,6 @@ const styles = StyleSheet.create({
   },
   runCard: {
     width: 190,
-    height: RUNS_STRIP_HEIGHT,
     backgroundColor: colors.surface,
     borderRadius: radii.md,
     padding: 12,
