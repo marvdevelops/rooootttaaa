@@ -23,6 +23,12 @@ const ACTIVITY_OPTIONS: { value: ActivityType; label: string }[] = [
   { value: 'walk', label: 'Walk' },
 ];
 
+// A route is only offered as "follow this" if its start point is this close to
+// where you're standing — i.e. you're actually at the trailhead, not just in
+// the same part of town. Loose enough to survive normal GPS jitter and a
+// start pin that was dropped a few metres off.
+const NEAR_ROUTE_METERS = 60;
+
 function formatAway(km: number): string {
   if (km < 1) return `${Math.round(km * 1000)} m away`;
   return `${km.toFixed(1)} km away`;
@@ -51,7 +57,7 @@ export default function StartActivityScreen({
         if (status !== 'granted') return;
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        const routes = await findNearbyRoutes(here, activityType, 3000, 8);
+        const routes = await findNearbyRoutes(here, activityType, NEAR_ROUTE_METERS, 5);
         if (!cancelled) {
           setOrigin(here);
           setNearby(routes);
@@ -122,7 +128,7 @@ export default function StartActivityScreen({
         </View>
 
         <Text style={styles.sectionLabel}>
-          Follow a route <Text style={styles.sectionLabelHint}>(optional)</Text>
+          Follow a route <Text style={styles.sectionLabelHint}>starting here (optional)</Text>
         </Text>
 
         <Pressable
@@ -148,7 +154,7 @@ export default function StartActivityScreen({
             <Text style={styles.loadingText}>Looking for routes near you&hellip;</Text>
           </View>
         ) : nearby.length === 0 ? (
-          <Text style={styles.emptyText}>No saved routes near you right now.</Text>
+          <Text style={styles.emptyText}>No route starts right where you are. Head to a trailhead, or go free.</Text>
         ) : (
           nearby.map((route) => {
             const selected = route.id === selectedRouteId;
