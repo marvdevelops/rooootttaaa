@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Props) {
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [city, setCity] = useState(defaultCity ?? '');
@@ -69,9 +71,9 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
   }, [name, description, city, isPrivate, pickedLogo, onCreated]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>Create a Club</Text>
@@ -147,7 +149,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { AppNotification, listNotifications, markAllNotificationsRead, markNotificationRead } from '../utils/notificationsApi';
@@ -21,6 +22,7 @@ function relativeTime(ms: number): string {
 }
 
 export default function NotificationsScreen({ onClose, onOpenRoute, onOpenGroupRun, onOpenClub }: Props) {
+  const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -75,9 +77,9 @@ export default function NotificationsScreen({ onClose, onOpenRoute, onOpenGroupR
   const hasUnread = notifications.some((n) => !n.isRead);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>Notifications</Text>
@@ -122,7 +124,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',

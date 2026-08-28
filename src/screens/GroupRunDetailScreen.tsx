@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -106,6 +107,7 @@ function formatCommentTime(ms: number): string {
 }
 
 export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute, onRequirePaywall, onRequireAuth, onOpenProfile, onRunRace, onReopenShareCard, onOpenGroupRun, onAddDistanceCategory }: Props) {
+  const insets = useSafeAreaInsets();
   const [groupRun, setGroupRun] = useState<GroupRun | null>(null);
   const [raceDetails, setRaceDetails] = useState<RaceDetails | null>(null);
   const [raceCategories, setRaceCategories] = useState<RaceCategorySummary[]>([]);
@@ -570,13 +572,13 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {groupRun?.title ?? 'Group Run'}
         </Text>
         <View style={styles.headerActions}>
           {groupRun?.isHostedByMe && !isArchived && (
-            <Pressable style={styles.backButton} onPress={() => setShowEditModal(true)}>
+            <Pressable style={styles.backButton} onPress={() => setShowEditModal(true)} accessibilityRole="button" accessibilityLabel="Back">
               <EditIcon size={16} />
             </Pressable>
           )}
@@ -585,7 +587,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               {deleting ? <ActivityIndicator size="small" color={colors.stone} /> : <TrashIcon size={16} color={colors.stone} />}
             </Pressable>
           )}
-          <Pressable style={styles.backButton} onPress={onClose}>
+          <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
             <CloseIcon size={16} />
           </Pressable>
         </View>

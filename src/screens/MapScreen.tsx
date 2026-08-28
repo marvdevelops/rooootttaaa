@@ -5,9 +5,10 @@ import * as Location from 'expo-location';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, FlatList, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import BuilderTutorial, { TutorialStep } from '../components/BuilderTutorial';
 import ExportSheet from '../components/ExportSheet';
-import { CloseIcon, ExportIcon, LoopIcon, SaveIcon, SearchIcon, UndoIcon } from '../components/icons';
+import { CloseIcon, CompassIcon, ExportIcon, LoopIcon, SaveIcon, SearchIcon, UndoIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import RouteMap, { MapStyleMode } from '../components/RouteMap';
 import RouteNotesModal from '../components/RouteNotesModal';
@@ -33,7 +34,6 @@ import { TrailInfoInput, upsertTrailInfo } from '../utils/trailInfoApi';
 // requires a native rebuild, which we're avoiding mid-OTA-cycle) — this is a
 // fixed approximation of the home-indicator / gesture-nav inset so the
 // bottom-anchored builder controls don't crowd the edge of the screen.
-const BOTTOM_SAFE_PAD = Platform.OS === 'ios' ? 34 : 16;
 
 const ELEVATION_DEBOUNCE_MS = 1200;
 // A tap this close to the existing route line is treated as "insert a
@@ -87,6 +87,7 @@ export default function MapScreen({
   onRequirePaywall,
   onRequireAuth,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const tier = useUserTier();
   const [center, setCenter] = useState<LatLng>(DEFAULT_CENTER);
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
@@ -927,10 +928,13 @@ export default function MapScreen({
       <Pressable
         style={[
           styles.textToggleButton,
-          { bottom: 228 + BOTTOM_SAFE_PAD },
+          { bottom: insets.bottom + 194 },
           mapStyleMode === 'satellite' && styles.textToggleButtonActive,
         ]}
         onPress={() => setMapStyleMode((prev) => (prev === 'satellite' ? 'standard' : 'satellite'))}
+        accessibilityRole="button"
+        accessibilityLabel="Satellite view"
+        accessibilityState={{ selected: mapStyleMode === 'satellite' }}
       >
         <Text
           style={[
@@ -943,17 +947,25 @@ export default function MapScreen({
       </Pressable>
 
       <Pressable
-        style={[styles.textToggleButton, { bottom: 172 + BOTTOM_SAFE_PAD }, is3D && styles.textToggleButtonActive]}
+        style={[styles.textToggleButton, { bottom: insets.bottom + 138 }, is3D && styles.textToggleButtonActive]}
         onPress={() => setIs3D((prev) => !prev)}
+        accessibilityRole="button"
+        accessibilityLabel="3D view"
+        accessibilityState={{ selected: is3D }}
       >
         <Text style={[styles.textToggleButtonText, is3D && styles.textToggleButtonTextActive]}>3D</Text>
       </Pressable>
 
-      <Pressable style={styles.locateButton} onPress={() => locateUser(true)}>
-        <Text style={styles.locateButtonText}>◎</Text>
+      <Pressable
+        style={[styles.locateButton, { bottom: insets.bottom + 82 }]}
+        onPress={() => locateUser(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Center on my location"
+      >
+        <CompassIcon size={20} color={colors.ink} />
       </Pressable>
 
-      <View style={styles.topOverlay}>
+      <View style={[styles.topOverlay, { top: insets.top + 12 }]}>
         <View style={styles.brandRow}>
           <Logo size={36} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -1065,7 +1077,7 @@ export default function MapScreen({
       )}
 
       {hasRoute && (
-        <View style={styles.bottomOverlay}>
+        <View style={[styles.bottomOverlay, { bottom: insets.bottom + 6 }]}>
           <Pressable
             style={[styles.iconButton, styles.amberButton]}
             onPress={handleUndo}
@@ -1160,7 +1172,6 @@ const styles = StyleSheet.create({
   },
   topOverlay: {
     position: 'absolute',
-    top: 60,
     left: 16,
     right: 16,
     gap: 12,
@@ -1319,7 +1330,6 @@ const styles = StyleSheet.create({
   locateButton: {
     position: 'absolute',
     right: 16,
-    bottom: 116 + BOTTOM_SAFE_PAD,
     width: 44,
     height: 44,
     borderRadius: radii.pill,
@@ -1327,10 +1337,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...elevation('subtle'),
-  },
-  locateButtonText: {
-    fontSize: 18,
-    color: colors.ink,
   },
   hintScrim: {
     ...StyleSheet.absoluteFill,
@@ -1363,7 +1369,6 @@ const styles = StyleSheet.create({
   },
   bottomOverlay: {
     position: 'absolute',
-    bottom: 40 + BOTTOM_SAFE_PAD,
     left: 16,
     right: 16,
     flexDirection: 'row',

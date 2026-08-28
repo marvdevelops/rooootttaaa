@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
+  const insets = useSafeAreaInsets();
   const [club, setClub] = useState<RunClub | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -160,9 +162,9 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
 
   if (!club) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={onClose}>
+          <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
             <BackIcon />
           </Pressable>
         </View>
@@ -178,7 +180,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>Manage Club</Text>
@@ -315,7 +317,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',

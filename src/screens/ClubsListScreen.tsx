@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   FlatList,
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreateClub }: Props) {
+  const insets = useSafeAreaInsets();
   const [clubs, setClubs] = useState<RunClub[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +49,9 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
   }, [refresh]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>Run Clubs</Text>
@@ -73,7 +75,12 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
           onRefresh={refresh}
           refreshing={loading}
           ListHeaderComponent={
-            <Pressable style={styles.createCard} onPress={onCreateClub}>
+            <Pressable
+              style={styles.createCard}
+              onPress={onCreateClub}
+              accessibilityRole="button"
+              accessibilityLabel="Create a club"
+            >
               <View style={styles.createIcon}>
                 <PlusIcon size={20} color={colors.white} />
               </View>
@@ -92,7 +99,12 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
             ) : null
           }
           renderItem={({ item }) => (
-            <Pressable style={styles.card} onPress={() => onOpenClub(item.id)}>
+            <Pressable
+              style={styles.card}
+              onPress={() => onOpenClub(item.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name} club`}
+            >
               {item.avatarUrl ? (
                 <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
               ) : (
@@ -126,7 +138,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',

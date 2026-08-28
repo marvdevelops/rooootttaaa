@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { CheckIcon, CloseIcon, LockIcon } from '../components/icons';
 import { useAuth } from '../lib/AuthContext';
@@ -109,6 +110,7 @@ function trialLabel(pkg: PurchasesPackage): string | null {
 }
 
 export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
+  const insets = useSafeAreaInsets();
   const { refreshTier } = useAuth();
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
   const [loadingOffering, setLoadingOffering] = useState(true);
@@ -177,7 +179,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
     // the closed-testing eligibility window) — this keeps the screen from
     // showing a permanently broken purchase flow in the meantime.
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
           <View style={styles.headerSpacer} />
           <Pressable style={styles.closeButton} onPress={onClose}>
@@ -306,7 +308,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',

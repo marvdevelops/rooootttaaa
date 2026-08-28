@@ -188,7 +188,7 @@ export default function ImportGpxScreen({ onClose, onImported }: Props) {
         showWaypointMarkers={false}
       />
 
-      <Pressable style={styles.backButton} onPress={onClose}>
+      <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
         <BackIcon />
       </Pressable>
 

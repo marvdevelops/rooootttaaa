@@ -140,7 +140,7 @@ export default function RaceShareCardScreen({
       </Pressable>
       </ScrollView>
 
-      <Pressable style={styles.backButton} onPress={onDone}>
+      <Pressable style={styles.backButton} onPress={onDone} accessibilityRole="button" accessibilityLabel="Back">
         <BackIcon />
       </Pressable>
     </View>

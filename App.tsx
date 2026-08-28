@@ -13,6 +13,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, BackHandler, Linking, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from './src/lib/AuthContext';
 // Side-effect import — registers the background location task at module
 // load time, before any navigation renders. Must happen at the app root,
@@ -746,6 +747,7 @@ function AuthedApp({
             onClose={() => setOverlay(null)}
             onSelectRoute={openOnMap}
             onOpenDetail={(route) => openDetail(route)}
+            onCreateRoute={() => setOverlay('builder')}
           />
         </View>
       )}
@@ -795,6 +797,7 @@ function AuthedApp({
             onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
             onRequirePaywall={() => openPaywall('group_run_join_limit')}
             onRequireAuth={requireAuth}
+            onCreateEvent={handleTapCreateEvent}
           />
         </View>
       )}
@@ -1279,12 +1282,14 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   return (
-    <View style={styles.container} onLayout={onLayout}>
-      <AuthProvider>
-        <Root />
-      </AuthProvider>
-      <StatusBar style="dark" />
-    </View>
+    <SafeAreaProvider>
+      <View style={styles.container} onLayout={onLayout}>
+        <AuthProvider>
+          <Root />
+        </AuthProvider>
+        <StatusBar style="dark" />
+      </View>
+    </SafeAreaProvider>
   );
 }
 

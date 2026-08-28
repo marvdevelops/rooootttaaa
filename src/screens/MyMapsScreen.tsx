@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BackIcon, HeartIcon, TrashIcon } from '../components/icons';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BackIcon, HeartIcon, PlusIcon, TrashIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute } from '../types/route';
 import { deleteRoute, listMyRoutes, listSavedRoutes } from '../utils/routesApi';
@@ -9,6 +10,7 @@ interface Props {
   onClose: () => void;
   onSelectRoute: (route: CloudRoute) => void;
   onOpenDetail: (route: CloudRoute) => void;
+  onCreateRoute: () => void;
 }
 
 type Tab = 'created' | 'saved';
@@ -22,7 +24,8 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   other: 'Other',
 };
 
-export default function MyMapsScreen({ onClose, onSelectRoute, onOpenDetail }: Props) {
+export default function MyMapsScreen({ onClose, onSelectRoute, onOpenDetail, onCreateRoute }: Props) {
+  const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<Tab>('created');
   const [routes, setRoutes] = useState<CloudRoute[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,9 +65,9 @@ export default function MyMapsScreen({ onClose, onSelectRoute, onOpenDetail }: P
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>My Maps</Text>
@@ -91,6 +94,12 @@ export default function MyMapsScreen({ onClose, onSelectRoute, onOpenDetail }: P
         </View>
       )}
 
+      {loading && routes.length === 0 && !error && (
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={colors.coral} size="large" />
+        </View>
+      )}
+
       {!loading && routes.length === 0 && !error && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>{tab === 'created' ? 'No maps yet' : 'No saved routes yet'}</Text>
@@ -99,6 +108,26 @@ export default function MyMapsScreen({ onClose, onSelectRoute, onOpenDetail }: P
               ? 'Build a route on the map, then tap Save to keep it here.'
               : 'Save routes from Discover to find them here.'}
           </Text>
+          {tab === 'created' ? (
+            <Pressable
+              style={styles.emptyCta}
+              onPress={onCreateRoute}
+              accessibilityRole="button"
+              accessibilityLabel="Build a route"
+            >
+              <PlusIcon size={16} color={colors.white} />
+              <Text style={styles.emptyCtaText}>Build a route</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={styles.emptyCta}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Explore Discover"
+            >
+              <Text style={styles.emptyCtaText}>Explore Discover</Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -107,9 +136,14 @@ export default function MyMapsScreen({ onClose, onSelectRoute, onOpenDetail }: P
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         onRefresh={refresh}
-        refreshing={loading}
+        refreshing={loading && routes.length > 0}
         renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => onOpenDetail(item)}>
+          <Pressable
+            style={styles.card}
+            onPress={() => onOpenDetail(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.name}, ${item.distanceKm.toFixed(1)} km`}
+          >
             <View style={styles.cardHeader}>
               <View style={styles.activityBadge}>
                 <Text style={styles.activityBadgeText}>{ACTIVITY_LABELS[item.activityType]}</Text>
@@ -118,7 +152,12 @@ export default function MyMapsScreen({ onClose, onSelectRoute, onOpenDetail }: P
                 {item.name}
               </Text>
               {tab === 'created' && (
-                <Pressable style={styles.deleteButton} onPress={() => handleDelete(item)}>
+                <Pressable
+                  style={styles.deleteButton}
+                  onPress={() => handleDelete(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${item.name}`}
+                >
                   <TrashIcon size={16} color={colors.ink} />
                 </Pressable>
               )}
@@ -166,7 +205,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
@@ -233,11 +271,31 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 13,
   },
+  loadingState: {
+    paddingTop: 64,
+    alignItems: 'center',
+  },
   emptyState: {
     paddingHorizontal: 32,
     paddingTop: 48,
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  emptyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: spacing.md,
+    height: 46,
+    paddingHorizontal: 22,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
+    ...elevation('primaryBtn'),
+  },
+  emptyCtaText: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.white,
   },
   emptyTitle: {
     fontFamily: fonts.extraBold,

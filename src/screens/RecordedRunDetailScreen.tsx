@@ -117,7 +117,7 @@ export default function RecordedRunDetailScreen({ runId, onClose, onOpenRoute, o
         <>
           <View style={styles.mapWrap}>
             <RecordingMap livePath={run.path} isLive={false} />
-            <Pressable style={styles.backButton} onPress={onClose}>
+            <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
               <BackIcon />
             </Pressable>
           </View>

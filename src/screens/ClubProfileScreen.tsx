@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -58,6 +59,7 @@ export default function ClubProfileScreen({
   onRequireAuth,
   onScheduleClubRun,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const [club, setClub] = useState<RunClub | null>(null);
   // Events and members are membership-adjacent social data (who's going,
@@ -144,9 +146,9 @@ export default function ClubProfileScreen({
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={onClose}>
+          <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
             <BackIcon />
           </Pressable>
         </View>
@@ -161,7 +163,7 @@ export default function ClubProfileScreen({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={onClose}>
+          <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
             <BackIcon />
           </Pressable>
         </View>
@@ -175,7 +177,7 @@ export default function ClubProfileScreen({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         {isAdmin && (
@@ -322,7 +324,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',

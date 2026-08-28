@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon, CheckIcon, ClockIcon, RaceFlagIcon, RecordIcon } from '../components/icons';
 import SwipeToDeleteRow from '../components/SwipeToDeleteRow';
 import { useAuth } from '../lib/AuthContext';
@@ -40,6 +41,7 @@ function timeAgo(ms: number): string {
 }
 
 export default function ActivityFeedScreen({ onClose, onOpenDetail, onOpenRecordedRun }: Props) {
+  const insets = useSafeAreaInsets();
   const { session } = useAuth();
   const [items, setItems] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,9 +93,9 @@ export default function ActivityFeedScreen({ onClose, onOpenDetail, onOpenRecord
   }, [refresh]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>Activity</Text>
@@ -181,7 +183,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon, PlusIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute } from '../types/route';
@@ -21,6 +22,7 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
 };
 
 export default function CreateEventScreen({ onClose, onSelectRoute, onCreateNewRoute }: Props) {
+  const insets = useSafeAreaInsets();
   const [routes, setRoutes] = useState<CloudRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,9 +44,9 @@ export default function CreateEventScreen({ onClose, onSelectRoute, onCreateNewR
   }, [refresh]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>Create Event</Text>
@@ -117,7 +119,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',

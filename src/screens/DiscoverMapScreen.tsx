@@ -16,7 +16,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BellIcon, CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, PlusIcon, RecordIcon, SearchIcon, TrophyIcon, UserIcon, UsersIcon } from '../components/icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BellIcon, CalendarIcon, CloseIcon, FilterIcon, ImportIcon, LockIcon, LoopIcon, PlusIcon, RecordIcon, SearchIcon, TrophyIcon, UserIcon, UsersIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import ProBadge from '../components/ProBadge';
 import UpcomingRacesStrip from '../components/UpcomingRacesStrip';
@@ -25,7 +26,7 @@ import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute, GroupRun, LatLng, RaceEventSummary } from '../types/route';
 import { clusterRoutesByStart, RouteCluster } from '../utils/clusterRoutes';
 import { haversineDistance } from '../utils/distance';
-import { reverseGeocodeCity, reverseGeocodeCountryBounds } from '../utils/geocoding';
+import { reverseGeocodeCity } from '../utils/geocoding';
 import { listRunsNearLocation, listUpcomingRaceEvents } from '../utils/groupRunsApi';
 import '../utils/mapboxInit';
 import { listPublicRoutes, PublicRouteFilters, searchRoutes } from '../utils/routesApi';
@@ -61,10 +62,12 @@ interface RunsNearYouStripProps {
   /** The device's actual GPS position — used only for the "X km away" label on each card, never for what's fetched. Null (permission denied / not yet resolved) hides the label entirely rather than showing a distance from somewhere else. */
   userLocation: LatLng | null;
   refreshSignal?: number;
+  /** Distance from the bottom of the screen — sits clear of the home indicator and the create FAB. */
+  bottomOffset: number;
 }
 
 /** Horizontal strip of upcoming group runs near the current map view (real radius search, not a city-string match) — Option C from the group-run-features spec: lowest effort, doesn't disrupt the existing route map UX. RSVPing happens on the group run detail screen (tap a card), not from here. */
-function RunsNearYouStrip({ onOpenGroupRun, mapCenter, radiusKm, userLocation, refreshSignal }: RunsNearYouStripProps) {
+function RunsNearYouStrip({ onOpenGroupRun, mapCenter, radiusKm, userLocation, refreshSignal, bottomOffset }: RunsNearYouStripProps) {
   const [runs, setRuns] = useState<GroupRun[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,7 +93,7 @@ function RunsNearYouStrip({ onOpenGroupRun, mapCenter, radiusKm, userLocation, r
   if (loading || runs.length === 0) return null;
 
   return (
-    <View style={styles.runsStripWrap} pointerEvents="box-none">
+    <View style={[styles.runsStripWrap, { bottom: bottomOffset }]} pointerEvents="box-none">
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.runsStripContent}>
         {runs.map((run) => {
           const distanceKm =
@@ -98,11 +101,21 @@ function RunsNearYouStrip({ onOpenGroupRun, mapCenter, radiusKm, userLocation, r
               ? haversineDistance(userLocation, { latitude: run.startLat, longitude: run.startLng }) / 1000
               : null;
           return (
-          <Pressable key={run.id} style={styles.runCard} onPress={() => onOpenGroupRun(run.id)}>
+          <Pressable
+            key={run.id}
+            style={styles.runCard}
+            onPress={() => onOpenGroupRun(run.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`${run.title}, ${formatRunWhen(run.scheduledAt)}, ${run.rsvpCount} going`}
+          >
             <View style={styles.runCardWhenRow}>
               <CalendarIcon size={12} />
               <Text style={styles.runCardWhen}>{formatRunWhen(run.scheduledAt)}</Text>
-              {run.seriesId && <Text style={styles.runCardWhen}> · 🔁</Text>}
+              {run.seriesId && (
+                <View style={styles.runCardSeriesBadge}>
+                  <LoopIcon size={9} color={colors.stone} />
+                </View>
+              )}
             </View>
             <Text style={styles.runCardTitle} numberOfLines={1}>
               {run.title}
@@ -198,7 +211,6 @@ const SHOW_UPCOMING_RACES_KEY = 'rootah_show_upcoming_races';
 // No safe-area-inset library wired into the app — this is a fixed
 // approximation of the home-indicator / gesture-nav inset so the FAB
 // actually sits in the bottom-right corner instead of crowding the edge.
-const BOTTOM_SAFE_PAD = Platform.OS === 'ios' ? 34 : 16;
 
 // A single center+zoom can't guarantee the whole archipelago fits on
 // screen — the Philippines is tall and narrow (~1850km N-S, much less
@@ -217,15 +229,6 @@ const ACTIVITY_TYPE_FILTER_OPTIONS: { value: ActivityType | undefined; label: st
   { value: 'walk', label: 'Walk' },
 ];
 
-function isWithinPhilippines(point: { latitude: number; longitude: number }): boolean {
-  return (
-    point.longitude >= PHILIPPINES_SW[0] &&
-    point.longitude <= PHILIPPINES_NE[0] &&
-    point.latitude >= PHILIPPINES_SW[1] &&
-    point.latitude <= PHILIPPINES_NE[1]
-  );
-}
-
 export default function DiscoverMapScreen({
   onOpenDetail,
   onOpenProfile,
@@ -240,6 +243,7 @@ export default function DiscoverMapScreen({
   onCreateEvent,
   refreshSignal,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const tier = useUserTier();
   const [routes, setRoutes] = useState<CloudRoute[]>([]);
   const [loading, setLoading] = useState(true);
@@ -360,30 +364,14 @@ export default function DiscoverMapScreen({
         // handler takes over (viewport-based radius) as soon as it does.
         setMapViewport((prev) => prev ?? { center: point, radiusKm: 50 });
 
-        if (isWithinPhilippines(point)) {
-          // Use our own verified bounds rather than the geocoder's — its
-          // country bbox for an archipelago cuts off outlying islands
-          // (northern Luzon, Palawan), which is exactly the crop this was
-          // fixing.
-          hasFitBounds.current = true;
-          cameraRef.current?.fitBounds(PHILIPPINES_NE, PHILIPPINES_SW, 20, 0);
-          return;
-        }
-
-        const bounds = await reverseGeocodeCountryBounds(point);
-        if (bounds) {
-          hasFitBounds.current = true;
-          cameraRef.current?.fitBounds(bounds.ne, bounds.sw, 20, 0);
-        } else {
-          // Couldn't resolve country bounds — still show a wide view around
-          // the user rather than a single city block, but leave hasFitBounds
-          // unset so the routes-bounds fallback below can still take over.
-          cameraRef.current?.setCamera({
-            centerCoordinate: [point.longitude, point.latitude],
-            zoomLevel: COUNTRY_ZOOM_FALLBACK,
-            animationDuration: 0,
-          });
-        }
+        // Rootah's routes are all in the Philippines for now. If the user is
+        // in-country, frame the whole archipelago (our own verified bounds —
+        // the geocoder's bbox clips outlying islands). If they're abroad,
+        // don't zoom out to their own empty country or the whole hemisphere;
+        // drop them straight into the Philippines view where the content is.
+        hasFitBounds.current = true;
+        cameraRef.current?.fitBounds(PHILIPPINES_NE, PHILIPPINES_SW, 20, 0);
+        return;
       } catch {
         // Location failed entirely — fall back to the Philippines rather
         // than leaving whatever the Camera happened to be showing.
@@ -529,15 +517,19 @@ export default function DiscoverMapScreen({
                 anchor={{ x: 0.13, y: 1 }}
               >
                 <FadeInPin>
-                  <Pressable onPress={() => onOpenDetail(route)} style={styles.pin}>
+                  <Pressable
+                    onPress={() => onOpenDetail(route)}
+                    style={styles.pin}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${route.name}, ${route.distanceKm.toFixed(1)} km${route.isTrail ? ', trail' : ''}`}
+                  >
                     <View style={styles.pinRow}>
                       <View style={styles.pinDot} />
-                      <View style={styles.pinLabel}>
-                        <Text style={styles.pinLabelText}>
-                          {route.isTrail ? '🥾 ' : ''}
-                          {route.distanceKm.toFixed(1)} km
-                        </Text>
-                      </View>
+                      {zoom >= 10.5 && (
+                        <View style={styles.pinLabel}>
+                          <Text style={styles.pinLabelText}>{route.distanceKm.toFixed(1)} km</Text>
+                        </View>
+                      )}
                     </View>
                     <View style={styles.pinTail} />
                   </Pressable>
@@ -560,6 +552,8 @@ export default function DiscoverMapScreen({
                   onPress={() => handleClusterPress(cluster)}
                   style={({ pressed }) => [styles.clusterPin, pressed && styles.clusterPinPressed]}
                   hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${cluster.routes.length} routes here`}
                 >
                   <View style={styles.clusterDot}>
                     <Text style={styles.clusterDotText}>{cluster.routes.length}</Text>
@@ -574,20 +568,39 @@ export default function DiscoverMapScreen({
 
       <View pointerEvents="none" style={styles.tint} />
 
-      <View style={styles.topOverlay}>
+      <View style={[styles.topOverlay, { top: insets.top + 12 }]}>
         <View style={styles.brandRow}>
           <View style={styles.brandGroup}>
             <Logo size={36} />
             {tier === 'paid' && <ProBadge />}
           </View>
           <View style={styles.topButtons}>
-            <Pressable style={styles.groupRunsButton} onPress={onOpenGroupRuns}>
+            <Pressable
+              style={styles.groupRunsButton}
+              onPress={onOpenGroupRuns}
+              accessibilityRole="button"
+              accessibilityLabel="Group runs"
+            >
               <CalendarIcon size={16} />
             </Pressable>
-            <Pressable style={styles.groupRunsButton} onPress={onOpenClubs}>
+            <Pressable
+              style={styles.groupRunsButton}
+              onPress={onOpenClubs}
+              accessibilityRole="button"
+              accessibilityLabel="Run clubs"
+            >
               <UsersIcon size={16} />
             </Pressable>
-            <Pressable style={styles.groupRunsButton} onPress={onOpenNotifications}>
+            <Pressable
+              style={styles.groupRunsButton}
+              onPress={onOpenNotifications}
+              accessibilityRole="button"
+              accessibilityLabel={
+                unreadNotificationCount > 0
+                  ? `Notifications, ${unreadNotificationCount} unread`
+                  : 'Notifications'
+              }
+            >
               <BellIcon size={16} />
               {unreadNotificationCount > 0 && (
                 <View style={styles.notificationBadge}>
@@ -595,7 +608,12 @@ export default function DiscoverMapScreen({
                 </View>
               )}
             </Pressable>
-            <Pressable style={styles.profileButton} onPress={onOpenProfile}>
+            <Pressable
+              style={styles.profileButton}
+              onPress={onOpenProfile}
+              accessibilityRole="button"
+              accessibilityLabel="Your profile"
+            >
               <UserIcon size={18} />
             </Pressable>
           </View>
@@ -613,7 +631,12 @@ export default function DiscoverMapScreen({
               returnKeyType="search"
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+              <Pressable
+                onPress={() => setSearchQuery('')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
                 <CloseIcon size={14} color={colors.stone} />
               </Pressable>
             )}
@@ -704,12 +727,13 @@ export default function DiscoverMapScreen({
         radiusKm={mapViewport?.radiusKm ?? 50}
         userLocation={userLocation}
         refreshSignal={refreshSignal}
+        bottomOffset={insets.bottom + 108}
       />
 
       {showAddMenu && (
         <>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddMenu(false)} />
-          <View style={styles.addMenu}>
+          <View style={[styles.addMenu, { bottom: insets.bottom + 102 }]}>
             <Pressable
               style={styles.addMenuItem}
               onPress={() => {
@@ -755,7 +779,12 @@ export default function DiscoverMapScreen({
         </>
       )}
 
-      <Pressable style={styles.fab} onPress={() => setShowAddMenu((v) => !v)}>
+      <Pressable
+        style={[styles.fab, { bottom: insets.bottom + 40 }]}
+        onPress={() => setShowAddMenu((v) => !v)}
+        accessibilityRole="button"
+        accessibilityLabel={showAddMenu ? 'Close menu' : 'Create route, activity or event'}
+      >
         {showAddMenu ? <CloseIcon size={22} /> : <PlusIcon size={26} />}
       </Pressable>
 
@@ -908,11 +937,11 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   pinDot: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderRadius: 8,
     backgroundColor: colors.coral,
-    ...elevation('subtle'),
+    ...elevation('smallCta'),
   },
   pinLabel: {
     backgroundColor: colors.surface,
@@ -1198,7 +1227,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 34,
   },
   runsStripContent: {
     paddingHorizontal: 16,
@@ -1211,6 +1239,14 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 2,
     ...elevation('card'),
+  },
+  runCardSeriesBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.cream,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   runCardWhenRow: {
     flexDirection: 'row',
@@ -1258,7 +1294,6 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 40 + BOTTOM_SAFE_PAD,
     width: 52,
     height: 52,
     borderRadius: radii.fab,
@@ -1270,7 +1305,6 @@ const styles = StyleSheet.create({
   addMenu: {
     position: 'absolute',
     right: 20,
-    bottom: 110 + BOTTOM_SAFE_PAD,
     gap: 10,
   },
   addMenuItem: {

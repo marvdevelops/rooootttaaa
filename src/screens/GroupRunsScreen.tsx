@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon, CalendarIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { GroupRun } from '../types/route';
@@ -10,6 +11,7 @@ interface Props {
   onOpenGroupRun: (groupRunId: string) => void;
   onRequirePaywall: () => void;
   onRequireAuth: (action: () => void, context?: string) => void;
+  onCreateEvent: () => void;
 }
 
 function formatWhen(ms: number): string {
@@ -19,7 +21,8 @@ function formatWhen(ms: number): string {
     d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
-export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePaywall, onRequireAuth }: Props) {
+export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePaywall, onRequireAuth, onCreateEvent }: Props) {
+  const insets = useSafeAreaInsets();
   const [runs, setRuns] = useState<GroupRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,9 +86,9 @@ export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePayw
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>Group Runs</Text>
@@ -97,12 +100,27 @@ export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePayw
         </View>
       )}
 
+      {loading && runs.length === 0 && !error && (
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={colors.coral} size="large" />
+        </View>
+      )}
+
       {!loading && runs.length === 0 && !error && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No upcoming group runs</Text>
           <Text style={styles.emptyBody}>
-            Open a route and tap &quot;Schedule group run&quot; to plan one.
+            Schedule one on any route, or open a route and tap &quot;Schedule group run&quot;.
           </Text>
+          <Pressable
+            style={styles.emptyCta}
+            onPress={onCreateEvent}
+            accessibilityRole="button"
+            accessibilityLabel="Schedule a group run"
+          >
+            <CalendarIcon size={15} color={colors.white} />
+            <Text style={styles.emptyCtaText}>Schedule a group run</Text>
+          </Pressable>
         </View>
       )}
 
@@ -111,9 +129,14 @@ export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePayw
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         onRefresh={refresh}
-        refreshing={loading}
+        refreshing={loading && runs.length > 0}
         renderItem={({ item }) => (
-          <Pressable style={styles.card} onPress={() => onOpenGroupRun(item.id)}>
+          <Pressable
+            style={styles.card}
+            onPress={() => onOpenGroupRun(item.id)}
+            accessibilityRole="button"
+            accessibilityLabel={`${item.title}, ${formatWhen(item.scheduledAt)}`}
+          >
             <View style={styles.cardHeader}>
               <View style={styles.whenBadge}>
                 <CalendarIcon size={13} />
@@ -167,7 +190,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
@@ -203,11 +225,31 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 13,
   },
+  loadingState: {
+    paddingTop: 64,
+    alignItems: 'center',
+  },
   emptyState: {
     paddingHorizontal: 32,
     paddingTop: 48,
     alignItems: 'center',
     gap: 8,
+  },
+  emptyCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: spacing.md,
+    height: 46,
+    paddingHorizontal: 22,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
+    ...elevation('primaryBtn'),
+  },
+  emptyCtaText: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.white,
   },
   emptyTitle: {
     fontFamily: fonts.extraBold,

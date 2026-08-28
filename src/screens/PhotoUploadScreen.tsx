@@ -1,6 +1,7 @@
 import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon, CameraIcon, ImportIcon } from '../components/icons';
 import { colors, elevation, fonts, radii } from '../theme/theme';
 import {
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export default function PhotoUploadScreen({ routeId, completionId, onClose, onUploaded }: Props) {
+  const insets = useSafeAreaInsets();
   const [photo, setPhoto] = useState<PickedPhoto | null>(null);
   const [caption, setCaption] = useState('');
   const [takenAt, setTakenAt] = useState(new Date());
@@ -48,9 +50,9 @@ export default function PhotoUploadScreen({ routeId, completionId, onClose, onUp
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title}>Add a photo</Text>
@@ -125,7 +127,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',

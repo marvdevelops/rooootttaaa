@@ -34,7 +34,7 @@ module.exports = {
     android: {
       package: 'app.rootah.waypoint',
       adaptiveIcon: {
-        backgroundColor: '#F39120',
+        backgroundColor: '#E84B2A',
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundImage: './assets/android-icon-background.png',
         monochromeImage: './assets/android-icon-monochrome.png',

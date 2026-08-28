@@ -114,7 +114,7 @@ export default function ActivityShareCardScreen({ activityType, distanceMeters, 
         </Pressable>
       </ScrollView>
 
-      <Pressable style={styles.backButton} onPress={onDone}>
+      <Pressable style={styles.backButton} onPress={onDone} accessibilityRole="button" accessibilityLabel="Back">
         <BackIcon />
       </Pressable>
     </View>

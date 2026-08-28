@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -48,6 +49,7 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
 };
 
 export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onOpenGroupRun }: Props) {
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [routes, setRoutes] = useState<CloudRoute[]>([]);
   const [events, setEvents] = useState<GroupRun[]>([]);
@@ -131,15 +133,20 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
   }, [refresh]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <Text style={styles.title} numberOfLines={1}>
-          {profile?.username ?? 'Profile'}
+          {profile ? `@${profile.username}` : 'Profile'}
         </Text>
-        <Pressable style={styles.backButton} onPress={handleShare}>
+        <Pressable
+          style={styles.backButton}
+          onPress={handleShare}
+          accessibilityRole="button"
+          accessibilityLabel="Share this profile"
+        >
           <ShareIcon />
         </Pressable>
       </View>
@@ -173,7 +180,7 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
                 </View>
               )}
               <View style={styles.usernameRow}>
-                <Text style={styles.username}>{profile.username}</Text>
+                <Text style={styles.username} numberOfLines={1}>@{profile.username}</Text>
                 {profile.tier === 'paid' && <ProBadge />}
               </View>
               {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
@@ -182,10 +189,21 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
                 {routes.length} public {routes.length === 1 ? 'route' : 'routes'}
               </Text>
               <View style={styles.moderationRow}>
-                <Pressable onPress={() => setShowReportModal(true)}>
+                <Pressable
+                  onPress={() => setShowReportModal(true)}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Report ${profile.username}`}
+                >
                   <Text style={styles.moderationLink}>Report</Text>
                 </Pressable>
-                <Pressable onPress={handleBlock}>
+                <Text style={styles.moderationDot}>·</Text>
+                <Pressable
+                  onPress={handleBlock}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Block ${profile.username}`}
+                >
                   <Text style={styles.moderationLink}>Block</Text>
                 </Pressable>
               </View>
@@ -194,7 +212,13 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
                 <View style={styles.eventsSection}>
                   <Text style={styles.eventsSectionTitle}>Upcoming events</Text>
                   {events.map((event) => (
-                    <Pressable key={event.id} style={styles.eventCard} onPress={() => onOpenGroupRun(event.id)}>
+                    <Pressable
+                      key={event.id}
+                      style={styles.eventCard}
+                      onPress={() => onOpenGroupRun(event.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${event.title}, ${formatEventWhen(event.scheduledAt)}`}
+                    >
                       <View style={styles.eventWhenBadge}>
                         <CalendarIcon size={12} />
                         <Text style={styles.eventWhenText}>{formatEventWhen(event.scheduledAt)}</Text>
@@ -211,15 +235,14 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
               )}
             </View>
           }
-          ListEmptyComponent={
-            !loading ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No public routes yet.</Text>
-              </View>
-            ) : null
-          }
+          ListEmptyComponent={null}
           renderItem={({ item }) => (
-            <Pressable style={styles.card} onPress={() => onOpenDetail(item)}>
+            <Pressable
+              style={styles.card}
+              onPress={() => onOpenDetail(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`${item.name}, ${item.distanceKm.toFixed(1)} km`}
+            >
               <View style={styles.cardHeader}>
                 <View style={styles.activityBadge}>
                   <Text style={styles.activityBadgeText}>{ACTIVITY_LABELS[item.activityType]}</Text>
@@ -257,7 +280,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
@@ -365,6 +387,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.mist,
     textDecorationLine: 'underline',
+  },
+  moderationDot: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.mist,
   },
   eventsSection: {
     width: '100%',

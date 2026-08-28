@@ -4,6 +4,7 @@ import { File, Paths } from 'expo-file-system';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   ActivityIndicator,
   Alert,
@@ -21,7 +22,7 @@ import {
   UIManager,
   View,
 } from 'react-native';
-import { BackIcon, CalendarIcon, ChevronUpIcon, EditIcon, ExportIcon, FlybyIcon, HeartIcon, LockIcon, NoteFlagIcon, RecordIcon, RunnerIcon, ShareIcon, TrashIcon } from '../components/icons';
+import { BackIcon, CalendarIcon, CheckIcon, ChevronUpIcon, EditIcon, ExportIcon, FlybyIcon, HeartIcon, LockIcon, NoteFlagIcon, RecordIcon, RunnerIcon, ShareIcon, TrashIcon, TrophyIcon } from '../components/icons';
 import EditRouteInfoModal from '../components/EditRouteInfoModal';
 import ElevationProfileChart from '../components/ElevationProfileChart';
 import TrailInfoSection from '../components/TrailInfoSection';
@@ -113,6 +114,7 @@ export default function RouteDetailScreen({
   onOpenFlyby,
   onRecordRoute,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const tier = useUserTier();
   const flybyAccess = useFlybyAccess();
   const notificationPrePermission = useNotificationPrePermission();
@@ -612,40 +614,56 @@ export default function RouteDetailScreen({
           uTurnPoints={uTurnPoints}
         />
 
-        <Pressable style={styles.backButton} onPress={() => (sheetExpanded ? setExpanded(false) : onClose())}>
+        <Pressable
+          style={[styles.backButton, { top: insets.top + 8 }]}
+          onPress={() => (sheetExpanded ? setExpanded(false) : onClose())}
+          accessibilityRole="button"
+          accessibilityLabel={sheetExpanded ? 'Collapse details' : 'Back'}
+        >
           <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
           <BackIcon />
         </Pressable>
 
         {!sheetExpanded && (
-          <View style={styles.topRightActions}>
-            <Pressable style={[styles.iconChip, styles.iconChipSolid]} onPress={() => onRequireAuth(() => onRecordRoute(route), 'record')}>
-              <RecordIcon size={16} color={colors.sheetBg} />
-            </Pressable>
+          <View style={[styles.topRightActions, { top: insets.top + 8 }]}>
             <Pressable
-              style={[styles.iconChip, styles.iconChipSolid]}
+              style={styles.iconChip}
               onPress={() => onRequireAuth(handleExportGpx, 'generic')}
               disabled={exporting}
+              accessibilityRole="button"
+              accessibilityLabel="Export as GPX"
             >
-              {exporting ? <ActivityIndicator size="small" color={colors.sheetBg} /> : <ExportIcon size={18} color={colors.sheetBg} />}
+              <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
+              {exporting ? <ActivityIndicator size="small" color={colors.ink} /> : <ExportIcon size={18} color={colors.ink} />}
             </Pressable>
-            <Pressable style={styles.iconChip} onPress={handleShare}>
+            <Pressable style={styles.iconChip} onPress={handleShare} accessibilityRole="button" accessibilityLabel="Share route">
               <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
               <ShareIcon size={16} />
             </Pressable>
             {flybyAccess.allowed ? (
-              <Pressable style={styles.iconChip} onPress={() => onOpenFlyby(route)}>
+              <Pressable style={styles.iconChip} onPress={() => onOpenFlyby(route)} accessibilityRole="button" accessibilityLabel="Flyby preview">
                 <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
                 <FlybyIcon size={17} />
               </Pressable>
             ) : (
-              <Pressable style={styles.iconChip} onPress={() => onRequirePaywall('flyby_video')}>
+              <Pressable
+                style={styles.iconChip}
+                onPress={() => onRequirePaywall('flyby_video')}
+                accessibilityRole="button"
+                accessibilityLabel="Flyby preview (Rootah Pro)"
+              >
                 <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
                 <LockIcon size={14} color={colors.ink} />
               </Pressable>
             )}
             {route.isOwnedByMe && (
-              <Pressable style={styles.iconChip} onPress={handleDelete} disabled={busy}>
+              <Pressable
+                style={styles.iconChip}
+                onPress={handleDelete}
+                disabled={busy}
+                accessibilityRole="button"
+                accessibilityLabel="Delete route"
+              >
                 <BlurView intensity={40} tint="light" style={StyleSheet.absoluteFill} />
                 {busy ? <ActivityIndicator size="small" color={colors.danger} /> : <TrashIcon size={16} color={colors.danger} />}
               </Pressable>
@@ -662,10 +680,27 @@ export default function RouteDetailScreen({
               style={StyleSheet.absoluteFill}
             />
             <View style={styles.glassOverlayContent}>
+              <View style={styles.glassHeaderRow}>
+                <View style={styles.activityBadge}>
+                  <Text style={styles.activityBadgeText}>{ACTIVITY_LABELS[route.activityType]}</Text>
+                </View>
+                <Text style={styles.glassName} numberOfLines={1}>
+                  {routeName}
+                </Text>
+              </View>
+              <Pressable
+                style={styles.glassByline}
+                onPress={() => onOpenProfile(route.ownerId)}
+                accessibilityRole="link"
+                accessibilityLabel={`View ${route.ownerUsername}'s profile`}
+              >
+                <Text style={styles.glassBylineText}>by {route.ownerUsername}</Text>
+              </Pressable>
+
               <View style={styles.glassStatsRow}>
-                <View style={styles.glassChip}>
-                  <Text style={styles.glassStatLabel}>DISTANCE</Text>
-                  <Text style={styles.glassStatValueCompact}>{route.distanceKm.toFixed(2)} km</Text>
+                <View style={[styles.glassChip, styles.glassChipInk]}>
+                  <Text style={[styles.glassStatLabel, styles.glassStatLabelOnColor]}>DISTANCE</Text>
+                  <Text style={[styles.glassStatValueCompact, styles.glassStatValueOnColor]}>{route.distanceKm.toFixed(2)} km</Text>
                 </View>
                 <View style={[styles.glassChip, styles.glassChipAqua]}>
                   <Text style={[styles.glassStatLabel, styles.glassStatLabelOnColor]}>GAIN</Text>
@@ -685,7 +720,38 @@ export default function RouteDetailScreen({
                 </View>
               )}
 
-              <Pressable style={styles.detailsPill} onPress={() => setExpanded(true)}>
+              <View style={styles.glassActionRow}>
+                <Pressable
+                  style={[styles.glassRunButton, todayCompletion && styles.glassRunButtonLogged]}
+                  onPress={() => onRequireAuth(handleLogRun, 'log_completion')}
+                  disabled={loggingCompletion}
+                  accessibilityRole="button"
+                  accessibilityLabel={todayCompletion ? 'Logged — ran today' : 'Log that you ran this route'}
+                >
+                  {loggingCompletion ? (
+                    <ActivityIndicator color={colors.white} />
+                  ) : (
+                    <Text style={styles.glassRunButtonText}>{todayCompletion ? 'Ran today' : 'I ran this'}</Text>
+                  )}
+                </Pressable>
+                <Pressable
+                  style={[styles.glassSaveButton, isSaved && styles.glassSaveButtonActive]}
+                  onPress={() => onRequireAuth(handleToggleSave, 'save_route')}
+                  accessibilityRole="button"
+                  accessibilityLabel={isSaved ? 'Saved to your maps' : 'Save to your maps'}
+                >
+                  <Text style={[styles.glassSaveButtonText, isSaved && styles.glassSaveButtonTextActive]}>
+                    {isSaved ? 'Saved' : 'Save'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Pressable
+                style={styles.detailsPill}
+                onPress={() => setExpanded(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Show full route details"
+              >
                 <ChevronUpIcon size={13} />
                 <Text style={styles.detailsPillText}>DETAILS</Text>
               </Pressable>
@@ -808,21 +874,37 @@ export default function RouteDetailScreen({
             style={[styles.runThisButton, todayCompletion && styles.runThisButtonLogged]}
             onPress={handleLogRun}
             disabled={loggingCompletion}
+            accessibilityRole="button"
+            accessibilityLabel={todayCompletion ? 'Logged — ran today' : 'Log that you ran this route'}
           >
             {loggingCompletion ? (
               <ActivityIndicator color={colors.sheetBg} />
             ) : (
-              <Text style={[styles.runThisButtonText, todayCompletion && styles.runThisButtonTextLogged]}>
-                {todayCompletion ? '✓ Ran today' : '✓ I ran this'}
-              </Text>
+              <View style={styles.runThisButtonInner}>
+                <CheckIcon size={15} color={todayCompletion ? colors.sage : colors.sheetBg} />
+                <Text style={[styles.runThisButtonText, todayCompletion && styles.runThisButtonTextLogged]}>
+                  {todayCompletion ? 'Ran today' : 'I ran this'}
+                </Text>
+              </View>
             )}
           </Pressable>
 
           {personalBestSeconds != null && (
             <View style={styles.pbRow}>
-              <Text style={styles.pbRowText}>🏆 Your best: {formatDuration(personalBestSeconds)}</Text>
+              <TrophyIcon size={14} color={colors.surface} />
+              <Text style={styles.pbRowText}>Your best: {formatDuration(personalBestSeconds)}</Text>
             </View>
           )}
+
+          <Pressable
+            style={styles.recordRunButton}
+            onPress={() => onRequireAuth(() => onRecordRoute(route), 'record')}
+            accessibilityRole="button"
+            accessibilityLabel="Record a run on this route with GPS"
+          >
+            <RecordIcon size={15} color={colors.coral} />
+            <Text style={styles.recordRunButtonText}>Record a run on this route</Text>
+          </Pressable>
 
           <View style={styles.actionsRow}>
             <Pressable
@@ -1208,6 +1290,71 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     padding: 10,
   },
+  glassHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  glassName: {
+    flex: 1,
+    fontFamily: fonts.extraBold,
+    fontSize: 18,
+    letterSpacing: -0.3,
+    color: colors.ink,
+  },
+  glassByline: {
+    alignSelf: 'flex-start',
+    marginTop: -6,
+  },
+  glassBylineText: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.stone,
+  },
+  glassChipInk: {
+    backgroundColor: 'rgba(26,22,20,0.82)',
+  },
+  glassActionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  glassRunButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...elevation('primaryBtn'),
+  },
+  glassRunButtonLogged: {
+    backgroundColor: colors.sage,
+  },
+  glassRunButtonText: {
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.white,
+  },
+  glassSaveButton: {
+    height: 48,
+    paddingHorizontal: 20,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...elevation('subtle'),
+  },
+  glassSaveButtonActive: {
+    backgroundColor: colors.ink,
+  },
+  glassSaveButtonText: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  glassSaveButtonTextActive: {
+    color: colors.white,
+  },
   detailsPill: {
     alignSelf: 'center',
     width: 120,
@@ -1417,11 +1564,35 @@ const styles = StyleSheet.create({
   },
   pbRow: {
     alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: colors.amber,
     borderRadius: 8,
     paddingVertical: 4,
     paddingHorizontal: 10,
     marginBottom: 10,
+  },
+  runThisButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recordRunButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    marginBottom: 10,
+    ...elevation('subtle'),
+  },
+  recordRunButtonText: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.ink,
   },
   pbRowText: {
     fontFamily: fonts.bold,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon } from '../components/icons';
 import TopRouteCard from '../components/TopRouteCard';
 import { colors, elevation, fonts, radii } from '../theme/theme';
@@ -20,6 +21,7 @@ const ACTIVITY_FILTERS: { value: ActivityType | 'all'; label: string }[] = [
 ];
 
 export default function TopRoutesScreen({ city, onClose, onOpenDetail }: Props) {
+  const insets = useSafeAreaInsets();
   const [activityType, setActivityType] = useState<ActivityType | 'all'>('all');
   const [routes, setRoutes] = useState<CloudRoute[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,9 +44,9 @@ export default function TopRoutesScreen({ city, onClose, onOpenDetail }: Props) 
   }, [refresh]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={onClose}>
+        <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
         <View style={{ flex: 1 }}>
@@ -102,7 +104,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.cream,
-    paddingTop: 60,
   },
   header: {
     flexDirection: 'row',
