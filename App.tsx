@@ -49,6 +49,7 @@ import ProfileScreen from './src/screens/ProfileScreen';
 import PublicProfileScreen from './src/screens/PublicProfileScreen';
 import RouteDetailScreen from './src/screens/RouteDetailScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import StartActivityScreen from './src/screens/StartActivityScreen';
 import TopRoutesScreen from './src/screens/TopRoutesScreen';
 import UsernameSetupScreen from './src/screens/UsernameSetupScreen';
 import NotificationPermissionModal from './src/components/NotificationPermissionModal';
@@ -62,7 +63,7 @@ import { countMyActiveGroupRuns, createGroupRun } from './src/utils/groupRunsApi
 import { countUnreadNotifications } from './src/utils/notificationsApi';
 import { useRecording } from './src/hooks/useRecording';
 import { useRecordingStore } from './src/stores/recordingStore';
-import { findNearbyRoutes, getRoute } from './src/utils/routesApi';
+import { getRoute } from './src/utils/routesApi';
 import { OFFICIAL_ACCOUNT_ID } from './src/constants/officialAccount';
 import { getRaceDetails } from './src/utils/racesApi';
 import { getRecordedRunStats } from './src/utils/recordingUpload';
@@ -92,6 +93,7 @@ const AUTH_CONTEXT_HEADLINE: Record<string, string> = {
 
 type Overlay =
   | 'builder'
+  | 'startActivity'
   | 'myMaps'
   | 'detail'
   | 'profile'
@@ -537,59 +539,42 @@ function AuthedApp({
     [navigateTo],
   );
 
-  // After the activity type is picked, do a best-effort, non-blocking check
-  // for a public route starting near the runner right now. Never delays or
-  // fails the flow — any missing permission, timeout, or empty result just
-  // falls straight through to free-roam recording, same as before this
-  // existed.
-  const beginRecording = useCallback(
-    async (activityType: ActivityType) => {
-      setRecordingActivityType(activityType);
-      try {
-        const { status } = await Location.getForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          const nearby = await findNearbyRoutes(
-            { latitude: position.coords.latitude, longitude: position.coords.longitude },
-            activityType,
-          );
-          if (nearby.length > 0) {
-            const route = nearby[0];
-            Alert.alert(
-              'There’s a route right here',
-              `“${route.name}” starts near you — ${route.distanceKm.toFixed(1)} km. Follow it turn-by-turn, or just go free and record wherever today takes you.`,
-              [
-                { text: 'Free roam', onPress: () => navigateTo('recording') },
-                { text: `Run "${route.name}"`, onPress: () => handleRecordRoute(route) },
-              ],
-            );
-            return;
-          }
-        }
-      } catch {
-        // Best-effort only — fall through to free-roam below.
-      }
-      navigateTo('recording');
-    },
-    [navigateTo, handleRecordRoute],
-  );
-
+  // Opens the "Start an activity" screen — pick the activity type, then
+  // optionally pick one of the public routes starting near you to follow
+  // turn-by-turn. Free run (no route) is the default.
   const handleStartRecording = useCallback(() => {
     requireAuth(() => {
       setResumedRecording(false);
       setRecordingRoute(null);
       setRecordingRaceRsvpId(null);
       setRecordingRaceContext(null);
-      Alert.alert('Record activity', 'What are you doing?', [
-        { text: 'Run', onPress: () => beginRecording('run') },
-        { text: 'Trail run', onPress: () => beginRecording('trail_run') },
-        { text: 'Hike', onPress: () => beginRecording('hike') },
-        { text: 'Ride', onPress: () => beginRecording('bike') },
-        { text: 'Walk', onPress: () => beginRecording('walk') },
-        { text: 'Cancel', style: 'cancel' },
-      ]);
+      setOverlay('startActivity');
     }, 'record');
-  }, [beginRecording, requireAuth]);
+  }, [requireAuth]);
+
+  const handleStartFreeRun = useCallback(
+    (activityType: ActivityType) => {
+      setResumedRecording(false);
+      setRecordingRoute(null);
+      setRecordingRaceRsvpId(null);
+      setRecordingRaceContext(null);
+      setRecordingActivityType(activityType);
+      navigateTo('recording');
+    },
+    [navigateTo],
+  );
+
+  const handleStartRouteRun = useCallback(
+    (activityType: ActivityType, route: CloudRoute) => {
+      setResumedRecording(false);
+      setRecordingRoute(route);
+      setRecordingRaceRsvpId(null);
+      setRecordingRaceContext(null);
+      setRecordingActivityType(activityType);
+      navigateTo('recording');
+    },
+    [navigateTo],
+  );
 
   const handleCreateNewRouteForEvent = useCallback(() => {
     setCreatingEventForNewRoute(true);
@@ -738,6 +723,17 @@ function AuthedApp({
       {toast && (
         <View style={styles.toastBanner} pointerEvents="none">
           <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      )}
+
+      {overlay === 'startActivity' && (
+        <View style={StyleSheet.absoluteFill}>
+          <StartActivityScreen
+            initialActivityType={recordingActivityType}
+            onCancel={() => setOverlay(null)}
+            onStartFree={handleStartFreeRun}
+            onStartWithRoute={handleStartRouteRun}
+          />
         </View>
       )}
 
