@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/server';
+import { activityLabel, getLiveSessionServer } from '../../../lib/liveSessionsApi';
 import LiveMapClient from './LiveMapClient';
+import LiveSessionClient from './LiveSessionClient';
 
 interface Props {
   params: Promise<{ token: string }>;
@@ -24,7 +26,7 @@ interface RaceLivePositionRow {
   live_view_count: number;
 }
 
-async function fetchPosition(token: string): Promise<RaceLivePositionRow | null> {
+async function fetchRacePosition(token: string): Promise<RaceLivePositionRow | null> {
   const supabase = await createClient();
   const { data } = await supabase.rpc('get_race_live_position', { token });
   return (data as RaceLivePositionRow[] | null)?.[0] ?? null;
@@ -32,50 +34,63 @@ async function fetchPosition(token: string): Promise<RaceLivePositionRow | null>
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params;
-  const row = await fetchPosition(token);
-  if (!row) return { title: 'Live tracking not found — Rootah' };
+  const noindex = { robots: { index: false, follow: false } } as const;
 
-  const isFinished = row.finish_time_seconds != null;
-  const title = isFinished
-    ? `${row.athlete_username} finished ${row.race_title} — Rootah`
-    : `🔴 ${row.athlete_username} is live in ${row.race_title} — Rootah`;
-  const description = isFinished
-    ? `${row.athlete_username} just finished ${row.race_title}. See their finish time, pace, and the course on Rootah.`
-    : `${row.athlete_username} is racing ${row.race_title} right now. Follow their live position, pace, and distance on the course — and send a quick cheer.`;
+  const race = await fetchRacePosition(token);
+  if (race) {
+    const isFinished = race.finish_time_seconds != null;
+    const title = isFinished
+      ? `${race.athlete_username} finished ${race.race_title} — Rootah`
+      : `🔴 ${race.athlete_username} is live in ${race.race_title} — Rootah`;
+    const description = isFinished
+      ? `${race.athlete_username} just finished ${race.race_title}. See their finish time, pace, and the course on Rootah.`
+      : `${race.athlete_username} is racing ${race.race_title} right now. Follow their live position, pace, and distance on the course — and send a quick cheer.`;
+    return { title, description, ...noindex, openGraph: { type: 'website', title, description } };
+  }
 
-  return {
-    title,
-    description,
-    // Never indexable — this is a private link shared directly, not a discoverable page.
-    robots: { index: false, follow: false },
-    openGraph: { type: 'website', title, description },
-  };
+  const session = await getLiveSessionServer(token);
+  if (session) {
+    const label = activityLabel(session.activityType);
+    const title = `🔴 ${session.athleteUsername} is on a live ${label} — Rootah`;
+    const description = `Follow ${session.athleteUsername}'s live position, pace, and distance on their ${label}.`;
+    return { title, description, ...noindex, openGraph: { type: 'website', title, description } };
+  }
+
+  return { title: 'Live tracking not found — Rootah', ...noindex };
 }
 
 export default async function LiveTrackingPage({ params }: Props) {
   const { token } = await params;
-  const row = await fetchPosition(token);
-  if (!row) notFound();
 
-  return (
-    <LiveMapClient
-      token={token}
-      initial={{
-        rsvpId: row.rsvp_id,
-        raceTitle: row.race_title,
-        routeId: row.route_id,
-        athleteUsername: row.athlete_username,
-        athleteAvatarUrl: row.athlete_avatar_url,
-        status: row.status,
-        lastLat: row.last_lat,
-        lastLng: row.last_lng,
-        lastDistanceMeters: row.last_distance_meters,
-        lastPaceSecondsPerKm: row.last_pace_seconds_per_km,
-        lastUpdatedAt: row.last_updated_at ? new Date(row.last_updated_at).getTime() : null,
-        startedAt: row.started_at ? new Date(row.started_at).getTime() : null,
-        finishTimeSeconds: row.finish_time_seconds,
-        liveViewCount: row.live_view_count,
-      }}
-    />
-  );
+  const race = await fetchRacePosition(token);
+  if (race) {
+    return (
+      <LiveMapClient
+        token={token}
+        initial={{
+          rsvpId: race.rsvp_id,
+          raceTitle: race.race_title,
+          routeId: race.route_id,
+          athleteUsername: race.athlete_username,
+          athleteAvatarUrl: race.athlete_avatar_url,
+          status: race.status,
+          lastLat: race.last_lat,
+          lastLng: race.last_lng,
+          lastDistanceMeters: race.last_distance_meters,
+          lastPaceSecondsPerKm: race.last_pace_seconds_per_km,
+          lastUpdatedAt: race.last_updated_at ? new Date(race.last_updated_at).getTime() : null,
+          startedAt: race.started_at ? new Date(race.started_at).getTime() : null,
+          finishTimeSeconds: race.finish_time_seconds,
+          liveViewCount: race.live_view_count,
+        }}
+      />
+    );
+  }
+
+  const session = await getLiveSessionServer(token);
+  if (session) {
+    return <LiveSessionClient token={token} initial={session} />;
+  }
+
+  notFound();
 }

@@ -31,8 +31,26 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
     supabase.rpc('get_race_live_position', { token }),
     supabase.rpc('get_race_route', { token }),
   ]);
-  const position = (posData as LivePositionRow[] | null)?.[0] ?? null;
+  let position = (posData as LivePositionRow[] | null)?.[0] ?? null;
   const route = (routeData as RouteRow[] | null)?.[0] ?? null;
+
+  // Non-race live session — reuse the same card, just without a race title.
+  let sessionLabel: string | null = null;
+  if (!position) {
+    const { data: sessionData } = await supabase.rpc('get_live_session', { token });
+    const s = (sessionData as { athlete_username: string; activity_type: string; last_distance_meters: number | null }[] | null)?.[0];
+    if (s) {
+      const labels: Record<string, string> = { run: 'run', trail_run: 'trail run', hike: 'hike', bike: 'ride', walk: 'walk', other: 'activity' };
+      sessionLabel = labels[s.activity_type] ?? 'activity';
+      position = {
+        race_title: '',
+        athlete_username: s.athlete_username,
+        route_id: '',
+        finish_time_seconds: null,
+        last_distance_meters: s.last_distance_meters,
+      };
+    }
+  }
 
   const points: RoutePoint[] = (route?.segments ?? []).flatMap((seg) => seg.path);
   let pathD = '';
@@ -88,7 +106,9 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
           <div style={{ display: 'flex', fontSize: 22, color: '#8C8078', marginBottom: 30 }}>
             {isFinished
               ? `Finished ${position?.race_title ?? 'their race'} — tap to see the result`
-              : `Running ${position?.race_title ?? 'a race'} right now — follow along live`}
+              : sessionLabel
+                ? `On a ${sessionLabel} right now — follow along live`
+                : `Running ${position?.race_title ?? 'a race'} right now — follow along live`}
           </div>
 
           <div style={{ display: 'flex', gap: 14 }}>
