@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import AutoPauseBanner from '../components/AutoPauseBanner';
 import DeviationBanner from '../components/DeviationBanner';
@@ -52,6 +53,7 @@ interface Props {
 }
 
 export default function RecordingScreen({ activityType, routeId, plannedSegments, alreadyStarted, raceRsvpId, onFinish, onDiscard }: Props) {
+  const insets = useSafeAreaInsets();
   useKeepAwake();
   const { startRecording, pauseRecording, resumeRecording, finishRecording, discardSession } = useRecording();
 
@@ -365,7 +367,7 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
       <View style={styles.container}>
         <RecordingMap livePath={livePath} plannedPath={plannedPath} />
         <View style={styles.readyOverlay}>
-          <Pressable style={styles.readyCloseButton} onPress={onDiscard}>
+          <Pressable style={[styles.readyCloseButton, { top: insets.top + 8 }]} onPress={onDiscard}>
             <CloseIcon size={16} />
           </Pressable>
 
@@ -397,7 +399,7 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
         </Pressable>
       )}
 
-      <View style={styles.topOverlay} pointerEvents={locked ? 'none' : 'auto'}>
+      <View style={[styles.topOverlay, { top: insets.top + 8 }]} pointerEvents={locked ? 'none' : 'auto'}>
         <View style={styles.brandRow}>
           <Logo size={36} />
           <View style={styles.topButtons}>
@@ -462,7 +464,6 @@ const styles = StyleSheet.create({
   },
   topOverlay: {
     position: 'absolute',
-    top: 60,
     left: 16,
     right: 16,
   },
@@ -537,7 +538,6 @@ const styles = StyleSheet.create({
   },
   readyCloseButton: {
     position: 'absolute',
-    top: 60,
     right: 16,
     width: 36,
     height: 36,

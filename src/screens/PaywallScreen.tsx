@@ -202,7 +202,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
       : `CONTINUE — ${selectedPackage.product.priceString}`;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
         <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">

@@ -3,6 +3,7 @@ import { Camera, MapView, MarkerView, StyleURL } from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Animated,
   Dimensions,
@@ -53,23 +54,83 @@ function formatRunWhen(ms: number): string {
   );
 }
 
-interface RunsNearYouStripProps {
+interface NearHereStripProps {
   onOpenGroupRun: (groupRunId: string) => void;
-  /** Center of the currently visible map viewport — which events are fetched tracks whatever the user is looking at, not just their fixed GPS position. */
+  onOpenDetail: (route: CloudRoute) => void;
+  /** Center of the currently visible map viewport — what's offered tracks whatever the user is looking at, not just their fixed GPS position. */
   mapCenter: LatLng | null;
-  /** Derived from the visible viewport (roughly center-to-corner) so panning/zooming actually changes which events are shown. */
+  /** Derived from the visible viewport (roughly center-to-corner) so panning/zooming actually changes what's shown. */
   radiusKm: number;
-  /** The device's actual GPS position — used only for the "X km away" label on each card, never for what's fetched. Null (permission denied / not yet resolved) hides the label entirely rather than showing a distance from somewhere else. */
+  /** Public routes already loaded for the map — the strip picks the closest few to the viewport centre. */
+  routes: CloudRoute[];
+  /** The device's actual GPS position — used only for the "X km away" label on each card. Null (permission denied / not yet resolved) hides the label. */
   userLocation: LatLng | null;
   refreshSignal?: number;
-  /** Distance from the bottom of the screen — sits clear of the home indicator and the create FAB. */
+  /** Distance from the bottom of the screen — sits just above the home indicator. */
   bottomOffset: number;
+  /** Reports how many cards the strip is showing (0 when hidden) so the screen can lift the FAB above it. */
+  onCountChange: (count: number) => void;
 }
 
-/** Horizontal strip of upcoming group runs near the current map view (real radius search, not a city-string match) — Option C from the group-run-features spec: lowest effort, doesn't disrupt the existing route map UX. RSVPing happens on the group run detail screen (tap a card), not from here. */
-function RunsNearYouStrip({ onOpenGroupRun, mapCenter, radiusKm, userLocation, refreshSignal, bottomOffset }: RunsNearYouStripProps) {
+const NEAR_HERE_MAX = 8;
+
+/** Bottom strip of what's available where the user is looking — public routes to run right now, plus upcoming group runs, closest first. Tapping a route opens its detail; tapping an event opens the group run. */
+function NearHereStrip({
+  onOpenGroupRun,
+  onOpenDetail,
+  mapCenter,
+  radiusKm,
+  routes,
+  userLocation,
+  refreshSignal,
+  bottomOffset,
+  onCountChange,
+}: NearHereStripProps) {
   const [runs, setRuns] = useState<GroupRun[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const anchor = mapCenter ?? userLocation;
+
+  // Closest public routes to what the user is looking at, within the viewport radius.
+  const nearbyRoutes = useMemo(() => {
+    if (!anchor) return [];
+    return routes
+      .map((r) => {
+        const start = r.waypoints[0];
+        if (!start) return null;
+        const away = haversineDistance(anchor, { latitude: start.latitude, longitude: start.longitude }) / 1000;
+        return { route: r, away };
+      })
+      .filter((x): x is { route: CloudRoute; away: number } => x !== null && x.away <= radiusKm)
+      .sort((a, b) => a.away - b.away)
+      .slice(0, NEAR_HERE_MAX);
+  }, [routes, anchor, radiusKm]);
+
+  type Item =
+    | { kind: 'route'; key: string; away: number; route: CloudRoute }
+    | { kind: 'event'; key: string; away: number; run: GroupRun };
+
+  const items = useMemo<Item[]>(() => {
+    const routeItems: Item[] = nearbyRoutes.map(({ route, away }) => ({
+      kind: 'route',
+      key: `route-${route.id}`,
+      away,
+      route,
+    }));
+    const eventItems: Item[] = runs.map((run) => {
+      const away =
+        anchor && run.startLat !== null && run.startLng !== null
+          ? haversineDistance(anchor, { latitude: run.startLat, longitude: run.startLng }) / 1000
+          : Number.POSITIVE_INFINITY;
+      return { kind: 'event', key: `event-${run.id}`, away, run };
+    });
+    return [...routeItems, ...eventItems].sort((a, b) => a.away - b.away).slice(0, NEAR_HERE_MAX);
+  }, [nearbyRoutes, runs, anchor]);
+
+  const visibleCount = loading && items.length === 0 ? 0 : items.length;
+  useEffect(() => {
+    onCountChange(visibleCount);
+  }, [visibleCount, onCountChange]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,51 +151,92 @@ function RunsNearYouStrip({ onOpenGroupRun, mapCenter, radiusKm, userLocation, r
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapCenter?.latitude, mapCenter?.longitude, radiusKm, refreshSignal]);
 
-  if (loading || runs.length === 0) return null;
+  if (items.length === 0) return null;
+
+  const awayLabel = (lat: number | null, lng: number | null) =>
+    userLocation && lat !== null && lng !== null
+      ? formatDistanceAway(haversineDistance(userLocation, { latitude: lat, longitude: lng }) / 1000)
+      : null;
 
   return (
-    <View style={[styles.runsStripWrap, { bottom: bottomOffset }]} pointerEvents="box-none">
+    <View style={[styles.nearStripWrap, { bottom: bottomOffset }]} pointerEvents="box-none">
+      <Text style={styles.nearStripTitle}>Available here</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.runsStripContent}>
-        {runs.map((run) => {
-          const distanceKm =
-            userLocation && run.startLat !== null && run.startLng !== null
-              ? haversineDistance(userLocation, { latitude: run.startLat, longitude: run.startLng }) / 1000
-              : null;
-          return (
-          <Pressable
-            key={run.id}
-            style={styles.runCard}
-            onPress={() => onOpenGroupRun(run.id)}
-            accessibilityRole="button"
-            accessibilityLabel={`${run.title}, ${formatRunWhen(run.scheduledAt)}, ${run.rsvpCount} going`}
-          >
-            <View style={styles.runCardWhenRow}>
-              <CalendarIcon size={12} />
-              <Text style={styles.runCardWhen}>{formatRunWhen(run.scheduledAt)}</Text>
-              {run.seriesId && (
-                <View style={styles.runCardSeriesBadge}>
-                  <LoopIcon size={9} color={colors.stone} />
+        {items.map((item) => {
+          if (item.kind === 'route') {
+            const r = item.route;
+            const start = r.waypoints[0];
+            const away = awayLabel(start?.latitude ?? null, start?.longitude ?? null);
+            return (
+              <Pressable
+                key={item.key}
+                style={styles.runCard}
+                onPress={() => onOpenDetail(r)}
+                accessibilityRole="button"
+                accessibilityLabel={`Route: ${r.name}, ${r.distanceKm.toFixed(1)} km`}
+              >
+                <View style={styles.runCardKindRow}>
+                  <View style={styles.runCardKindBadge}>
+                    <Text style={styles.runCardKindText}>ROUTE</Text>
+                  </View>
                 </View>
+                <Text style={styles.runCardTitle} numberOfLines={1}>
+                  {r.name}
+                </Text>
+                <Text style={styles.runCardRoute} numberOfLines={1}>
+                  {r.distanceKm.toFixed(1)} km · +{Math.round(r.elevationGainM)} m
+                </Text>
+                {r.ownerUsername !== 'unknown' && (
+                  <Text style={styles.runCardHost} numberOfLines={1}>
+                    by @{r.ownerUsername}
+                  </Text>
+                )}
+                <View style={styles.runCardFooter}>
+                  <Text style={styles.runCardMeta} numberOfLines={1}>
+                    {away ? `${away} away · ` : ''}Tap to run
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          }
+
+          const run = item.run;
+          const away = awayLabel(run.startLat, run.startLng);
+          return (
+            <Pressable
+              key={item.key}
+              style={styles.runCard}
+              onPress={() => onOpenGroupRun(run.id)}
+              accessibilityRole="button"
+              accessibilityLabel={`Group run: ${run.title}, ${formatRunWhen(run.scheduledAt)}, ${run.rsvpCount} going`}
+            >
+              <View style={styles.runCardWhenRow}>
+                <CalendarIcon size={12} />
+                <Text style={styles.runCardWhen}>{formatRunWhen(run.scheduledAt)}</Text>
+                {run.seriesId && (
+                  <View style={styles.runCardSeriesBadge}>
+                    <LoopIcon size={9} color={colors.stone} />
+                  </View>
+                )}
+              </View>
+              <Text style={styles.runCardTitle} numberOfLines={1}>
+                {run.title}
+              </Text>
+              <Text style={styles.runCardRoute} numberOfLines={1}>
+                {run.routeName} · {run.routeDistanceKm.toFixed(1)}km
+              </Text>
+              {run.hostUsername !== 'unknown' && (
+                <Text style={styles.runCardHost} numberOfLines={1}>
+                  by @{run.hostUsername}
+                </Text>
               )}
-            </View>
-            <Text style={styles.runCardTitle} numberOfLines={1}>
-              {run.title}
-            </Text>
-            <Text style={styles.runCardRoute} numberOfLines={1}>
-              {run.routeName} · {run.routeDistanceKm.toFixed(1)}km
-            </Text>
-            {run.hostUsername !== 'unknown' && (
-              <Text style={styles.runCardHost} numberOfLines={1}>
-                by @{run.hostUsername}
-              </Text>
-            )}
-            <View style={styles.runCardFooter}>
-              <Text style={styles.runCardMeta} numberOfLines={1}>
-                {distanceKm !== null ? `${formatDistanceAway(distanceKm)} · ` : ''}
-                {run.rsvpCount} going · {daysAway(run.scheduledAt)}
-              </Text>
-            </View>
-          </Pressable>
+              <View style={styles.runCardFooter}>
+                <Text style={styles.runCardMeta} numberOfLines={1}>
+                  {away ? `${away} away · ` : ''}
+                  {run.rsvpCount} going · {daysAway(run.scheduledAt)}
+                </Text>
+              </View>
+            </Pressable>
           );
         })}
       </ScrollView>
@@ -206,6 +308,9 @@ function FadeInPin({ children }: { children: React.ReactNode }) {
 // below; this is only what shows before/without that.
 const DEFAULT_CENTER: [number, number] = [121.774, 12.8797];
 const COUNTRY_ZOOM_FALLBACK = 4.5;
+// Fixed height of a "runs near you" card — kept constant so the screen can
+// lift the create FAB by exactly the strip's height when it's on screen.
+const RUNS_STRIP_HEIGHT = 132;
 const SHOW_UPCOMING_RACES_KEY = 'rootah_show_upcoming_races';
 
 // No safe-area-inset library wired into the app — this is a fixed
@@ -250,7 +355,30 @@ export default function DiscoverMapScreen({
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [nearHereCount, setNearHereCount] = useState(0);
   const [zoom, setZoom] = useState(COUNTRY_ZOOM_FALLBACK);
+
+  // The "available here" strip is pinned to the bottom of the screen; when it's
+  // showing, the create FAB (and its menu) lift above it so they never overlap.
+  // + ~40 covers the strip's title line and the gap above the cards.
+  const fabBottom = insets.bottom + (nearHereCount > 0 ? RUNS_STRIP_HEIGHT + 52 : 40);
+
+  // Gentle looping pulse on the create FAB so it stays noticeable over the map.
+  const fabPulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    let loop: Animated.CompositeAnimation | null = null;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduced) => {
+      if (reduced) return;
+      loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(fabPulse, { toValue: 1, duration: 1400, useNativeDriver: true }),
+          Animated.timing(fabPulse, { toValue: 0, duration: 0, useNativeDriver: true }),
+        ]),
+      );
+      loop.start();
+    });
+    return () => loop?.stop();
+  }, [fabPulse]);
   const [openCluster, setOpenCluster] = useState<RouteCluster | null>(null);
 
   const [minDistance, setMinDistance] = useState('');
@@ -721,19 +849,22 @@ export default function DiscoverMapScreen({
         </View>
       )}
 
-      <RunsNearYouStrip
+      <NearHereStrip
         onOpenGroupRun={onOpenGroupRun}
+        onOpenDetail={onOpenDetail}
         mapCenter={mapViewport?.center ?? null}
         radiusKm={mapViewport?.radiusKm ?? 50}
+        routes={routes}
         userLocation={userLocation}
         refreshSignal={refreshSignal}
-        bottomOffset={insets.bottom + 108}
+        bottomOffset={insets.bottom + 12}
+        onCountChange={setNearHereCount}
       />
 
       {showAddMenu && (
         <>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowAddMenu(false)} />
-          <View style={[styles.addMenu, { bottom: insets.bottom + 102 }]}>
+          <View style={[styles.addMenu, { bottom: fabBottom + 62 }]}>
             <Pressable
               style={styles.addMenuItem}
               onPress={() => {
@@ -779,14 +910,28 @@ export default function DiscoverMapScreen({
         </>
       )}
 
-      <Pressable
-        style={[styles.fab, { bottom: insets.bottom + 40 }]}
-        onPress={() => setShowAddMenu((v) => !v)}
-        accessibilityRole="button"
-        accessibilityLabel={showAddMenu ? 'Close menu' : 'Create route, activity or event'}
-      >
-        {showAddMenu ? <CloseIcon size={22} /> : <PlusIcon size={26} />}
-      </Pressable>
+      <View style={[styles.fabWrap, { bottom: fabBottom }]} pointerEvents="box-none">
+        {!showAddMenu && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.fabPulse,
+              {
+                opacity: fabPulse.interpolate({ inputRange: [0, 0.7, 1], outputRange: [0.45, 0.12, 0] }),
+                transform: [{ scale: fabPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.75] }) }],
+              },
+            ]}
+          />
+        )}
+        <Pressable
+          style={styles.fab}
+          onPress={() => setShowAddMenu((v) => !v)}
+          accessibilityRole="button"
+          accessibilityLabel={showAddMenu ? 'Close menu' : 'Create route, activity or event'}
+        >
+          {showAddMenu ? <CloseIcon size={22} /> : <PlusIcon size={26} />}
+        </Pressable>
+      </View>
 
       {showFilters && (
         <KeyboardAvoidingView
@@ -1222,10 +1367,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textDecorationLine: 'underline',
   },
-  runsStripWrap: {
+  nearStripWrap: {
     position: 'absolute',
     left: 0,
     right: 0,
+  },
+  nearStripTitle: {
+    fontFamily: fonts.extraBold,
+    fontSize: 12,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: colors.ink,
+    marginLeft: 16,
+    marginBottom: 8,
   },
   runsStripContent: {
     paddingHorizontal: 16,
@@ -1233,11 +1387,30 @@ const styles = StyleSheet.create({
   },
   runCard: {
     width: 190,
+    height: RUNS_STRIP_HEIGHT,
     backgroundColor: colors.surface,
     borderRadius: radii.md,
     padding: 12,
     gap: 2,
     ...elevation('card'),
+  },
+  runCardKindRow: {
+    flexDirection: 'row',
+    marginBottom: 2,
+  },
+  runCardKindBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.coral,
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  runCardKindText: {
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    color: colors.surface,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   runCardSeriesBadge: {
     width: 16,
@@ -1290,9 +1463,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.mist,
   },
-  fab: {
+  fabWrap: {
     position: 'absolute',
     right: 20,
+    width: 52,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabPulse: {
+    position: 'absolute',
+    width: 52,
+    height: 52,
+    borderRadius: radii.fab,
+    backgroundColor: colors.coral,
+  },
+  fab: {
     width: 52,
     height: 52,
     borderRadius: radii.fab,

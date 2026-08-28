@@ -178,7 +178,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
   const isOwner = club.myRole === 'owner';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
       <View style={styles.header}>
         <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />

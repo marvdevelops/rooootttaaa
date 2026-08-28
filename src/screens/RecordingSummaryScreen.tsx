@@ -2,6 +2,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RecordingMap from '../components/RecordingMap';
 import { BackIcon, ExportIcon, TrashIcon } from '../components/icons';
 import { deleteSession, getSessionPoints } from '../lib/recordingDb';
@@ -37,6 +38,7 @@ const ACTIVITY_LABEL: Record<ActivityType, string> = {
 };
 
 export default function RecordingSummaryScreen({ sessionId, activityType, routeId, startedAt, raceRsvpId, onRaceFinished, onActivityFinished, onDone }: Props) {
+  const insets = useSafeAreaInsets();
   const [summary, setSummary] = useState<RecordedRunSummary | null>(null);
   const [saving, setSaving] = useState(false);
   const [discarding, setDiscarding] = useState(false);
@@ -134,7 +136,7 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
     <View style={styles.container}>
       <View style={styles.mapWrap}>
         <RecordingMap livePath={summary.path} isLive={false} />
-        <Pressable style={styles.backButton} onPress={handleDiscard} disabled={saving || discarding}>
+        <Pressable style={[styles.backButton, { top: insets.top + 8 }]} onPress={handleDiscard} disabled={saving || discarding}>
           <BackIcon />
         </Pressable>
       </View>
@@ -218,7 +220,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 60,
     left: 16,
     width: 40,
     height: 40,

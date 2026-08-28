@@ -2,6 +2,7 @@ import { File } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 import { BackIcon, CameraIcon, ShareIcon } from '../components/icons';
 import ShareCardCanvas from '../components/ShareCardCanvas';
@@ -31,6 +32,7 @@ export default function RaceShareCardScreen({
   raceTitle,
   onDone,
 }: Props) {
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [selfieUri, setSelfieUri] = useState<string | null>(null);
   const [capturingSelfie, setCapturingSelfie] = useState(false);
@@ -140,7 +142,7 @@ export default function RaceShareCardScreen({
       </Pressable>
       </ScrollView>
 
-      <Pressable style={styles.backButton} onPress={onDone} accessibilityRole="button" accessibilityLabel="Back">
+      <Pressable style={[styles.backButton, { top: insets.top + 8 }]} onPress={onDone} accessibilityRole="button" accessibilityLabel="Back">
         <BackIcon />
       </Pressable>
     </View>
@@ -160,7 +162,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 60,
     left: 16,
     width: 40,
     height: 40,

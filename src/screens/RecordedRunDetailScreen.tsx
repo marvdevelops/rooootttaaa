@@ -2,6 +2,7 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RecordingMap from '../components/RecordingMap';
 import { BackIcon, CompassIcon, ExportIcon, TrashIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
@@ -40,6 +41,7 @@ function formatDate(ms: number): string {
  * no save/discard, just review, export, and delete.
  */
 export default function RecordedRunDetailScreen({ runId, onClose, onOpenRoute, onDeleted }: Props) {
+  const insets = useSafeAreaInsets();
   const [run, setRun] = useState<RecordedRunDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,7 +119,7 @@ export default function RecordedRunDetailScreen({ runId, onClose, onOpenRoute, o
         <>
           <View style={styles.mapWrap}>
             <RecordingMap livePath={run.path} isLive={false} />
-            <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
+            <Pressable style={[styles.backButton, { top: insets.top + 8 }]} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
               <BackIcon />
             </Pressable>
           </View>
@@ -233,7 +235,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 60,
     left: 16,
     width: 40,
     height: 40,
