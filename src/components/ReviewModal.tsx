@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { RouteReview } from '../types/route';
 import { upsertReview } from '../utils/reviewsApi';
 import { CloseIcon } from './icons';
@@ -53,7 +53,7 @@ export default function ReviewModal({ visible, routeId, groupRunId, existing, so
 
           <TextInput
             placeholder="Share your experience (optional)"
-            placeholderTextColor={colors.mutedLight}
+            placeholderTextColor={colors.mist}
             value={body}
             onChangeText={setBody}
             maxLength={200}
@@ -64,7 +64,7 @@ export default function ReviewModal({ visible, routeId, groupRunId, existing, so
 
           <Pressable style={styles.saveButton} onPress={handleSave} disabled={rating === 0 || saving}>
             {saving ? (
-              <ActivityIndicator color={colors.sand} />
+              <ActivityIndicator color={colors.sheetBg} />
             ) : (
               <Text style={styles.saveButtonText}>{existing ? 'UPDATE REVIEW' : 'POST REVIEW'}</Text>
             )}
@@ -82,15 +82,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
+    backgroundColor: colors.sheetBg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 22,
     paddingHorizontal: 22,
     paddingBottom: 40,
     gap: 14,
+    ...elevation('sheet'),
   },
   headerRow: {
     flexDirection: 'row',
@@ -98,51 +97,50 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   closeButton: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   bodyInput: {
     minHeight: 80,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontFamily: fonts.bodyMedium,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
     textAlignVertical: 'top',
+    ...elevation('subtle'),
   },
   charCount: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 11,
-    color: colors.mutedLight,
+    color: colors.mist,
     textAlign: 'right',
     marginTop: -8,
   },
   saveButton: {
     height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   saveButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 14,
-    color: colors.sand,
+    color: colors.surface,
   },
 });

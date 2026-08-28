@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { CloseIcon, FileIcon, ShareIcon } from './icons';
 
 interface Props {
@@ -58,10 +58,10 @@ export default function ExportSheet({
 
           <Pressable style={styles.shareButton} onPress={onShare} disabled={isSharing}>
             {isSharing ? (
-              <ActivityIndicator color={colors.ink} />
+              <ActivityIndicator color={colors.surface} />
             ) : (
               <>
-                <ShareIcon size={18} />
+                <ShareIcon size={18} color={colors.surface} />
                 <Text style={styles.shareButtonText}>SHARE TO GARMIN / COROS</Text>
               </>
             )}
@@ -75,19 +75,18 @@ export default function ExportSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(34,42,42,0.45)',
+    backgroundColor: 'rgba(26,22,20,0.45)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: colors.sheetBg,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
     paddingTop: 26,
     paddingHorizontal: 22,
     paddingBottom: 46,
     gap: 18,
+    ...elevation('sheet'),
   },
   headerRow: {
     flexDirection: 'row',
@@ -95,19 +94,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   closeButton: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   statsRow: {
     flexDirection: 'row',
@@ -115,52 +114,56 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    padding: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    padding: spacing.md,
+    ...elevation('card'),
   },
   statLabel: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.9,
+    color: colors.stone,
+    textTransform: 'uppercase',
   },
   statValue: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 18,
     color: colors.ink,
-    marginTop: 2,
+    marginTop: 4,
   },
   fileRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    ...elevation('subtle'),
   },
   fileName: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
   },
   shareButton: {
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.aqua,
+    height: 52,
+    borderRadius: radii.pill,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: colors.coral,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   shareButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    lineHeight: 18,
+    color: colors.surface,
+    textAlign: 'center',
   },
 });

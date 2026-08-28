@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'rea
 import { BackIcon } from '../components/icons';
 import RouteMap from '../components/RouteMap';
 import SaveRouteModal from '../components/SaveRouteModal';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { ActivityType, CloudRoute, PathPoint, Waypoint } from '../types/route';
 import { pathDistance } from '../utils/distance';
 import { annotateElevation } from '../utils/elevation';
@@ -14,6 +14,7 @@ import { reverseGeocodeCity } from '../utils/geocoding';
 import { computeGpxGain, GpxParseError, parseGpx } from '../utils/gpxImport';
 import { createRoute } from '../utils/routesApi';
 import { colorSegmentsByGrade } from '../utils/routeColor';
+import { simplifyPath } from '../utils/simplifyPath';
 
 interface Props {
   onClose: () => void;
@@ -28,6 +29,23 @@ type Stage = 'picking' | 'parsing' | 'elevation' | 'preview' | 'saving';
 // render/store at import time so an imported route behaves like any other
 // one everywhere it's fetched afterward, not just here.
 const DISPLAY_MAX_POINTS = 600;
+
+// Corner-preserving simplification tolerance — a point only gets dropped if
+// it's within this many meters of the straight line its neighbors would
+// draw instead. Small enough to keep real turns/intersections, big enough
+// to thin out GPS jitter on straight stretches.
+const SIMPLIFY_TOLERANCE_METERS = 3;
+
+// A recorded track logged every 1-2 seconds over a multi-hour run/ride can
+// have tens of thousands of raw points. Parsing was fine, but every step
+// after it — the elevation annotation, distance sum, and grade coloring —
+// ran over the *full* raw array, all synchronously on the JS thread with
+// nothing to yield to, so a big file made GPX import look hung with no
+// spinner progress for a long stretch. Downsampling right after parsing (well
+// above DISPLAY_MAX_POINTS, so distance/elevation accuracy barely moves) caps
+// that worst case without changing anything for the vast majority of files,
+// which are already under this.
+const RAW_PARSE_MAX_POINTS = 4000;
 
 export default function ImportGpxScreen({ onClose, onImported }: Props) {
   const [stage, setStage] = useState<Stage>('picking');
@@ -64,8 +82,14 @@ export default function ImportGpxScreen({ onClose, onImported }: Props) {
       }
 
       setStage('parsing');
+      // Let the "Reading route…" spinner actually paint before the
+      // synchronous regex parse below blocks the JS thread — without this,
+      // the state update and the parse happen in the same tick and the
+      // screen looks frozen with no feedback until parsing finishes.
+      await new Promise((resolve) => setTimeout(resolve, 0));
       const xml = await new File(asset.uri).text();
-      const { name, points: parsedPoints } = parseGpx(xml);
+      const { name, points: rawPoints } = parseGpx(xml);
+      const parsedPoints = downsampleForStorage(rawPoints, RAW_PARSE_MAX_POINTS);
 
       // Only hit the elevation service if the file didn't already carry
       // elevation data — recorded tracks often have real GPS/barometric
@@ -79,7 +103,13 @@ export default function ImportGpxScreen({ onClose, onImported }: Props) {
       // quietly under-measure it.
       setDistanceKm(pathDistance(fullResPoints) / 1000);
       setElevationGainM(computeGpxGain(fullResPoints));
-      setPoints(downsampleForStorage(fullResPoints, DISPLAY_MAX_POINTS));
+      // Shape-preserving simplification instead of fixed-interval decimation
+      // — corners survive even when they fall between two points that a
+      // naive "keep every Nth point" pass would have dropped. Still capped
+      // at DISPLAY_MAX_POINTS as a hard ceiling for pathologically complex
+      // tracks (e.g. a long trail with constant switchbacks).
+      const simplified = simplifyPath(fullResPoints, SIMPLIFY_TOLERANCE_METERS);
+      setPoints(simplified.length > DISPLAY_MAX_POINTS ? downsampleForStorage(simplified, DISPLAY_MAX_POINTS) : simplified);
       setParsedName(name);
       setStage('preview');
     } catch (e) {
@@ -119,6 +149,7 @@ export default function ImportGpxScreen({ onClose, onImported }: Props) {
               distanceMeters: distanceKm * 1000,
             },
           ],
+          notes: [],
           distanceKm,
           elevationGainM,
           elevationProfile: downsampleForStorage(points),
@@ -138,7 +169,7 @@ export default function ImportGpxScreen({ onClose, onImported }: Props) {
       stage === 'picking' ? 'Choose a GPX file…' : stage === 'elevation' ? 'Fetching elevation…' : 'Reading route…';
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color={colors.rust} size="large" />
+        <ActivityIndicator color={colors.coral} size="large" />
         <Text style={styles.loadingText}>{label}</Text>
       </View>
     );
@@ -194,9 +225,9 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   loadingText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
   },
   backButton: {
     position: 'absolute',
@@ -205,23 +236,23 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: colors.sand,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(3),
+    ...elevation('subtle'),
   },
   errorBanner: {
     position: 'absolute',
     top: 110,
     left: 16,
     right: 16,
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
-    padding: 10,
+    backgroundColor: colors.ink,
+    borderRadius: radii.sm,
+    padding: 12,
   },
   errorText: {
     color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
 });

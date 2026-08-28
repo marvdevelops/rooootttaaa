@@ -11,6 +11,7 @@ const NAME_RE = /<name>\s*([\s\S]*?)\s*<\/name>/i;
 const LAT_RE = /\blat\s*=\s*"([^"]+)"/i;
 const LON_RE = /\blon\s*=\s*"([^"]+)"/i;
 const ELE_RE = /<ele>\s*([-\d.]+)\s*<\/ele>/i;
+const EXTENSIONS_RE = /<extensions>[\s\S]*?<\/extensions>/gi;
 
 type PointTag = 'trkpt' | 'rtept' | 'wpt';
 
@@ -23,7 +24,15 @@ type PointTag = 'trkpt' | 'rtept' | 'wpt';
  * <wpt> (bare waypoint lists) — whichever the file actually has.
  */
 export function parseGpx(xml: string): ParsedGpx {
-  const points = extractPoints(xml, 'trkpt') || extractPoints(xml, 'rtept') || extractPoints(xml, 'wpt');
+  // Trail-running recordings from Garmin/COROS/Suunto/Strava routinely carry
+  // an <extensions> block per point (heart rate, cadence, temperature,
+  // sometimes barometric data) that we never read — but the per-point regex
+  // below has to scan through all of it anyway to find each point's closing
+  // tag, and on a multi-hour trail file that data can outweigh the actual
+  // track points several times over. Strip it up front so the real parse
+  // only scans text it actually needs.
+  const strippedXml = xml.replace(EXTENSIONS_RE, '');
+  const points = extractPoints(strippedXml, 'trkpt') || extractPoints(strippedXml, 'rtept') || extractPoints(strippedXml, 'wpt');
 
   if (!points || points.length < 2) {
     throw new GpxParseError("This GPX file doesn't have enough track points to build a route.");

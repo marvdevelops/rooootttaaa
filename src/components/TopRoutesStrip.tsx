@@ -49,15 +49,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 14,
+    letterSpacing: -0.3,
     color: colors.ink,
     flexShrink: 1,
   },
   seeAll: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.rust,
+    color: colors.coral,
   },
   list: {
     gap: 10,

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BackIcon, CalendarIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { GroupRun } from '../types/route';
 import { fetchPastEvents, fetchUpcomingEvents } from '../utils/groupRunsApi';
 
@@ -75,7 +75,7 @@ export default function ProfileEventsScreen({ userId, onClose, onOpenGroupRun }:
 
       {loading && (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.rust} />
+          <ActivityIndicator color={colors.coral} />
         </View>
       )}
 
@@ -105,7 +105,9 @@ export default function ProfileEventsScreen({ userId, onClose, onOpenGroupRun }:
                   <Text style={styles.whenText}>{formatWhen(item.scheduledAt)}</Text>
                 </View>
                 <View style={[styles.roleBadge, item.myRole === 'host' && styles.roleBadgeHost]}>
-                  <Text style={styles.roleBadgeText}>{item.myRole === 'host' ? 'HOST' : 'JOINING'}</Text>
+                  <Text style={[styles.roleBadgeText, item.myRole === 'host' && styles.roleBadgeTextHost]}>
+                    {item.myRole === 'host' ? 'HOST' : 'JOINING'}
+                  </Text>
                 </View>
               </View>
               <Text style={styles.cardTitle} numberOfLines={1}>
@@ -134,61 +136,62 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   tabRow: {
     flexDirection: 'row',
     gap: 10,
-    paddingHorizontal: 16,
-    marginBottom: 14,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.base,
   },
   tabButton: {
     flex: 1,
     height: 44,
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    backgroundColor: colors.white,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   tabButtonActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
+    ...elevation('primaryBtn'),
   },
   tabButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 12,
+    letterSpacing: 0.08,
     color: colors.ink,
   },
   tabButtonTextActive: {
-    color: colors.sand,
+    color: colors.white,
   },
   errorBanner: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
-    padding: 10,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
+    padding: spacing.md,
   },
   errorText: {
-    color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    color: colors.white,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   loadingWrap: {
@@ -199,32 +202,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingTop: 48,
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   emptyTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
+    letterSpacing: -0.3,
     color: colors.ink,
     textAlign: 'center',
   },
   emptyBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     lineHeight: 20,
   },
   list: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingBottom: 40,
-    gap: 14,
+    gap: spacing.base,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.lg,
     gap: 4,
-    ...brutalShadow(4),
+    ...elevation('card'),
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -237,47 +241,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   whenText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
   roleBadge: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    backgroundColor: colors.sand,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(0,0,0,0.06)',
   },
   roleBadgeHost: {
-    backgroundColor: colors.aqua,
+    backgroundColor: colors.sage,
   },
   roleBadgeText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 10,
     color: colors.ink,
   },
+  roleBadgeTextHost: {
+    color: colors.white,
+  },
   cardTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   cardRoute: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   cardMeta: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: colors.mist,
     marginTop: 4,
   },
 });

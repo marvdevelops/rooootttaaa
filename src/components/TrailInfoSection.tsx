@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { PathPoint, TrailDifficulty, TrailInfo } from '../types/route';
 import { elevationGainLossGrade } from '../utils/elevationProfile';
 import { listRecentTrailPhotos, RoutePhoto } from '../utils/photosApi';
@@ -126,7 +126,7 @@ export default function TrailInfoSection({ routeId, isTrail, isOwnedByMe, elevat
             value={conditionDraft}
             onChangeText={setConditionDraft}
             placeholder="e.g. Muddy after rain, stream is knee-deep in August"
-            placeholderTextColor={colors.mutedLight}
+            placeholderTextColor={colors.mist}
             style={styles.conditionInput}
             multiline
             maxLength={200}
@@ -137,7 +137,7 @@ export default function TrailInfoSection({ routeId, isTrail, isOwnedByMe, elevat
               <Text style={styles.conditionCancel}>Cancel</Text>
             </Pressable>
             <Pressable style={styles.conditionSaveButton} onPress={handleSaveCondition} disabled={saving}>
-              {saving ? <ActivityIndicator size="small" color={colors.sand} /> : <Text style={styles.conditionSaveText}>SAVE</Text>}
+              {saving ? <ActivityIndicator size="small" color={colors.sheetBg} /> : <Text style={styles.conditionSaveText}>SAVE</Text>}
             </Pressable>
           </View>
         </View>
@@ -188,28 +188,28 @@ function Chip({ icon, label }: { icon: string; label: string }) {
 
 const styles = StyleSheet.create({
   section: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: 16,
     gap: 8,
-    ...brutalShadow(3),
+    ...elevation('card'),
   },
   sectionTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 15,
     color: colors.ink,
   },
   gainLoss: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   rowText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
   },
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   diffLabel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
   },
   chips: {
@@ -230,13 +230,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   chip: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
     borderRadius: 20,
     paddingVertical: 4,
     paddingHorizontal: 10,
   },
   chipText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
     color: colors.ink,
   },
@@ -247,27 +247,27 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   conditionLabel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
-    color: colors.muted,
+    color: colors.stone,
     letterSpacing: 0.5,
   },
   conditionText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
     lineHeight: 18,
   },
   conditionDate: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 11,
-    color: colors.mutedLight,
+    color: colors.mist,
     marginTop: 2,
   },
   updateLink: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.rust,
+    color: colors.coral,
   },
   conditionPhotos: {
     flexDirection: 'row',
@@ -281,24 +281,22 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 10,
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
   },
   conditionPhotoDate: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 10,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   conditionEdit: {
     gap: 8,
   },
   conditionInput: {
     backgroundColor: colors.cream,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
+    borderRadius: radii.sm,
     padding: 10,
     minHeight: 60,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
     textAlignVertical: 'top',
@@ -310,19 +308,20 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   conditionCancel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
   conditionSaveButton: {
-    backgroundColor: colors.rust,
-    borderRadius: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+    backgroundColor: colors.coral,
+    borderRadius: radii.pill,
+    paddingVertical: 7,
+    paddingHorizontal: 16,
+    ...elevation('smallCta'),
   },
   conditionSaveText: {
-    fontFamily: fonts.display,
-    fontSize: 12,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    color: colors.surface,
   },
 });

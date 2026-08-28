@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, PathPoint, TrailDifficulty, TrailSurface } from '../types/route';
 import { generateRouteName } from '../utils/routeName';
 import { TrailInfoInput } from '../utils/trailInfoApi';
@@ -194,7 +194,7 @@ export default function SaveRouteModal({
                   value={name}
                   onChangeText={setName}
                   placeholder="Sunday long run"
-                  placeholderTextColor={colors.mutedLight}
+                  placeholderTextColor={colors.mist}
                   style={styles.input}
                   maxLength={60}
                 />
@@ -207,7 +207,7 @@ export default function SaveRouteModal({
                     value={description}
                     onChangeText={setDescription}
                     placeholder="Optional notes — surface, effort, weather..."
-                    placeholderTextColor={colors.mutedLight}
+                    placeholderTextColor={colors.mist}
                     style={[styles.input, styles.textArea]}
                     multiline
                     maxLength={280}
@@ -334,7 +334,7 @@ export default function SaveRouteModal({
                   value={trailInfo.conditionNote ?? ''}
                   onChangeText={(v) => setTrailInfo((f) => ({ ...f, conditionNote: v }))}
                   placeholder="e.g. Muddy after rain, stream is knee-deep in August"
-                  placeholderTextColor={colors.mutedLight}
+                  placeholderTextColor={colors.mist}
                   style={[styles.input, styles.textArea]}
                   multiline
                   maxLength={200}
@@ -362,16 +362,15 @@ export default function SaveRouteModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(34,42,42,0.45)',
+    backgroundColor: 'rgba(26,22,20,0.45)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: colors.sheetBg,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
     maxHeight: '85%',
+    ...elevation('sheet'),
   },
   scrollContent: {
     paddingTop: 26,
@@ -385,31 +384,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   subtitle: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.regular,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     marginTop: -8,
   },
   closeButton: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   label: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
+    fontFamily: fonts.bold,
+    fontSize: 10,
     letterSpacing: 1,
-    color: colors.muted,
+    color: colors.stone,
+    textTransform: 'uppercase',
     marginBottom: 6,
   },
   activityRow: {
@@ -420,24 +420,23 @@ const styles = StyleSheet.create({
   activityPill: {
     flexBasis: '31%',
     flexGrow: 1,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    backgroundColor: colors.white,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   activityPillActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   activityPillText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
   activityPillTextActive: {
-    color: colors.sand,
+    color: colors.surface,
   },
   chipRow: {
     flexDirection: 'row',
@@ -445,64 +444,66 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 20,
-    backgroundColor: colors.white,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    ...elevation('subtle'),
   },
   chipActive: {
-    backgroundColor: colors.aqua,
+    backgroundColor: colors.teal,
   },
   chipText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.ink,
   },
   chipTextActive: {
-    color: colors.ink,
+    color: colors.surface,
   },
   input: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   addDetailsLink: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   saveButton: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   saveButtonDisabled: {
     opacity: 0.5,
   },
   saveButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 16,
-    color: colors.sand,
+    lineHeight: 20,
+    color: colors.surface,
+    textAlign: 'center',
   },
   skipLink: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     paddingVertical: 4,
   },

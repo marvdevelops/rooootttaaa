@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { listUserBadges, UserBadge } from '../utils/badgesApi';
 import { CloseIcon } from './icons';
 
@@ -69,35 +69,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.white,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
+    backgroundColor: colors.surface,
     borderRadius: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,
+    ...elevation('subtle'),
   },
   icon: {
     fontSize: 16,
   },
   name: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.ink,
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(34,42,42,0.5)',
+    backgroundColor: 'rgba(26,22,20,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
   },
   detailCard: {
     width: '100%',
-    backgroundColor: colors.sand,
-    borderRadius: 20,
+    backgroundColor: colors.sheetBg,
+    borderRadius: radii.lg,
     padding: 20,
     gap: 6,
-    ...brutalShadow(4),
+    ...elevation('sheet'),
   },
   detailHeader: {
     flexDirection: 'row',
@@ -111,27 +110,27 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 9,
-    backgroundColor: colors.white,
-    borderWidth: 2,
-    borderColor: colors.ink,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   detailName: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   detailDescription: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
     lineHeight: 19,
   },
   detailDate: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
     marginTop: 4,
   },
 });

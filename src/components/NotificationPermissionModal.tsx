@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { BellIcon } from './icons';
 
 interface Props {
@@ -18,7 +18,7 @@ export default function NotificationPermissionModal({ visible, message, onAllow,
         <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
         <View style={styles.card}>
           <View style={styles.iconWrap}>
-            <BellIcon size={26} color={colors.sand} />
+            <BellIcon size={26} color={colors.white} />
           </View>
           <Text style={styles.title}>Stay in the loop</Text>
           <Text style={styles.body}>{message}</Text>
@@ -45,34 +45,34 @@ const styles = StyleSheet.create({
   },
   card: {
     width: '100%',
-    backgroundColor: colors.cream,
-    borderRadius: 20,
+    backgroundColor: colors.sheetBg,
+    borderRadius: radii.lg,
     padding: 24,
     alignItems: 'center',
     gap: 6,
-    ...brutalShadow(5),
+    ...elevation('sheet'),
   },
   iconWrap: {
     width: 52,
     height: 52,
-    borderRadius: 16,
-    backgroundColor: colors.rust,
+    borderRadius: radii.md,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: colors.ink,
     marginBottom: 6,
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
+    letterSpacing: -0.4,
     color: colors.ink,
     textAlign: 'center',
   },
   body: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 12,
@@ -80,23 +80,25 @@ const styles = StyleSheet.create({
   allowButton: {
     width: '100%',
     height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(4),
+    paddingHorizontal: 24,
+    ...elevation('primaryBtn'),
   },
   allowButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 14,
-    color: colors.sand,
+    color: colors.white,
+    lineHeight: 20,
   },
   dismissButton: {
     paddingVertical: 12,
   },
   dismissButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
 });

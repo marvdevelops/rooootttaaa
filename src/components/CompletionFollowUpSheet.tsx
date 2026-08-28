@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { RouteCompletion } from '../types/route';
 import { UserBadge } from '../utils/badgesApi';
 import { updateCompletion } from '../utils/completionsApi';
@@ -125,7 +125,7 @@ export default function CompletionFollowUpSheet({
           <View style={styles.timeRow}>
             <TextInput
               placeholder="MM"
-              placeholderTextColor={colors.mutedLight}
+              placeholderTextColor={colors.mist}
               value={mins}
               onChangeText={setMins}
               keyboardType="number-pad"
@@ -135,7 +135,7 @@ export default function CompletionFollowUpSheet({
             <Text style={styles.timeColon}>:</Text>
             <TextInput
               placeholder="SS"
-              placeholderTextColor={colors.mutedLight}
+              placeholderTextColor={colors.mist}
               value={secs}
               onChangeText={setSecs}
               keyboardType="number-pad"
@@ -146,7 +146,7 @@ export default function CompletionFollowUpSheet({
 
           <TextInput
             placeholder="Add a note (optional)"
-            placeholderTextColor={colors.mutedLight}
+            placeholderTextColor={colors.mist}
             value={note}
             onChangeText={setNote}
             maxLength={150}
@@ -163,7 +163,7 @@ export default function CompletionFollowUpSheet({
           </Pressable>
 
           <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving}>
-            {saving ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.saveButtonText}>DONE</Text>}
+            {saving ? <ActivityIndicator color={colors.sheetBg} /> : <Text style={styles.saveButtonText}>DONE</Text>}
           </Pressable>
           <Pressable onPress={handleClose}>
             <Text style={styles.skipText}>Skip</Text>
@@ -181,15 +181,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
+    backgroundColor: colors.sheetBg,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 22,
     paddingHorizontal: 22,
     paddingBottom: 40,
     gap: 12,
+    ...elevation('sheet'),
   },
   headerRow: {
     flexDirection: 'row',
@@ -197,42 +196,40 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   subtitle: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     marginTop: 2,
   },
   closeButton: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   pbBanner: {
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
+    borderRadius: radii.sm,
     paddingVertical: 8,
     paddingHorizontal: 12,
     alignSelf: 'flex-start',
   },
   pbText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.ink,
+    color: colors.surface,
   },
   label: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
     marginTop: 4,
@@ -245,32 +242,30 @@ const styles = StyleSheet.create({
   timeInput: {
     width: 64,
     height: 48,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 10,
-    backgroundColor: colors.white,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     textAlign: 'center',
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 18,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   timeColon: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 18,
     color: colors.ink,
   },
   noteInput: {
     minHeight: 56,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontFamily: fonts.bodyMedium,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
     textAlignVertical: 'top',
+    ...elevation('subtle'),
   },
   addPhotoButton: {
     flexDirection: 'row',
@@ -278,34 +273,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     height: 44,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    backgroundColor: colors.white,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    ...elevation('subtle'),
   },
   addPhotoText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
   saveButton: {
     height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   saveButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.surface,
   },
   skipText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     textDecorationLine: 'underline',
   },

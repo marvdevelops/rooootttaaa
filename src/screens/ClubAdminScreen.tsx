@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import { BackIcon, CameraIcon, TrashIcon, UserIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ClubMember, RunClub } from '../types/club';
 import { AvatarError, pickAndUploadClubAvatar } from '../utils/avatar';
 import {
@@ -167,7 +167,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
           </Pressable>
         </View>
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.rust} />
+          <ActivityIndicator color={colors.coral} />
         </View>
       </View>
     );
@@ -205,13 +205,13 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
             </View>
           )}
           <View style={styles.logoBadge}>
-            {uploadingLogo ? <ActivityIndicator size="small" color={colors.ink} /> : <CameraIcon size={14} />}
+            {uploadingLogo ? <ActivityIndicator size="small" color={colors.white} /> : <CameraIcon size={14} color={colors.white} />}
           </View>
           <Text style={styles.logoLabel}>Change club logo</Text>
         </Pressable>
 
-        <TextInput style={styles.input} value={name} onChangeText={setName} maxLength={50} placeholder="Club name" placeholderTextColor={colors.mutedLight} />
-        <TextInput style={styles.input} value={city} onChangeText={setCity} maxLength={80} placeholder="City" placeholderTextColor={colors.mutedLight} />
+        <TextInput style={styles.input} value={name} onChangeText={setName} maxLength={50} placeholder="Club name" placeholderTextColor={colors.mist} />
+        <TextInput style={styles.input} value={city} onChangeText={setCity} maxLength={80} placeholder="City" placeholderTextColor={colors.mist} />
         <TextInput
           style={styles.textarea}
           value={description}
@@ -219,14 +219,14 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
           maxLength={300}
           multiline
           placeholder="About your club"
-          placeholderTextColor={colors.mutedLight}
+          placeholderTextColor={colors.mist}
         />
         <View style={styles.privateRow}>
           <Text style={styles.privateLabel}>Private club</Text>
-          <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: colors.rust, false: colors.sand }} thumbColor={colors.white} />
+          <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: colors.coral, false: '#E0DAD2' }} thumbColor={colors.white} />
         </View>
         <Pressable style={styles.saveButton} onPress={handleSaveDetails} disabled={saving}>
-          {saving ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.saveButtonText}>SAVE CHANGES</Text>}
+          {saving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveButtonText}>Save changes</Text>}
         </Pressable>
 
         {club.isPrivate && (
@@ -241,7 +241,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
                     <Image source={{ uri: m.avatarUrl }} style={styles.memberAvatar} />
                   ) : (
                     <View style={[styles.memberAvatar, styles.avatarPlaceholder]}>
-                      <UserIcon size={16} color={colors.muted} />
+                      <UserIcon size={16} color={colors.stone} />
                     </View>
                   )}
                   <Text style={styles.memberUsername} numberOfLines={1}>
@@ -252,10 +252,10 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
                   ) : (
                     <View style={styles.memberActions}>
                       <Pressable style={styles.declineButton} onPress={() => handleRespond(m.userId, false)}>
-                        <Text style={styles.actionText}>DECLINE</Text>
+                        <Text style={styles.actionText}>Decline</Text>
                       </Pressable>
                       <Pressable style={styles.approveButton} onPress={() => handleRespond(m.userId, true)}>
-                        <Text style={[styles.actionText, styles.approveText]}>APPROVE</Text>
+                        <Text style={[styles.actionText, styles.approveText]}>Approve</Text>
                       </Pressable>
                     </View>
                   )}
@@ -272,7 +272,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
               <Image source={{ uri: m.avatarUrl }} style={styles.memberAvatar} />
             ) : (
               <View style={[styles.memberAvatar, styles.avatarPlaceholder]}>
-                <UserIcon size={16} color={colors.muted} />
+                <UserIcon size={16} color={colors.stone} />
               </View>
             )}
             <Text style={styles.memberUsername} numberOfLines={1}>
@@ -286,7 +286,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
               isOwner && (
                 <View style={styles.memberActions}>
                   <Pressable style={styles.declineButton} onPress={() => handlePromote(m.userId, m.role)}>
-                    <Text style={styles.actionText}>{m.role === 'admin' ? 'DEMOTE' : 'PROMOTE'}</Text>
+                    <Text style={styles.actionText}>{m.role === 'admin' ? 'Demote' : 'Promote'}</Text>
                   </Pressable>
                   <Pressable style={styles.removeButton} onPress={() => handleRemoveMember(m.userId, m.username)}>
                     <TrashIcon size={14} color={colors.ink} />
@@ -301,7 +301,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
           <>
             <Text style={styles.sectionTitle}>Danger zone</Text>
             <Pressable style={styles.deleteButton} onPress={handleDelete}>
-              <Text style={styles.deleteButtonText}>DELETE CLUB</Text>
+              <Text style={styles.deleteButtonText}>Delete club</Text>
             </Pressable>
           </>
         )}
@@ -321,22 +321,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   loadingWrap: {
@@ -344,29 +344,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 48,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.huge,
     gap: 8,
   },
   almostFullBanner: {
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
+    borderRadius: radii.sm,
+    padding: spacing.base,
+    marginBottom: spacing.md,
   },
   almostFullText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.ink,
+    color: colors.white,
     lineHeight: 18,
   },
   sectionTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 16,
+    letterSpacing: -0.3,
     color: colors.ink,
-    marginTop: 20,
+    marginTop: spacing.xl,
     marginBottom: 6,
   },
   logoRow: {
@@ -378,19 +377,17 @@ const styles = StyleSheet.create({
   logoImage: {
     width: 56,
     height: 56,
-    borderRadius: 16,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.sm,
   },
   logoPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoPlaceholderText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
-    color: colors.ink,
+    color: colors.white,
   },
   logoBadge: {
     position: 'absolute',
@@ -400,41 +397,38 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 8,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   logoLabel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
   input: {
     height: 48,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.base,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
     marginTop: 6,
+    ...elevation('subtle'),
   },
   textarea: {
     minHeight: 80,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    paddingHorizontal: 14,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.base,
     paddingVertical: 10,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
     textAlignVertical: 'top',
     marginTop: 6,
+    ...elevation('subtle'),
   },
   privateRow: {
     flexDirection: 'row',
@@ -443,28 +437,29 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   privateLabel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
   saveButton: {
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
-    ...brutalShadow(3),
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: spacing.md,
+    ...elevation('primaryBtn'),
   },
   saveButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 13,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.white,
   },
   emptyBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   memberRow: {
     flexDirection: 'row',
@@ -478,13 +473,13 @@ const styles = StyleSheet.create({
     borderRadius: 17,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   memberUsername: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
   },
@@ -493,62 +488,56 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   declineButton: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
-    backgroundColor: colors.white,
+    borderRadius: radii.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.surface,
+    ...elevation('subtle'),
   },
   approveButton: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
-    backgroundColor: colors.green,
+    borderRadius: radii.pill,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: colors.sage,
+    ...elevation('smallCta'),
   },
   removeButton: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    padding: 6,
-    backgroundColor: colors.white,
+    borderRadius: radii.pill,
+    padding: 8,
+    backgroundColor: colors.surface,
+    ...elevation('subtle'),
   },
   actionText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 10,
+    fontFamily: fonts.bold,
+    fontSize: 11,
     color: colors.ink,
   },
   approveText: {
     color: colors.white,
   },
   roleBadge: {
-    backgroundColor: colors.aqua,
-    borderWidth: 1.5,
-    borderColor: colors.ink,
-    borderRadius: 6,
-    paddingVertical: 3,
-    paddingHorizontal: 7,
+    backgroundColor: colors.teal,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   roleBadgeText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 9,
-    color: colors.ink,
+    color: colors.white,
   },
   deleteButton: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.red,
-    backgroundColor: colors.white,
+    borderRadius: radii.pill,
+    backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     marginTop: 6,
   },
   deleteButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 13,
-    color: colors.red,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.white,
   },
 });

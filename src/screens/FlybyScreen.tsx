@@ -15,7 +15,7 @@ import { ActivityIndicator, Alert, Image, Pressable, Share, StyleSheet, Text, Vi
 import { BackIcon, MapStyleIcon, SatelliteIcon, ShareIcon, TerrainIcon } from '../components/icons';
 import FlybyRunnerMarker, { FlybyRunnerMarkerHandle } from '../components/FlybyRunnerMarker';
 import FlybyStatCard from '../components/FlybyStatCard';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { CloudRoute } from '../types/route';
 import { animateFlybyCamera, sampleFlybyPoints } from '../utils/flybyCamera';
 import { captureStatCardImage } from '../utils/flybyCapture';
@@ -225,7 +225,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
                   style={[styles.styleChip, active && styles.styleChipActive]}
                   onPress={() => setSelectedStyle(key)}
                 >
-                  <StyleIcon size={14} color={colors.sand} />
+                  <StyleIcon size={14} color={colors.white} />
                   <Text style={[styles.styleLabel, active && styles.styleLabelActive]}>{FLYBY_STYLES[key].label}</Text>
                 </Pressable>
               );
@@ -239,7 +239,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
 
       {phase === 'preloading' && (
         <View style={styles.progressOverlay}>
-          <ActivityIndicator color={colors.sand} size="large" />
+          <ActivityIndicator color={colors.white} size="large" />
           <Text style={styles.progressLabel}>{progressLabel}</Text>
           <View style={styles.progressBarTrack}>
             <View style={[styles.progressBarFill, { width: `${Math.round(progress * 100)}%` }]} />
@@ -261,7 +261,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
           <Image source={{ uri: statCardUri }} style={styles.readyImage} resizeMode="contain" />
           <View style={styles.readyActions}>
             <Pressable style={styles.startButton} onPress={handleShare}>
-              <ShareIcon size={16} color={colors.sand} />
+              <ShareIcon size={16} color={colors.white} />
               <Text style={styles.startButtonText}>SHARE SUMMARY CARD</Text>
             </Pressable>
             <Pressable style={styles.secondaryButton} onPress={handleSave}>
@@ -276,7 +276,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
 
       {/* Rendered last (after the phase overlays above) so it always sits on top and stays tappable/visible in every phase, including 'ready'. */}
       <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={8}>
-        <BackIcon color={colors.sand} />
+        <BackIcon color={colors.white} />
       </Pressable>
     </View>
   );
@@ -302,62 +302,62 @@ const styles = StyleSheet.create({
     left: 16,
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: radii.icon,
     backgroundColor: 'rgba(0,0,0,0.45)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   previewOverlay: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 40,
-    paddingHorizontal: 20,
-    gap: 14,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.base,
   },
   styleRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 10,
+    gap: spacing.sm,
   },
   styleChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    borderWidth: 2,
-    borderColor: colors.sand,
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    borderRadius: radii.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    ...elevation('subtle'),
   },
   styleChipActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   styleLabel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.sand,
+    color: colors.white,
   },
   styleLabelActive: {
-    color: colors.sand,
+    color: colors.white,
   },
   startButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
-    ...brutalShadow(4),
+    paddingVertical: 14,
+    paddingHorizontal: spacing.xxl,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
+    ...elevation('primaryBtn'),
   },
   startButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.sand,
+    fontFamily: fonts.extraBold,
+    fontSize: 14,
+    color: colors.white,
+    letterSpacing: 0.3,
   },
   progressOverlay: {
     position: 'absolute',
@@ -372,9 +372,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   progressLabel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
-    color: colors.sand,
+    color: colors.white,
     textAlign: 'center',
   },
   progressBarTrack: {
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   readyOverlay: {
     position: 'absolute',
@@ -407,23 +407,23 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   secondaryButton: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.sand,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.xxl,
+    borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: colors.surface,
+    ...elevation('subtle'),
   },
   secondaryButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 13,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.ink,
   },
   regenerateText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.sand,
+    color: colors.white,
     textAlign: 'center',
   },
 });

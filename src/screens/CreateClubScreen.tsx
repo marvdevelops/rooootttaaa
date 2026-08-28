@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,9 +13,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { BackIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
-import { createClub } from '../utils/clubsApi';
+import { BackIcon, CameraIcon } from '../components/icons';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
+import { AvatarError, PickedImageAsset, pickImageAsset, uploadClubAvatarAsset } from '../utils/avatar';
+import { createClub, updateClub } from '../utils/clubsApi';
 import { RunClub } from '../types/club';
 
 interface Props {
@@ -29,19 +31,42 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
   const [city, setCity] = useState(defaultCity ?? '');
   const [isPrivate, setIsPrivate] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Storage uploads are keyed by club id, which doesn't exist yet at pick
+  // time — so the picked image is staged locally and only uploaded once the
+  // club row (and its id) exists, right after creation.
+  const [pickedLogo, setPickedLogo] = useState<PickedImageAsset | null>(null);
+
+  const handlePickLogo = useCallback(async () => {
+    try {
+      const asset = await pickImageAsset();
+      if (asset) setPickedLogo(asset);
+    } catch (e) {
+      Alert.alert('Error', e instanceof AvatarError ? e.message : 'Failed to pick a photo.');
+    }
+  }, []);
 
   const handleCreate = useCallback(async () => {
     if (!name.trim()) return;
     setSaving(true);
     try {
       const club = await createClub({ name, description, city, isPrivate });
+      if (pickedLogo) {
+        try {
+          const avatarUrl = await uploadClubAvatarAsset(club.id, pickedLogo);
+          await updateClub(club.id, { avatarUrl });
+          club.avatarUrl = avatarUrl;
+        } catch {
+          // Club is already created — a failed logo upload shouldn't block
+          // finishing the flow; the admin can add one later from club settings.
+        }
+      }
       onCreated(club);
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'Failed to create club.');
     } finally {
       setSaving(false);
     }
-  }, [name, description, city, isPrivate, onCreated]);
+  }, [name, description, city, isPrivate, pickedLogo, onCreated]);
 
   return (
     <View style={styles.container}>
@@ -54,11 +79,22 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+        <Pressable style={styles.logoPicker} onPress={handlePickLogo}>
+          {pickedLogo ? (
+            <Image source={{ uri: pickedLogo.uri }} style={styles.logoImage} />
+          ) : (
+            <View style={styles.logoPlaceholder}>
+              <CameraIcon size={22} color={colors.stone} />
+            </View>
+          )}
+          <Text style={styles.logoPickerLabel}>{pickedLogo ? 'Change photo' : 'Add club photo'}</Text>
+        </Pressable>
+
         <Text style={styles.label}>Club name</Text>
         <TextInput
           style={styles.input}
           placeholder="e.g. BGC Runners"
-          placeholderTextColor={colors.mutedLight}
+          placeholderTextColor={colors.mist}
           value={name}
           onChangeText={setName}
           maxLength={50}
@@ -68,7 +104,7 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
         <TextInput
           style={styles.input}
           placeholder="e.g. Taguig"
-          placeholderTextColor={colors.mutedLight}
+          placeholderTextColor={colors.mist}
           value={city}
           onChangeText={setCity}
           maxLength={80}
@@ -78,7 +114,7 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
         <TextInput
           style={styles.textarea}
           placeholder="What's your club about?"
-          placeholderTextColor={colors.mutedLight}
+          placeholderTextColor={colors.mist}
           value={description}
           onChangeText={setDescription}
           maxLength={300}
@@ -93,13 +129,13 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
           <Switch
             value={isPrivate}
             onValueChange={setIsPrivate}
-            trackColor={{ true: colors.rust, false: colors.sand }}
+            trackColor={{ true: colors.coral, false: '#E0DAD2' }}
             thumbColor={colors.white}
           />
         </View>
 
         <Pressable style={styles.createButton} onPress={handleCreate} disabled={saving || !name.trim()}>
-          {saving ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.createButtonText}>CREATE CLUB</Text>}
+          {saving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.createButtonText}>Create club</Text>}
         </Pressable>
       </ScrollView>
       </KeyboardAvoidingView>
@@ -117,93 +153,116 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   form: {
-    paddingHorizontal: 16,
-    paddingBottom: 48,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.huge,
     gap: 8,
   },
+  logoPicker: {
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: spacing.md,
+  },
+  logoImage: {
+    width: 84,
+    height: 84,
+    borderRadius: radii.lg,
+    ...elevation('card'),
+  },
+  logoPlaceholder: {
+    width: 84,
+    height: 84,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...elevation('subtle'),
+  },
+  logoPickerLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.coral,
+  },
   label: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
-    marginTop: 12,
+    marginTop: spacing.md,
   },
   input: {
     height: 50,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.base,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   textarea: {
     minHeight: 90,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    paddingHorizontal: 14,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.base,
     paddingVertical: 12,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
     textAlignVertical: 'top',
+    ...elevation('subtle'),
   },
   privateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginTop: 18,
-    backgroundColor: colors.white,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    padding: 14,
+    marginTop: spacing.xl,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    padding: spacing.base,
+    ...elevation('subtle'),
   },
   privateLabel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
   privateSub: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
     marginTop: 2,
   },
   createButton: {
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 24,
-    ...brutalShadow(4),
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: spacing.xxl,
+    ...elevation('primaryBtn'),
   },
   createButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 15,
-    color: colors.sand,
+    color: colors.white,
   },
 });

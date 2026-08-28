@@ -6,6 +6,7 @@ export interface PublicProfile {
   bio: string;
   avatarUrl: string | null;
   createdAt: number;
+  tier: 'free' | 'paid';
 }
 
 export const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,20}$/;
@@ -21,7 +22,7 @@ export async function isUsernameAvailable(username: string, excludingUserId?: st
 export async function getProfile(userId: string): Promise<PublicProfile> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, bio, avatar_url, created_at')
+    .select('id, username, bio, avatar_url, created_at, tier')
     .eq('id', userId)
     .single();
 
@@ -33,5 +34,6 @@ export async function getProfile(userId: string): Promise<PublicProfile> {
     bio: data.bio,
     avatarUrl: data.avatar_url,
     createdAt: new Date(data.created_at).getTime(),
+    tier: data.tier,
   };
 }

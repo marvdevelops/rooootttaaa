@@ -2,6 +2,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useAuth } from '../lib/AuthContext';
+import { radii } from '../theme/theme';
 
 interface Props {
   onError: (message: string) => void;
@@ -49,7 +50,7 @@ export default function AppleSignInButton({ onError }: Props) {
     <AppleAuthentication.AppleAuthenticationButton
       buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
       buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-      cornerRadius={12}
+      cornerRadius={radii.pill}
       style={styles.button}
       onPress={handlePress}
     />

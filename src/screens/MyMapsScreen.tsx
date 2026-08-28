@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BackIcon, HeartIcon, TrashIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute } from '../types/route';
 import { deleteRoute, listMyRoutes, listSavedRoutes } from '../utils/routesApi';
 
@@ -119,7 +119,7 @@ export default function MyMapsScreen({ onClose, onSelectRoute, onOpenDetail }: P
               </Text>
               {tab === 'created' && (
                 <Pressable style={styles.deleteButton} onPress={() => handleDelete(item)}>
-                  <TrashIcon size={16} />
+                  <TrashIcon size={16} color={colors.ink} />
                 </Pressable>
               )}
             </View>
@@ -133,11 +133,13 @@ export default function MyMapsScreen({ onClose, onSelectRoute, onOpenDetail }: P
               <View style={styles.statChip}>
                 <Text style={styles.statChipText}>{item.distanceKm.toFixed(2)} km</Text>
               </View>
-              <View style={[styles.statChip, styles.statChipAqua]}>
-                <Text style={styles.statChipText}>+{Math.round(item.elevationGainM)} m</Text>
+              <View style={[styles.statChip, styles.statChipTeal]}>
+                <Text style={[styles.statChipText, styles.statChipTextLight]}>
+                  +{Math.round(item.elevationGainM)} m
+                </Text>
               </View>
               <View style={styles.socialRow}>
-                <HeartIcon size={13} filled={item.likesCount > 0} />
+                <HeartIcon size={13} color={colors.coral} filled={item.likesCount > 0} />
                 <Text style={styles.socialCount}>{item.likesCount}</Text>
                 <BookmarkGlyph count={item.savesCount} />
               </View>
@@ -170,160 +172,160 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   tabRow: {
     flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    marginBottom: 16,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
   },
   tabButton: {
     flex: 1,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    paddingVertical: 10,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
     alignItems: 'center',
+    ...elevation('subtle'),
   },
   tabButtonActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
+    ...elevation('primaryBtn'),
   },
   tabButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
   },
   tabButtonTextActive: {
-    color: colors.sand,
+    color: colors.white,
   },
   cardOwner: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
   errorBanner: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
-    padding: 10,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
+    padding: spacing.md,
   },
   errorText: {
-    color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    color: colors.white,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   emptyState: {
     paddingHorizontal: 32,
     paddingTop: 48,
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
   },
   emptyTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
+    letterSpacing: -0.3,
     color: colors.ink,
     textAlign: 'center',
   },
   emptyBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     lineHeight: 20,
   },
   list: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingBottom: 40,
-    gap: 14,
+    gap: spacing.base,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-    ...brutalShadow(4),
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    ...elevation('card'),
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    gap: spacing.md,
   },
   cardName: {
     flex: 1,
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 16,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   activityBadge: {
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   activityBadgeText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 10,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
   deleteButton: {
     width: 32,
     height: 32,
-    borderRadius: 9,
-    backgroundColor: colors.sand,
-    borderWidth: 2,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: 'rgba(0,0,0,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardDescription: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     lineHeight: 18,
   },
   cardStatsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
     marginTop: 4,
   },
   statChip: {
-    backgroundColor: colors.sand,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
-  statChipAqua: {
-    backgroundColor: colors.aqua,
+  statChipTeal: {
+    backgroundColor: colors.teal,
   },
   statChipText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
     color: colors.ink,
+  },
+  statChipTextLight: {
+    color: colors.white,
   },
   socialRow: {
     marginLeft: 'auto',
@@ -332,9 +334,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   socialCount: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 11,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   savesInline: {
     flexDirection: 'row',
@@ -342,15 +344,15 @@ const styles = StyleSheet.create({
   loadButton: {
     marginTop: 4,
     alignSelf: 'flex-start',
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    backgroundColor: colors.coral,
+    borderRadius: radii.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+    ...elevation('smallCta'),
   },
   loadButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.white,
   },
 });

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 import { BellIcon } from './icons';
 import { getSystemPermissionStatus } from '../lib/pushNotifications';
-import { colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import {
   getNotificationPreferences,
   NotificationPreferences,
@@ -52,7 +52,7 @@ export default function NotificationSettingsSection({ userId }: Props) {
 
       {systemDenied && (
         <Pressable style={styles.deniedBanner} onPress={() => Linking.openSettings()}>
-          <BellIcon size={16} color={colors.rustDark} />
+          <BellIcon size={16} color={colors.ink} />
           <Text style={styles.deniedBannerText}>
             Notifications are disabled in your system settings. Tap to open Settings.
           </Text>
@@ -69,7 +69,7 @@ export default function NotificationSettingsSection({ userId }: Props) {
             <Switch
               value={prefs[row.key]}
               onValueChange={(value) => handleToggle(row.key, value)}
-              trackColor={{ false: colors.sand, true: colors.rust }}
+              trackColor={{ false: colors.cream, true: colors.coral }}
               thumbColor={colors.white}
             />
           </View>
@@ -84,58 +84,56 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sectionTitle: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.stone,
   },
   deniedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 12,
+    borderRadius: radii.sm,
     padding: 12,
   },
   deniedBannerText: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
     color: colors.ink,
     lineHeight: 17,
   },
   card: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    ...elevation('card'),
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     gap: 10,
   },
   rowBorder: {
     borderTopWidth: 1,
-    borderTopColor: '#e5ddc9',
+    borderTopColor: 'rgba(0,0,0,0.06)',
   },
   rowText: {
     flex: 1,
     gap: 1,
   },
   rowLabel: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
   rowBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
 });

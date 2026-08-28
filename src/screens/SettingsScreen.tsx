@@ -16,7 +16,7 @@ import {
 import { BackIcon, CameraIcon, UserIcon } from '../components/icons';
 import NotificationSettingsSection from '../components/NotificationSettingsSection';
 import { useAuth } from '../lib/AuthContext';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { AvatarError, pickAndUploadAvatar } from '../utils/avatar';
 
 interface Props {
@@ -168,7 +168,7 @@ export default function SettingsScreen({ onClose, onOpenBlockedUsers }: Props) {
               onChangeText={setUsername}
               style={styles.input}
               placeholder="username"
-              placeholderTextColor={colors.mutedLight}
+              placeholderTextColor={colors.mist}
               autoCapitalize="none"
               maxLength={30}
             />
@@ -181,7 +181,7 @@ export default function SettingsScreen({ onClose, onOpenBlockedUsers }: Props) {
               onChangeText={setBio}
               style={[styles.input, styles.textArea]}
               placeholder="Tell other runners about yourself"
-              placeholderTextColor={colors.mutedLight}
+              placeholderTextColor={colors.mist}
               multiline
               maxLength={200}
             />
@@ -200,7 +200,7 @@ export default function SettingsScreen({ onClose, onOpenBlockedUsers }: Props) {
           )}
 
           <Pressable style={styles.saveButton} onPress={handleSave} disabled={saving || !username.trim()}>
-            {saving ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.saveButtonText}>SAVE</Text>}
+            {saving ? <ActivityIndicator color={colors.white} /> : <Text style={styles.saveButtonText}>SAVE</Text>}
           </Pressable>
 
           {session && <NotificationSettingsSection userId={session.user.id} />}
@@ -227,7 +227,7 @@ export default function SettingsScreen({ onClose, onOpenBlockedUsers }: Props) {
 
           <Pressable style={styles.deleteButton} onPress={handleDeleteAccount} disabled={deleting}>
             {deleting ? (
-              <ActivityIndicator size="small" color={colors.rustDark} />
+              <ActivityIndicator size="small" color={colors.danger} />
             ) : (
               <Text style={styles.deleteButtonText}>Delete account</Text>
             )}
@@ -254,16 +254,16 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   content: {
@@ -275,10 +275,11 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   sectionHeader: {
-    fontFamily: fonts.display,
-    fontSize: 13,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.stone,
     marginTop: 8,
   },
   avatarRow: {
@@ -294,17 +295,15 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: 72,
     height: 72,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.lg,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.cream,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarPlaceholderText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 26,
     color: colors.ink,
   },
@@ -316,86 +315,86 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 9,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   email: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     flexShrink: 1,
   },
   label: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.stone,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   errorBanner: {
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
     padding: 10,
   },
   errorText: {
-    color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    color: colors.white,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   savedBanner: {
-    backgroundColor: colors.green,
-    borderRadius: 8,
+    backgroundColor: colors.sage,
+    borderRadius: radii.xs,
     padding: 10,
   },
   savedText: {
     color: colors.white,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   saveButton: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
     marginTop: 6,
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   saveButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 16,
-    color: colors.sand,
+    color: colors.white,
+    lineHeight: 20,
   },
   rowButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: colors.white,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
     paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
+    ...elevation('subtle'),
   },
   rowButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
@@ -410,9 +409,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   termsButtonText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     textDecorationLine: 'underline',
   },
   signOutButton: {
@@ -420,9 +419,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   signOutButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
-    color: colors.rustDark,
+    color: colors.danger,
   },
   deleteButton: {
     alignItems: 'center',
@@ -430,9 +429,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   deleteButtonText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
     textDecorationLine: 'underline',
   },
 });

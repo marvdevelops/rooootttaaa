@@ -1,55 +1,63 @@
 import React from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, elevation, fonts, radii } from '../theme/theme';
-import { Waypoint } from '../types/route';
-import { CloseIcon, TrashIcon } from './icons';
+import { RouteNote } from '../types/route';
+import { CloseIcon, NoteFlagIcon, PlusIcon, TrashIcon } from './icons';
 
 interface Props {
   visible: boolean;
-  waypoints: Waypoint[];
+  notes: RouteNote[];
   onClose: () => void;
   onDelete: (id: string) => void;
+  onEditText: (id: string, text: string) => void;
+  /** Closes this modal and arms "tap the map to place a note" mode. */
+  onAddNote: () => void;
 }
 
-function labelFor(index: number, count: number): string {
-  if (index === 0) return 'S';
-  if (index === count - 1) return 'E';
-  return String(index + 1);
-}
-
-/** Pure route geometry — draws/shapes the line. For race notes, see RouteNotesModal instead. */
-export default function WaypointListModal({ visible, waypoints, onClose, onDelete }: Props) {
+/** Standalone notes pinned anywhere along the route — independent of Waypoint geometry. */
+export default function RouteNotesModal({ visible, notes, onClose, onDelete, onEditText, onAddNote }: Props) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.backdrop} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={styles.sheet}>
           <View style={styles.headerRow}>
-            <Text style={styles.title}>Points ({waypoints.length})</Text>
+            <Text style={styles.title}>Notes ({notes.length})</Text>
             <Pressable style={styles.closeButton} onPress={onClose}>
               <CloseIcon size={16} />
             </Pressable>
           </View>
 
-          {waypoints.length === 0 ? (
-            <Text style={styles.emptyText}>Tap the map to start adding points.</Text>
+          {notes.length === 0 ? (
+            <Text style={styles.emptyText}>Notes like &ldquo;water stop&rdquo; or &ldquo;turn here&rdquo; show up on the map as flags.</Text>
           ) : (
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
-              {waypoints.map((wp, index) => (
-                <View key={wp.id} style={styles.row}>
+              {notes.map((note) => (
+                <View key={note.id} style={styles.row}>
                   <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{labelFor(index, waypoints.length)}</Text>
+                    <NoteFlagIcon size={13} color={colors.surface} />
                   </View>
-                  <Text style={styles.rowLabel}>
-                    {index === 0 ? 'Start' : index === waypoints.length - 1 ? 'End' : `Point ${index + 1}`}
-                  </Text>
-                  <Pressable style={styles.deleteButton} onPress={() => onDelete(wp.id)}>
+                  <TextInput
+                    style={styles.noteInput}
+                    value={note.text}
+                    onChangeText={(text) => onEditText(note.id, text)}
+                    placeholder="Add a note (e.g. water stop, turn here)"
+                    placeholderTextColor={colors.mist}
+                    maxLength={120}
+                    autoFocus={!note.text}
+                  />
+                  <Pressable style={styles.deleteButton} onPress={() => onDelete(note.id)}>
                     <TrashIcon size={15} color={colors.danger} />
                   </Pressable>
                 </View>
               ))}
             </ScrollView>
           )}
+
+          <Pressable style={styles.addButton} onPress={onAddNote}>
+            <PlusIcon size={16} color={colors.surface} />
+            <Text style={styles.addButtonText}>Tap the map to add a note</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -68,15 +76,15 @@ const styles = StyleSheet.create({
     borderTopRightRadius: radii.lg,
     maxHeight: '75%',
     paddingTop: 26,
+    paddingHorizontal: 22,
     paddingBottom: Platform.OS === 'ios' ? 30 : 16,
+    gap: 14,
     ...elevation('sheet'),
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 22,
-    marginBottom: 14,
   },
   title: {
     fontFamily: fonts.extraBold,
@@ -97,18 +105,15 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 14,
     color: colors.stone,
-    paddingHorizontal: 22,
-    paddingBottom: 26,
+    lineHeight: 20,
   },
   scrollContent: {
-    paddingHorizontal: 22,
-    paddingBottom: 16,
     gap: 10,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     backgroundColor: colors.surface,
     borderRadius: radii.sm,
     padding: 10,
@@ -118,20 +123,16 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: radii.icon,
-    backgroundColor: colors.teal,
+    backgroundColor: colors.amber,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: {
-    fontFamily: fonts.extraBold,
-    fontSize: 11,
-    color: colors.surface,
-  },
-  rowLabel: {
+  noteInput: {
     flex: 1,
     fontFamily: fonts.medium,
     fontSize: 13,
     color: colors.ink,
+    paddingVertical: 8,
   },
   deleteButton: {
     width: 32,
@@ -140,5 +141,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.coral,
+    borderRadius: radii.pill,
+    paddingVertical: 13,
+    ...elevation('primaryBtn'),
+  },
+  addButtonText: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.surface,
   },
 });

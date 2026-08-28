@@ -1,8 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BackIcon, CalendarIcon } from '../components/icons';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  Pressable,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { BackIcon, CalendarIcon, ShareIcon } from '../components/icons';
+import ProBadge from '../components/ProBadge';
 import ReportModal from '../components/ReportModal';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute, GroupRun } from '../types/route';
 import BadgeStrip from '../components/BadgeStrip';
 import { blockUser } from '../utils/blocksApi';
@@ -83,6 +94,19 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
     );
   }, [userId, profile?.username, onClose]);
 
+  const handleShare = useCallback(async () => {
+    const webBaseUrl = process.env.EXPO_PUBLIC_WEB_BASE_URL;
+    const url = webBaseUrl ? `${webBaseUrl}/profile/${userId}` : undefined;
+    try {
+      await Share.share({
+        message: url ? `Check out ${profile?.username ?? 'this runner'}'s profile on Rootah: ${url}` : `Check out ${profile?.username ?? 'this runner'}'s profile on Rootah`,
+        url,
+      });
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to share profile.');
+    }
+  }, [userId, profile?.username]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -115,11 +139,14 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
         <Text style={styles.title} numberOfLines={1}>
           {profile?.username ?? 'Profile'}
         </Text>
+        <Pressable style={styles.backButton} onPress={handleShare}>
+          <ShareIcon />
+        </Pressable>
       </View>
 
       {loading && !profile && (
         <View style={styles.loadingState}>
-          <ActivityIndicator color={colors.rust} size="large" />
+          <ActivityIndicator color={colors.coral} size="large" />
         </View>
       )}
 
@@ -145,7 +172,10 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
                   <Text style={styles.avatarPlaceholderText}>{profile.username.slice(0, 1).toUpperCase()}</Text>
                 </View>
               )}
-              <Text style={styles.username}>{profile.username}</Text>
+              <View style={styles.usernameRow}>
+                <Text style={styles.username}>{profile.username}</Text>
+                {profile.tier === 'paid' && <ProBadge />}
+              </View>
               {!!profile.bio && <Text style={styles.bio}>{profile.bio}</Text>}
               <BadgeStrip userId={userId} />
               <Text style={styles.routeCount}>
@@ -202,8 +232,10 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
                 <View style={styles.statChip}>
                   <Text style={styles.statChipText}>{item.distanceKm.toFixed(2)} km</Text>
                 </View>
-                <View style={[styles.statChip, styles.statChipAqua]}>
-                  <Text style={styles.statChipText}>+{Math.round(item.elevationGainM)} m</Text>
+                <View style={[styles.statChip, styles.statChipTeal]}>
+                  <Text style={[styles.statChipText, styles.statChipTextLight]}>
+                    +{Math.round(item.elevationGainM)} m
+                  </Text>
                 </View>
               </View>
             </Pressable>
@@ -231,123 +263,129 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
     flex: 1,
     textAlign: 'center',
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 18,
+    letterSpacing: -0.3,
     color: colors.ink,
-    marginHorizontal: 8,
+    marginHorizontal: spacing.sm,
   },
   loadingState: {
     paddingTop: 60,
     alignItems: 'center',
   },
   errorBanner: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
-    padding: 10,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
+    padding: spacing.md,
   },
   errorText: {
-    color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    color: colors.white,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   list: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingBottom: 40,
-    gap: 14,
+    gap: spacing.base,
   },
   profileCard: {
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 22,
-    marginBottom: 16,
-    gap: 6,
-    ...brutalShadow(4),
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+    ...elevation('card'),
   },
   avatar: {
     width: 72,
     height: 72,
-    borderRadius: 20,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    marginBottom: 6,
+    borderRadius: radii.lg,
+    marginBottom: spacing.sm,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarPlaceholderText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 26,
-    color: colors.ink,
+    color: colors.white,
+  },
+  usernameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 12,
   },
   username: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   bio: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     lineHeight: 20,
   },
   routeCount: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: colors.mist,
     marginTop: 4,
   },
   moderationRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 10,
+    gap: spacing.lg,
+    marginTop: spacing.md,
   },
   moderationLink: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: colors.mist,
     textDecorationLine: 'underline',
   },
   eventsSection: {
     width: '100%',
-    marginTop: 16,
-    gap: 8,
+    marginTop: spacing.lg,
+    gap: spacing.sm,
   },
   eventsSectionTitle: {
-    fontFamily: fonts.display,
-    fontSize: 14,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 11,
+    letterSpacing: 0.08,
+    textTransform: 'uppercase',
+    color: colors.stone,
     marginBottom: 2,
   },
   eventCard: {
     width: '100%',
-    backgroundColor: colors.sand,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: colors.sheetBg,
+    borderRadius: radii.sm,
+    padding: spacing.md,
     gap: 3,
+    ...elevation('subtle'),
   },
   eventWhenBadge: {
     flexDirection: 'row',
@@ -355,86 +393,86 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 7,
-    paddingVertical: 2,
-    paddingHorizontal: 7,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
     marginBottom: 2,
   },
   eventWhenText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 10,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
   eventTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
   eventMeta: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
   emptyState: {
     paddingTop: 20,
     alignItems: 'center',
   },
   emptyText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-    ...brutalShadow(4),
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    ...elevation('card'),
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.md,
   },
   cardName: {
     flex: 1,
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 16,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   activityBadge: {
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   activityBadgeText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 10,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
   cardStatsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.sm,
   },
   statChip: {
-    backgroundColor: colors.sand,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
-  statChipAqua: {
-    backgroundColor: colors.aqua,
+  statChipTeal: {
+    backgroundColor: colors.teal,
   },
   statChipText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
     color: colors.ink,
+  },
+  statChipTextLight: {
+    color: colors.white,
   },
 });

@@ -4,7 +4,7 @@ import { ActivityIndicator, Platform, Pressable, StyleSheet, Text } from 'react-
 import { GoogleIcon } from './icons';
 import { useAuth } from '../lib/AuthContext';
 import { ensureGoogleSignInConfigured, isGoogleSignInAvailable } from '../lib/googleAuth';
-import { colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 
 interface Props {
   onError: (message: string) => void;
@@ -53,18 +53,20 @@ export default function GoogleSignInButton({ onError }: Props) {
 const styles = StyleSheet.create({
   button: {
     height: 52,
-    borderRadius: 12,
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
     gap: 10,
+    ...elevation('subtle'),
   },
   text: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 15,
     color: colors.ink,
+    lineHeight: 20,
   },
 });

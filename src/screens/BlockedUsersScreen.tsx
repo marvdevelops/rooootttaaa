@@ -1,7 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { BackIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { BlockedUser, listBlockedUsers, unblockUser } from '../utils/blocksApi';
 
 interface Props {
@@ -51,7 +59,7 @@ export default function BlockedUsersScreen({ onClose }: Props) {
 
       {loading ? (
         <View style={styles.loadingState}>
-          <ActivityIndicator color={colors.rust} size="large" />
+          <ActivityIndicator color={colors.coral} size="large" />
         </View>
       ) : (
         <FlatList
@@ -110,16 +118,16 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 18,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   loadingState: {
@@ -136,52 +144,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    padding: 12,
-    ...brutalShadow(3),
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: 14,
+    ...elevation('card'),
   },
   avatar: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.ink,
+    borderRadius: radii.sm,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.cream,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarPlaceholderText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 16,
     color: colors.ink,
   },
   username: {
     flex: 1,
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
   unblockButton: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: colors.sand,
+    borderRadius: radii.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+    backgroundColor: colors.cream,
   },
   unblockButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
     color: colors.ink,
   },

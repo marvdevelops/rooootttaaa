@@ -1,8 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import ReportModal from '../components/ReportModal';
 import { BackIcon, TrashIcon, UserIcon } from '../components/icons';
-import { colors, fonts } from '../theme/theme';
+import { colors, fonts, radii } from '../theme/theme';
 import { deleteRoutePhoto, listRoutePhotos, RoutePhoto } from '../utils/photosApi';
 import { createReport, ReportReason } from '../utils/reportsApi';
 
@@ -81,7 +91,7 @@ export default function PhotoViewerScreen({ routeId, initialPhotoId, onClose, on
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color={colors.sand} size="large" />
+        <ActivityIndicator color={colors.cream} size="large" />
       </View>
     );
   }
@@ -106,7 +116,7 @@ export default function PhotoViewerScreen({ routeId, initialPhotoId, onClose, on
                   <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
                 ) : (
                   <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                    <UserIcon size={14} color={colors.sand} />
+                    <UserIcon size={14} color={colors.cream} />
                   </View>
                 )}
                 <Text style={styles.username}>{item.username}</Text>
@@ -117,7 +127,7 @@ export default function PhotoViewerScreen({ routeId, initialPhotoId, onClose, on
               <View style={styles.actions}>
                 {item.isOwnedByMe ? (
                   <Pressable style={styles.actionButton} onPress={() => handleDelete(item)} hitSlop={8}>
-                    <TrashIcon size={16} color={colors.sand} />
+                    <TrashIcon size={16} color={colors.cream} />
                     <Text style={styles.actionText}>Delete</Text>
                   </Pressable>
                 ) : (
@@ -132,7 +142,7 @@ export default function PhotoViewerScreen({ routeId, initialPhotoId, onClose, on
       />
 
       <Pressable style={styles.closeButton} onPress={onClose}>
-        <BackIcon color={colors.sand} />
+        <BackIcon color={colors.cream} />
       </Pressable>
 
       <ReportModal
@@ -183,24 +193,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.muted,
+    backgroundColor: colors.stone,
     alignItems: 'center',
     justifyContent: 'center',
   },
   username: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.sand,
+    color: colors.cream,
   },
   date: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   caption: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.sand,
+    color: colors.cream,
     lineHeight: 19,
   },
   actions: {
@@ -213,9 +223,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   actionText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.sand,
+    color: colors.cream,
   },
   closeButton: {
     position: 'absolute',
@@ -223,7 +233,7 @@ const styles = StyleSheet.create({
     left: 16,
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: radii.icon,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',

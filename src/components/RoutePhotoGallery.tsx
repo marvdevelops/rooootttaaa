@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { hasCompletedRoute } from '../utils/completionsApi';
 import { listRoutePhotos, RoutePhoto } from '../utils/photosApi';
 import { CameraIcon } from './icons';
@@ -49,7 +49,7 @@ export default function RoutePhotoGallery({ routeId, photoCount, onOpenUpload, o
     if (!canAddPhoto) return null;
     return (
       <Pressable style={styles.emptyGallery} onPress={onOpenUpload}>
-        <CameraIcon size={22} color={colors.muted} />
+        <CameraIcon size={22} color={colors.stone} />
         <Text style={styles.emptyText}>Be the first to add a photo</Text>
       </Pressable>
     );
@@ -58,7 +58,10 @@ export default function RoutePhotoGallery({ routeId, photoCount, onOpenUpload, o
   return (
     <View style={styles.gallery}>
       <View style={styles.header}>
-        <Text style={styles.title}>📷 Photos ({photoCount})</Text>
+        <View style={styles.titleRow}>
+          <CameraIcon size={15} color={colors.ink} />
+          <Text style={styles.title}>Photos ({photoCount})</Text>
+        </View>
         {canAddPhoto && (
           <Pressable onPress={onOpenUpload} hitSlop={8}>
             <Text style={styles.addLink}>+ Add a photo</Text>
@@ -98,15 +101,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 15,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   addLink: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.rust,
+    color: colors.coral,
   },
   grid: {
     flexDirection: 'row',
@@ -115,37 +124,35 @@ const styles = StyleSheet.create({
   thumbWrap: {
     flex: 1,
     aspectRatio: 1,
-    borderRadius: 10,
+    borderRadius: radii.sm,
     overflow: 'hidden',
-    backgroundColor: colors.sand,
+    backgroundColor: colors.cream,
   },
   thumb: {
     width: '100%',
     height: '100%',
   },
   latestCaption: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
   seeAll: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.rust,
+    color: colors.coral,
   },
   emptyGallery: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderStyle: 'dashed',
-    borderRadius: 14,
+    borderRadius: radii.md,
     paddingVertical: 20,
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.white,
+    backgroundColor: colors.surface,
+    ...elevation('card'),
   },
   emptyText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
 });

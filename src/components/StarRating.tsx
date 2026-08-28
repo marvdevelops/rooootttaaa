@@ -15,7 +15,7 @@ export function StarRating({ value, size = 14 }: DisplayProps) {
   return (
     <View style={styles.row}>
       {STARS.map((s) => (
-        <Text key={s} style={{ fontSize: size, color: s <= rounded ? colors.amber : colors.sand }}>
+        <Text key={s} style={{ fontSize: size, color: s <= rounded ? colors.amber : colors.mist }}>
           ★
         </Text>
       ))}
@@ -35,7 +35,7 @@ export function StarRatingInput({ value, onChange, size = 32 }: InputProps) {
     <View style={styles.row}>
       {STARS.map((s) => (
         <Pressable key={s} onPress={() => onChange(s)} hitSlop={6}>
-          <Text style={{ fontSize: size, color: s <= value ? colors.amber : colors.sand }}>★</Text>
+          <Text style={{ fontSize: size, color: s <= value ? colors.amber : colors.mist }}>★</Text>
         </Pressable>
       ))}
     </View>

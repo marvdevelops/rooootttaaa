@@ -2,7 +2,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BackIcon, CameraIcon, ImportIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import {
   PhotoUploadError,
   PickedPhoto,
@@ -83,7 +83,7 @@ export default function PhotoUploadScreen({ routeId, completionId, onClose, onUp
                 value={caption}
                 onChangeText={setCaption}
                 placeholder="e.g. Muddy section near km 4"
-                placeholderTextColor={colors.mutedLight}
+                placeholderTextColor={colors.mist}
                 style={styles.input}
                 maxLength={150}
               />
@@ -109,7 +109,7 @@ export default function PhotoUploadScreen({ routeId, completionId, onClose, onUp
             </View>
 
             <Pressable style={styles.uploadButton} onPress={handleUpload} disabled={uploading}>
-              {uploading ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.uploadButtonText}>ADD PHOTO</Text>}
+              {uploading ? <ActivityIndicator color={colors.sheetBg} /> : <Text style={styles.uploadButtonText}>ADD PHOTO</Text>}
             </Pressable>
             <Pressable onPress={() => setPhoto(null)} disabled={uploading} hitSlop={8}>
               <Text style={styles.retakeLink}>Choose different photo</Text>
@@ -137,16 +137,16 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   content: {
@@ -155,14 +155,15 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   prompt: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   promptSub: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     marginTop: -8,
     lineHeight: 18,
   },
@@ -175,73 +176,69 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.white,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+    ...elevation('card'),
   },
   pickButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
   preview: {
     width: '100%',
     aspectRatio: 4 / 3,
-    borderRadius: 14,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    backgroundColor: colors.sand,
+    borderRadius: radii.md,
+    backgroundColor: colors.sheetBg,
   },
   label: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: colors.stone,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 12,
     paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   dateButton: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
     paddingVertical: 12,
     paddingHorizontal: 14,
     alignSelf: 'flex-start',
+    ...elevation('subtle'),
   },
   dateButtonText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
   },
   uploadButton: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   uploadButtonText: {
-    fontFamily: fonts.display,
-    fontSize: 16,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.surface,
   },
   retakeLink: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
   },
 });

@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { ReportReason } from '../utils/reportsApi';
 import { CloseIcon, FlagIcon } from './icons';
 
@@ -78,7 +78,7 @@ export default function ReportModal({ visible, isSubmitting, onClose, onSubmit }
                 value={details}
                 onChangeText={setDetails}
                 placeholder="Anything else we should know?"
-                placeholderTextColor={colors.mutedLight}
+                placeholderTextColor={colors.mist}
                 style={[styles.input, styles.textArea]}
                 multiline
                 maxLength={500}
@@ -90,7 +90,7 @@ export default function ReportModal({ visible, isSubmitting, onClose, onSubmit }
               onPress={() => reason && onSubmit(reason, details.trim())}
               disabled={!reason || isSubmitting}
             >
-              {isSubmitting ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.submitButtonText}>SUBMIT REPORT</Text>}
+              {isSubmitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitButtonText}>SUBMIT REPORT</Text>}
             </Pressable>
           </ScrollView>
         </View>
@@ -106,12 +106,11 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: colors.sand,
-    borderTopWidth: 4,
-    borderColor: colors.ink,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: colors.sheetBg,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
     maxHeight: '85%',
+    ...elevation('sheet'),
   },
   scrollContent: {
     paddingTop: 26,
@@ -130,25 +129,26 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   closeButton: {
     width: 34,
     height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   label: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.stone,
     marginBottom: 6,
   },
   reasonList: {
@@ -158,46 +158,45 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    ...elevation('subtle'),
   },
   reasonOptionActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   radio: {
     width: 16,
     height: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: colors.ink,
-    backgroundColor: colors.white,
+    borderColor: colors.mist,
+    backgroundColor: colors.surface,
   },
   radioActive: {
-    backgroundColor: colors.sand,
+    borderColor: colors.white,
+    backgroundColor: colors.cream,
   },
   reasonText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
   },
   reasonTextActive: {
-    color: colors.sand,
-    fontFamily: fonts.bodyBold,
+    color: colors.white,
+    fontFamily: fonts.bold,
   },
   input: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   textArea: {
     minHeight: 70,
@@ -205,18 +204,20 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    ...brutalShadow(4),
+    paddingHorizontal: 24,
+    ...elevation('primaryBtn'),
   },
   submitButtonDisabled: {
     opacity: 0.5,
   },
   submitButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 16,
-    color: colors.sand,
+    color: colors.white,
+    lineHeight: 20,
   },
 });

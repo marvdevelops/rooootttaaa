@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BackIcon, PlusIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute } from '../types/route';
 import { listMyRoutes } from '../utils/routesApi';
 
@@ -59,7 +59,7 @@ export default function CreateEventScreen({ onClose, onSelectRoute, onCreateNewR
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.rust} />
+          <ActivityIndicator color={colors.coral} />
         </View>
       ) : (
         <FlatList
@@ -71,7 +71,7 @@ export default function CreateEventScreen({ onClose, onSelectRoute, onCreateNewR
           ListHeaderComponent={
             <Pressable style={styles.newRouteCard} onPress={onCreateNewRoute}>
               <View style={styles.newRouteIcon}>
-                <PlusIcon size={20} color={colors.sand} />
+                <PlusIcon size={20} color={colors.white} />
               </View>
               <View style={styles.newRouteTextWrap}>
                 <Text style={styles.newRouteTitle}>Create a new route</Text>
@@ -129,22 +129,22 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   subtitle: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 16,
@@ -152,13 +152,13 @@ const styles = StyleSheet.create({
   errorBanner: {
     marginHorizontal: 16,
     marginBottom: 12,
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
     padding: 10,
   },
   errorText: {
     color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   loadingWrap: {
@@ -174,11 +174,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: colors.rust,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.coral,
+    borderRadius: radii.md,
+    padding: spacing.lg,
     marginBottom: 14,
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   newRouteIcon: {
     width: 44,
@@ -193,14 +193,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   newRouteTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 15,
-    color: colors.sand,
+    letterSpacing: -0.3,
+    color: colors.white,
   },
   newRouteBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.sand,
+    color: colors.white,
     opacity: 0.9,
     lineHeight: 16,
   },
@@ -211,24 +212,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
+    letterSpacing: -0.3,
     color: colors.ink,
     textAlign: 'center',
   },
   emptyBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     lineHeight: 20,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.lg,
     gap: 8,
-    ...brutalShadow(4),
+    ...elevation('card'),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -237,40 +239,39 @@ const styles = StyleSheet.create({
   },
   cardName: {
     flex: 1,
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 16,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   activityBadge: {
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   activityBadgeText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 10,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.08 * 9,
+    textTransform: 'uppercase',
+    color: colors.white,
   },
   cardStatsRow: {
     flexDirection: 'row',
     gap: 8,
   },
   statChip: {
-    backgroundColor: colors.sand,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   statChipAqua: {
-    backgroundColor: colors.aqua,
+    backgroundColor: colors.teal,
   },
   statChipText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
     color: colors.ink,
   },

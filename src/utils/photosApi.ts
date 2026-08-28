@@ -4,6 +4,21 @@ import { supabase } from '../lib/supabase';
 
 export class PhotoUploadError extends Error {}
 
+// React Native's JS engine (Hermes) doesn't provide the Web Crypto API's
+// crypto.randomUUID() without a native polyfill (none installed, and adding
+// one — e.g. expo-crypto — would itself be a native module that can't ship
+// via OTA to already-installed builds). This throws a plain ReferenceError
+// immediately, before any network call, which is why every photo upload
+// failed outright. A dependency-free UUID v4 generator sidesteps both
+// problems — good enough for a storage-path identifier, no crypto needed.
+function generateId(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export interface RoutePhoto {
   id: string;
   routeId: string;
@@ -200,7 +215,7 @@ export async function uploadRoutePhoto(input: UploadRoutePhotoInput): Promise<vo
 
   if (!main.base64 || !thumb.base64) throw new PhotoUploadError('Failed to process photo.');
 
-  const photoId = crypto.randomUUID();
+  const photoId = generateId();
   const mainPath = `${input.routeId}/${userId}/${photoId}.jpg`;
   const thumbPath = `${input.routeId}/${userId}/${photoId}_thumb.jpg`;
 

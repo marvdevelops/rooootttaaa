@@ -1,7 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { BackIcon, LockIcon, PlusIcon, UsersIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { RunClub } from '../types/club';
 import { listNearbyClubs } from '../utils/clubsApi';
 
@@ -55,7 +63,7 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.rust} />
+          <ActivityIndicator color={colors.coral} />
         </View>
       ) : (
         <FlatList
@@ -67,7 +75,7 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
           ListHeaderComponent={
             <Pressable style={styles.createCard} onPress={onCreateClub}>
               <View style={styles.createIcon}>
-                <PlusIcon size={20} color={colors.sand} />
+                <PlusIcon size={20} color={colors.white} />
               </View>
               <View style={styles.createTextWrap}>
                 <Text style={styles.createTitle}>Create a club</Text>
@@ -89,7 +97,7 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
                 <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
               ) : (
                 <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                  <UsersIcon size={22} color={colors.muted} />
+                  <UsersIcon size={22} color={colors.stone} />
                 </View>
               )}
               <View style={styles.cardTextWrap}>
@@ -97,7 +105,7 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
                   <Text style={styles.cardName} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  {item.isPrivate && <LockIcon size={12} color={colors.muted} />}
+                  {item.isPrivate && <LockIcon size={12} color={colors.stone} />}
                 </View>
                 {item.city && <Text style={styles.cardMeta}>📍 {item.city}</Text>}
                 {item.memberCount > 1 && (
@@ -124,34 +132,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   errorBanner: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
     padding: 10,
   },
   errorText: {
-    color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    color: colors.white,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   loadingWrap: {
@@ -159,24 +167,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   list: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingBottom: 40,
-    gap: 12,
+    gap: spacing.md,
   },
   createCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: colors.rust,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 14,
-    ...brutalShadow(4),
+    backgroundColor: colors.coral,
+    borderRadius: radii.md,
+    padding: spacing.lg,
+    marginBottom: spacing.base,
+    ...elevation('card'),
   },
   createIcon: {
     width: 44,
     height: 44,
-    borderRadius: 14,
+    borderRadius: radii.sm,
     backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -186,33 +194,35 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   createTitle: {
-    fontFamily: fonts.display,
-    fontSize: 15,
-    color: colors.sand,
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    letterSpacing: -0.3,
+    color: colors.white,
   },
   createBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.sand,
+    color: colors.white,
     opacity: 0.9,
     lineHeight: 16,
   },
   emptyState: {
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingTop: 24,
     alignItems: 'center',
     gap: 8,
   },
   emptyTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
+    letterSpacing: -0.3,
     color: colors.ink,
     textAlign: 'center',
   },
   emptyBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -220,20 +230,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 14,
-    ...brutalShadow(3),
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.base,
+    ...elevation('card'),
   },
   avatar: {
     width: 52,
     height: 52,
-    borderRadius: 14,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
+    borderRadius: radii.sm,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -248,13 +256,14 @@ const styles = StyleSheet.create({
   },
   cardName: {
     flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 15,
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   cardMeta: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
 });

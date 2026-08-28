@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 
 export const TUTORIAL_STEP_COUNT = 4;
 
@@ -67,9 +67,7 @@ export default function BuilderTutorial({ step, variant, onSkip, onFinish }: Pro
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.sand,
-    borderWidth: 4,
-    borderColor: colors.ink,
+    backgroundColor: colors.sheetBg,
     gap: 8,
   },
   sheetContainer: {
@@ -77,20 +75,21 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
     paddingHorizontal: 22,
     paddingTop: 20,
     paddingBottom: 46,
+    ...elevation('sheet'),
   },
   cardContainer: {
     position: 'absolute',
     bottom: 108,
     left: 16,
     right: 16,
-    borderRadius: 18,
+    borderRadius: radii.lg,
     padding: 16,
-    ...brutalShadow(4),
+    ...elevation('card'),
   },
   headerRow: {
     flexDirection: 'row',
@@ -105,39 +104,44 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.mutedLight,
+    backgroundColor: colors.mist,
   },
   dotActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   skipText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   body: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.regular,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     lineHeight: 20,
   },
   finishButton: {
     height: 48,
-    borderRadius: 12,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
-    ...brutalShadow(3),
+    ...elevation('primaryBtn'),
   },
   finishButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 14,
-    color: colors.sand,
+    lineHeight: 18,
+    color: colors.surface,
+    textAlign: 'center',
   },
 });

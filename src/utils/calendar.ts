@@ -1,4 +1,9 @@
-import * as Calendar from 'expo-calendar';
+// expo-calendar's default entry now points at a rewritten API (class-based
+// ExpoCalendar objects, no createEventAsync/requestCalendarPermissionsAsync)
+// — the old function names still exist there but are throw-on-call stubs
+// pointing here. Importing from the /legacy subpath keeps the familiar,
+// fully-working API instead of doing a bigger rewrite under time pressure.
+import * as Calendar from 'expo-calendar/legacy';
 import { Alert, Platform } from 'react-native';
 
 async function getDefaultCalendarId(): Promise<string | null> {

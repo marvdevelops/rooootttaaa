@@ -2,7 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { RunnerIcon } from './icons';
-import { colors, fonts } from '../theme/theme';
+import { colors, fonts, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute, PathPoint } from '../types/route';
 import { buildStaticMapUrl } from '../utils/staticMap';
 
@@ -117,37 +117,38 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   brand: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 12,
-    color: colors.sand,
+    color: colors.white,
     letterSpacing: 1.5,
   },
   routeName: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 20,
-    color: colors.sand,
+    color: colors.white,
     marginTop: 4,
+    letterSpacing: -0.3,
   },
   city: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.sand,
+    color: colors.white,
   },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.sm,
     marginTop: 6,
   },
   stat: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 14,
-    color: colors.sand,
+    color: colors.white,
   },
   divider: {
     width: 2,
     height: 12,
-    backgroundColor: colors.mutedLight,
+    backgroundColor: colors.mist,
   },
   socialRow: {
     flexDirection: 'row',
@@ -160,24 +161,24 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   social: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.amber,
   },
   socialDot: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 12,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   cta: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 11,
-    color: colors.sand,
+    color: colors.white,
     marginTop: 10,
   },
   url: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 10,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
 });

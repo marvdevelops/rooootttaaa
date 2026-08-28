@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, fonts } from '../theme/theme';
+import {
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { getRouteLeader, RouteLeader } from '../utils/badgesApi';
 
 interface Props {
@@ -46,11 +52,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 12,
+    borderRadius: radii.sm,
     paddingVertical: 8,
     paddingHorizontal: 10,
+    ...elevation('subtle'),
   },
   icon: {
     fontSize: 14,
@@ -61,15 +66,15 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.cream,
   },
   text: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.ink,
+    color: colors.surface,
   },
   bold: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
   },
 });

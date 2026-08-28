@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { colors } from '../theme/theme';
+import { colors, elevation } from '../theme/theme';
 
 export default function WaypointMarker() {
   return (
@@ -25,8 +25,9 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: colors.amber,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
+    backgroundColor: colors.coral,
+    borderColor: colors.surface,
+    borderWidth: 2,
+    ...elevation('subtle'),
   },
 });

@@ -4,6 +4,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { supabase } from './supabase';
 import { checkProEntitlement, initRevenueCat, isRevenueCatAvailable, logOutRevenueCat } from './revenuecat';
 import { registerPushToken, unregisterPushToken } from './pushNotifications';
+import { identifyUser, resetUser, track } from './analytics';
 import { Profile } from '../types/auth';
 
 export type UserTier = 'free' | 'paid';
@@ -72,7 +73,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       currentUserId.current = data.session?.user.id ?? null;
       setSession(data.session);
-      if (data.session) fetchProfile(data.session.user.id);
+      if (data.session) {
+        fetchProfile(data.session.user.id);
+        identifyUser(data.session.user.id);
+      }
       setLoading(false);
     });
 
@@ -82,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(nextSession);
       if (nextSession) {
         fetchProfile(nextSession.user.id);
+        identifyUser(nextSession.user.id);
       } else {
         setProfile(null);
         setTier('free');
@@ -90,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         rcUserId.current = null;
         logOutRevenueCat();
         if (signedOutUserId) unregisterPushToken(signedOutUserId);
+        resetUser();
       }
     });
 
@@ -133,11 +139,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // active session and onAuthStateChange takes it from here — no need to
     // tell the user to check their inbox. If confirmation is still required
     // (data.session is null), surface that instead.
+    if (!error) track('sign_up', { method: 'email' });
     return { error: error?.message ?? null, needsConfirmation: !error && !data.session };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error) track('sign_in', { method: 'email' });
     return { error: error?.message ?? null };
   }, []);
 
@@ -149,6 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.user && isFreshAccount(data.user.created_at)) {
       setSuggestedUsername(suggestedName?.trim() || null);
       setNeedsUsernameSetup(true);
+      track('sign_up', { method: 'apple' });
+    } else {
+      track('sign_in', { method: 'apple' });
     }
     return { error: null };
   }, []);
@@ -159,6 +170,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.user && isFreshAccount(data.user.created_at)) {
       setSuggestedUsername(suggestedName?.trim() || null);
       setNeedsUsernameSetup(true);
+      track('sign_up', { method: 'google' });
+    } else {
+      track('sign_in', { method: 'google' });
     }
     return { error: null };
   }, []);
@@ -241,12 +255,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [updateProfile],
   );
 
+  // profile.tier is normally just a mirror of RevenueCat (kept in sync via
+  // webhook) — but for accounts that aren't real App Store purchasers (e.g.
+  // the official Rootah account), it's the only signal available, so it
+  // acts as a floor: paid in the DB always grants paid, even if RevenueCat
+  // has never seen this device/account.
+  const effectiveTier: UserTier = profile?.tier === 'paid' ? 'paid' : tier;
+
   const value = useMemo(
     () => ({
       session,
       profile,
       loading,
-      tier,
+      tier: effectiveTier,
       refreshTier,
       signUp,
       signIn,
@@ -265,7 +286,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       profile,
       loading,
-      tier,
+      effectiveTier,
       refreshTier,
       signUp,
       signIn,

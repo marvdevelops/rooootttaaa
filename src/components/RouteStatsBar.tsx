@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 
 interface Props {
   distanceKm: number;
@@ -21,26 +21,30 @@ export default function RouteStatsBar({
 
   return (
     <View style={styles.row}>
-      <View style={[styles.pill, styles.creamPill]}>
+      <View style={[styles.pill, styles.distancePill]}>
         <Text style={styles.label}>DISTANCE</Text>
-        <Text style={[styles.value, showPeak && styles.valueCompact]}>{distanceKm.toFixed(2)} km</Text>
+        <Text style={[styles.value, styles.valueInk, showPeak && styles.valueCompact]}>
+          {distanceKm.toFixed(2)} km
+        </Text>
       </View>
-      <View style={[styles.pill, styles.aquaPill]}>
-        <Text style={[styles.label, styles.aquaLabel]}>GAIN</Text>
+      <View style={[styles.pill, styles.gainPill]}>
+        <Text style={[styles.label, styles.labelLight]}>GAIN</Text>
         <View style={styles.valueRow}>
-          <Text style={[styles.value, showPeak && styles.valueCompact]}>+{Math.round(elevationGainM)} m</Text>
-          {isFetchingElevation && <ActivityIndicator size="small" color={colors.ink} style={styles.spinner} />}
+          <Text style={[styles.value, styles.valueWhite, showPeak && styles.valueCompact]}>
+            +{Math.round(elevationGainM)} m
+          </Text>
+          {isFetchingElevation && <ActivityIndicator size="small" color={colors.surface} style={styles.spinner} />}
         </View>
       </View>
       {showPeak && (
-        <View style={[styles.pill, styles.amberPill]}>
-          <Text style={styles.label}>PEAK</Text>
-          <Text style={[styles.value, styles.valueCompact]}>{Math.round(peakElevationM)} m</Text>
+        <View style={[styles.pill, styles.peakPill]}>
+          <Text style={[styles.label, styles.labelLight]}>PEAK</Text>
+          <Text style={[styles.value, styles.valueWhite, styles.valueCompact]}>{Math.round(peakElevationM)} m</Text>
         </View>
       )}
       {isRouting && (
         <View style={styles.routingBadge}>
-          <ActivityIndicator size="small" color={colors.cream} />
+          <ActivityIndicator size="small" color={colors.surface} />
         </View>
       )}
     </View>
@@ -54,37 +58,44 @@ const styles = StyleSheet.create({
   },
   pill: {
     flex: 1,
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    ...brutalShadow(5),
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    ...elevation('card'),
   },
-  creamPill: {
-    backgroundColor: colors.sand,
+  distancePill: {
+    backgroundColor: '#EDE8DF',
   },
-  aquaPill: {
-    backgroundColor: colors.aqua,
+  gainPill: {
+    backgroundColor: colors.teal,
   },
-  amberPill: {
+  peakPill: {
     backgroundColor: colors.amber,
   },
   label: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.1 * 9,
+    color: colors.stone,
+    textTransform: 'uppercase',
   },
-  aquaLabel: {
-    color: '#16302f',
+  labelLight: {
+    color: 'rgba(255,255,255,0.7)',
   },
   valueRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   value: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 22,
+    marginTop: 2,
+  },
+  valueInk: {
     color: colors.ink,
+  },
+  valueWhite: {
+    color: colors.surface,
   },
   valueCompact: {
     fontSize: 17,
@@ -96,10 +107,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: colors.rust,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.ink,
+    backgroundColor: colors.coral,
+    borderRadius: radii.pill,
     padding: 5,
+    ...elevation('subtle'),
   },
 });

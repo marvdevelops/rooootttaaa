@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BackIcon } from '../components/icons';
 import TopRouteCard from '../components/TopRouteCard';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { ActivityType, CloudRoute } from '../types/route';
 import { fetchTopRoutesRanked } from '../utils/topRoutesApi';
 
@@ -75,7 +75,7 @@ export default function TopRoutesScreen({ city, onClose, onOpenDetail }: Props) 
       )}
 
       {loading ? (
-        <ActivityIndicator color={colors.rust} style={{ marginTop: 40 }} />
+        <ActivityIndicator color={colors.coral} style={{ marginTop: 40 }} />
       ) : routes.length === 0 && !error ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No top routes yet</Text>
@@ -114,22 +114,22 @@ const styles = StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   subtitle: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
     marginTop: 2,
   },
   filterRow: {
@@ -139,34 +139,32 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   filterPill: {
-    borderWidth: 2,
-    borderColor: colors.ink,
     borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    backgroundColor: colors.white,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(0,0,0,0.06)',
   },
   filterPillActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
   },
   filterPillText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
+    fontFamily: fonts.semiBold,
+    fontSize: 11,
     color: colors.ink,
   },
   filterPillTextActive: {
-    color: colors.sand,
+    color: colors.surface,
   },
   errorBanner: {
     marginHorizontal: 16,
     marginBottom: 12,
-    backgroundColor: colors.rustDark,
+    backgroundColor: colors.danger,
     borderRadius: 8,
     padding: 10,
   },
   errorText: {
     color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   emptyState: {
@@ -176,15 +174,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 17,
+    letterSpacing: -0.3,
     color: colors.ink,
     textAlign: 'center',
   },
   emptyBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -197,15 +196,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 8,
-    ...brutalShadow(3),
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: 10,
+    ...elevation('card'),
   },
   rank: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 16,
-    color: colors.muted,
+    color: colors.stone,
     width: 28,
     textAlign: 'center',
   },

@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Logo from '../components/Logo';
 import { useAuth } from '../lib/AuthContext';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii } from '../theme/theme';
 import { isUsernameAvailable, USERNAME_PATTERN } from '../utils/profilesApi';
 
 type Availability = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
@@ -72,7 +72,7 @@ export default function UsernameSetupScreen() {
             value={username}
             onChangeText={setUsername}
             placeholder="username"
-            placeholderTextColor={colors.mutedLight}
+            placeholderTextColor={colors.mist}
             style={styles.input}
             autoCapitalize="none"
             autoCorrect={false}
@@ -81,7 +81,7 @@ export default function UsernameSetupScreen() {
 
           {availability === 'checking' && (
             <View style={styles.statusRow}>
-              <ActivityIndicator size="small" color={colors.muted} />
+              <ActivityIndicator size="small" color={colors.stone} />
               <Text style={styles.statusTextMuted}>Checking availability…</Text>
             </View>
           )}
@@ -98,7 +98,7 @@ export default function UsernameSetupScreen() {
           )}
 
           <Pressable style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={!canSubmit}>
-            {submitting ? <ActivityIndicator color={colors.sand} /> : <Text style={styles.submitButtonText}>CONTINUE →</Text>}
+            {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.submitButtonText}>CONTINUE →</Text>}
           </Pressable>
         </View>
       </ScrollView>
@@ -123,15 +123,16 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 24,
+    letterSpacing: -0.4,
     color: colors.ink,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -139,15 +140,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   input: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   statusRow: {
     flexDirection: 'row',
@@ -155,45 +155,47 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusTextMuted: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   statusTextGood: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.green,
+    color: colors.sage,
   },
   statusTextBad: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.rustDark,
+    color: colors.danger,
   },
   errorBanner: {
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
     padding: 10,
   },
   errorText: {
-    color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    color: colors.white,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   submitButton: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
     marginTop: 6,
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   submitButtonDisabled: {
     opacity: 0.5,
   },
   submitButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 16,
-    color: colors.sand,
+    color: colors.white,
+    lineHeight: 20,
   },
 });

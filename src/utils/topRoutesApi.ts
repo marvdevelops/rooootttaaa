@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { ActivityType, CloudRoute } from '../types/route';
-import { getRoutesByIds, listMostCompletedInCity } from './routesApi';
+import { getRoutesByIds, listMostCompletedInCity, listPublicRoutes } from './routesApi';
 
 export interface TopRoutesResult {
   routes: CloudRoute[];
@@ -51,12 +51,24 @@ export async function fetchTopRoutesRanked(
   const { data, error } = await query;
   if (error) throw new Error(error.message);
   const scored = (data ?? []) as TopRouteScoreRow[];
-  if (scored.length === 0) return [];
 
-  const routes = await getRoutesByIds(scored.map((r) => r.id));
-  const order = new Map(scored.map((r, i) => [r.id, i]));
-  routes.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
-  return routes;
+  if (scored.length > 0) {
+    const routes = await getRoutesByIds(scored.map((r) => r.id));
+    const order = new Map(scored.map((r, i) => [r.id, i]));
+    routes.sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
+    return activityType === 'all' ? routes : routes.filter((r) => r.activityType === activityType);
+  }
+
+  // Not enough routes have qualified for the scored view yet (needs 3+
+  // reviews and 2+ completions) — same early-growth problem the Discover
+  // strip already solves via isFallback. Mirror that fallback here so "See
+  // all" doesn't show empty while the strip it was opened from has routes.
+  const mostCompleted = await listMostCompletedInCity(city, limit);
+  const filtered = activityType === 'all' ? mostCompleted : mostCompleted.filter((r) => r.activityType === activityType);
+  if (filtered.length > 0) return filtered;
+
+  const fallback = await listPublicRoutes({ city: city ?? undefined, activityType: activityType === 'all' ? undefined : activityType, limit });
+  return fallback;
 }
 
 /**
