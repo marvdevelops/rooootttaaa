@@ -29,6 +29,14 @@ const ACTIVITY_OPTIONS: { value: ActivityType; label: string }[] = [
 // start pin that was dropped a few metres off.
 const NEAR_ROUTE_METERS = 60;
 
+// Which route activity types are worth following for a given activity. Anything
+// on foot is interchangeable here — a walk route is fine to run, a trail route
+// is fine to hike — so they all surface together. Rides only match ride routes.
+const ON_FOOT: ActivityType[] = ['run', 'trail_run', 'hike', 'walk', 'other'];
+function followableRouteTypes(activity: ActivityType): ActivityType[] {
+  return activity === 'bike' ? ['bike'] : ON_FOOT;
+}
+
 function formatAway(km: number): string {
   if (km < 1) return `${Math.round(km * 1000)} m away`;
   return `${km.toFixed(1)} km away`;
@@ -57,7 +65,7 @@ export default function StartActivityScreen({
         if (status !== 'granted') return;
         const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         const here = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-        const routes = await findNearbyRoutes(here, activityType, NEAR_ROUTE_METERS, 5);
+        const routes = await findNearbyRoutes(here, followableRouteTypes(activityType), NEAR_ROUTE_METERS, 5);
         if (!cancelled) {
           setOrigin(here);
           setNearby(routes);

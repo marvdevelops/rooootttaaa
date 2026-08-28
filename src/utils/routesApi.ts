@@ -283,11 +283,17 @@ export async function listPublicRoutes(filters: PublicRouteFilters = {}): Promis
  */
 export async function findNearbyRoutes(
   origin: { latitude: number; longitude: number },
-  activityType: ActivityType,
+  activityType: ActivityType | ActivityType[],
   radiusMeters = 2000,
   limit = 3,
 ): Promise<CloudRoute[]> {
-  const candidates = await listPublicRoutes({ activityType, limit: 100 });
+  const types = Array.isArray(activityType) ? activityType : [activityType];
+  // A single type still filters server-side; multiple types (e.g. "any on-foot
+  // route") are fetched unfiltered and narrowed client-side.
+  const candidates =
+    types.length === 1
+      ? await listPublicRoutes({ activityType: types[0], limit: 100 })
+      : (await listPublicRoutes({ limit: 100 })).filter((r) => types.includes(r.activityType));
   return candidates
     .map((route) => {
       const start = route.waypoints[0] ?? route.segments[0]?.path[0];
