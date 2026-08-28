@@ -1,7 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { BackIcon, CalendarIcon, LockIcon, UserIcon, UsersIcon } from '../components/icons';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { GroupRun } from '../types/route';
 import { RunClub } from '../types/club';
 import {
@@ -25,6 +34,7 @@ interface Props {
   onOpenClubAdmin: (clubId: string) => void;
   onOpenProfile: (userId: string) => void;
   onRequirePaywall: (trigger: PaywallTrigger) => void;
+  onRequireAuth: (action: () => void, context?: string) => void;
   onScheduleClubRun: (clubId: string) => void;
 }
 
@@ -44,6 +54,7 @@ export default function ClubProfileScreen({
   onOpenClubAdmin,
   onOpenProfile,
   onRequirePaywall,
+  onRequireAuth,
   onScheduleClubRun,
 }: Props) {
   const [club, setClub] = useState<RunClub | null>(null);
@@ -134,7 +145,7 @@ export default function ClubProfileScreen({
           </Pressable>
         </View>
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.rust} />
+          <ActivityIndicator color={colors.coral} />
         </View>
       </View>
     );
@@ -174,7 +185,7 @@ export default function ClubProfileScreen({
             <Image source={{ uri: club.avatarUrl }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <UsersIcon size={28} color={colors.muted} />
+              <UsersIcon size={28} color={colors.stone} />
             </View>
           )}
           <View style={styles.clubHeaderTextWrap}>
@@ -182,7 +193,7 @@ export default function ClubProfileScreen({
               <Text style={styles.clubName} numberOfLines={2}>
                 {club.name}
               </Text>
-              {club.isPrivate && <LockIcon size={14} color={colors.muted} />}
+              {club.isPrivate && <LockIcon size={14} color={colors.stone} />}
             </View>
             {club.city && <Text style={styles.clubMeta}>📍 {club.city}</Text>}
             {club.memberCount > 1 && (
@@ -196,11 +207,11 @@ export default function ClubProfileScreen({
         {!!club.description && <Text style={styles.description}>{club.description}</Text>}
 
         {!isMember && !isPending && (
-          <Pressable style={styles.joinButton} onPress={handleJoin} disabled={joining}>
+          <Pressable style={styles.joinButton} onPress={() => onRequireAuth(handleJoin, 'join_club')} disabled={joining}>
             {joining ? (
-              <ActivityIndicator color={colors.sand} />
+              <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.joinButtonText}>{club.isPrivate ? 'REQUEST TO JOIN' : 'JOIN CLUB'}</Text>
+              <Text style={styles.joinButtonText}>{club.isPrivate ? 'Request to join' : 'Join club'}</Text>
             )}
           </Pressable>
         )}
@@ -211,7 +222,7 @@ export default function ClubProfileScreen({
         )}
         {isMember && club.myRole === 'member' && (
           <Pressable style={styles.leaveButton} onPress={handleLeave}>
-            <Text style={styles.leaveButtonText}>LEAVE CLUB</Text>
+            <Text style={styles.leaveButtonText}>Leave club</Text>
           </Pressable>
         )}
 
@@ -229,7 +240,7 @@ export default function ClubProfileScreen({
           <View style={styles.tabContent}>
             {isAdmin && (
               <Pressable style={styles.scheduleButton} onPress={() => onScheduleClubRun(club.id)}>
-                <Text style={styles.scheduleButtonText}>+ SCHEDULE A CLUB RUN</Text>
+                <Text style={styles.scheduleButtonText}>+ Schedule a club run</Text>
               </Pressable>
             )}
             {events.length === 0 ? (
@@ -240,7 +251,7 @@ export default function ClubProfileScreen({
               events.map((run) => (
                 <Pressable key={run.id} style={styles.eventCard} onPress={() => onOpenGroupRun(run.id)}>
                   <View style={styles.eventWhenBadge}>
-                    <CalendarIcon size={12} color={colors.ink} />
+                    <CalendarIcon size={12} color={colors.white} />
                     <Text style={styles.eventWhenText}>{formatWhen(run.scheduledAt)}</Text>
                   </View>
                   <Text style={styles.eventTitle} numberOfLines={1}>
@@ -278,7 +289,7 @@ export default function ClubProfileScreen({
                   <Image source={{ uri: m.avatarUrl }} style={styles.memberAvatar} />
                 ) : (
                   <View style={[styles.memberAvatar, styles.avatarPlaceholder]}>
-                    <UserIcon size={16} color={colors.muted} />
+                    <UserIcon size={16} color={colors.stone} />
                   </View>
                 )}
                 <Text style={styles.memberUsername} numberOfLines={1}>
@@ -308,50 +319,49 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: colors.sand,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   manageButton: {
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    backgroundColor: colors.white,
+    borderRadius: radii.pill,
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+    backgroundColor: colors.coral,
+    ...elevation('smallCta'),
   },
   manageButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.white,
+    letterSpacing: 0.08 * 13,
   },
   loadingWrap: {
     paddingTop: 60,
     alignItems: 'center',
   },
   errorBanner: {
-    marginHorizontal: 16,
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
     padding: 10,
   },
   errorText: {
-    color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    color: colors.white,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 48,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.huge,
     gap: 4,
   },
   clubHeader: {
@@ -361,12 +371,10 @@ const styles = StyleSheet.create({
   avatar: {
     width: 68,
     height: 68,
-    borderRadius: 18,
-    borderWidth: 3,
-    borderColor: colors.ink,
+    borderRadius: radii.lg,
   },
   avatarPlaceholder: {
-    backgroundColor: colors.sand,
+    backgroundColor: colors.sheetBg,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -382,122 +390,122 @@ const styles = StyleSheet.create({
   },
   clubName: {
     flex: 1,
-    fontFamily: fonts.display,
-    fontSize: 20,
+    fontFamily: fonts.extraBold,
+    fontSize: 22,
+    letterSpacing: -0.4,
     color: colors.ink,
   },
   clubMeta: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
   },
   description: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
+    fontFamily: fonts.regular,
+    fontSize: 15,
     color: colors.ink,
     lineHeight: 20,
-    marginTop: 14,
+    marginTop: spacing.base,
   },
   joinButton: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    ...brutalShadow(4),
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: spacing.lg,
+    ...elevation('primaryBtn'),
   },
   joinButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 14,
-    color: colors.sand,
+    color: colors.white,
   },
   leaveButton: {
-    height: 48,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    backgroundColor: colors.white,
+    borderRadius: radii.pill,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: spacing.lg,
+    ...elevation('subtle'),
   },
   leaveButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 13,
+    fontFamily: fonts.bold,
+    fontSize: 14,
     color: colors.ink,
   },
   pendingBanner: {
-    marginTop: 16,
+    marginTop: spacing.lg,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 10,
+    borderRadius: radii.sm,
     paddingVertical: 10,
     alignItems: 'center',
   },
   pendingBannerText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 13,
-    color: colors.ink,
+    color: colors.white,
   },
   tabRow: {
     flexDirection: 'row',
     gap: 8,
     marginTop: 22,
-    marginBottom: 14,
+    marginBottom: spacing.base,
   },
   tabButton: {
     flex: 1,
     height: 40,
-    borderRadius: 10,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    backgroundColor: colors.white,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   tabButtonActive: {
-    backgroundColor: colors.rust,
+    backgroundColor: colors.coral,
+    ...elevation('smallCta'),
   },
   tabButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 11,
+    letterSpacing: 0.08 * 11,
     color: colors.ink,
   },
   tabButtonTextActive: {
-    color: colors.sand,
+    color: colors.white,
   },
   tabContent: {
     gap: 10,
   },
   scheduleButton: {
     height: 46,
-    borderRadius: 12,
-    borderWidth: 2.5,
-    borderColor: colors.ink,
-    backgroundColor: colors.aqua,
+    borderRadius: radii.sm,
+    backgroundColor: colors.teal,
     alignItems: 'center',
     justifyContent: 'center',
+    ...elevation('subtle'),
   },
   scheduleButtonText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.white,
   },
   emptyBody: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     lineHeight: 20,
     paddingVertical: 12,
   },
   eventCard: {
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.base,
     gap: 6,
-    ...brutalShadow(3),
+    ...elevation('card'),
   },
   eventWhenBadge: {
     flexDirection: 'row',
@@ -505,43 +513,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: colors.amber,
-    borderWidth: 2,
-    borderColor: colors.ink,
-    borderRadius: 8,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
   },
   eventWhenText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    color: colors.white,
+    textTransform: 'uppercase',
   },
   eventTitle: {
-    fontFamily: fonts.display,
-    fontSize: 15,
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   eventMeta: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 12,
-    color: colors.muted,
+    color: colors.stone,
   },
   routeCard: {
-    backgroundColor: colors.white,
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.base,
     gap: 4,
-    ...brutalShadow(3),
+    ...elevation('card'),
   },
   routeName: {
-    fontFamily: fonts.display,
-    fontSize: 15,
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    letterSpacing: -0.3,
     color: colors.ink,
   },
   memberRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    paddingVertical: 4,
   },
   memberAvatar: {
     width: 36,
@@ -550,21 +560,19 @@ const styles = StyleSheet.create({
   },
   memberUsername: {
     flex: 1,
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
     color: colors.ink,
   },
   roleBadge: {
-    backgroundColor: colors.aqua,
-    borderWidth: 1.5,
-    borderColor: colors.ink,
-    borderRadius: 6,
-    paddingVertical: 3,
-    paddingHorizontal: 7,
+    backgroundColor: colors.teal,
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   roleBadgeText: {
-    fontFamily: fonts.bodyBold,
+    fontFamily: fonts.bold,
     fontSize: 9,
-    color: colors.ink,
+    color: colors.white,
   },
 });

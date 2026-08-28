@@ -74,6 +74,8 @@ interface Props {
   onRouteUpdated?: (route: CloudRoute) => void;
   /** Free tier hit the saved-route cap trying to create a new route — MapScreen has no paywall UI of its own. */
   onRequirePaywall?: () => void;
+  /** Guests can build a route freely; only Save needs a session. Optional — falls back to running the save immediately (matches prior behavior) if the caller doesn't pass one. */
+  onRequireAuth?: (action: () => void, context?: string) => void;
 }
 
 export default function MapScreen({
@@ -83,6 +85,7 @@ export default function MapScreen({
   onRouteCreated,
   onRouteUpdated,
   onRequirePaywall,
+  onRequireAuth,
 }: Props) {
   const tier = useUserTier();
   const [center, setCenter] = useState<LatLng>(DEFAULT_CENTER);
@@ -819,24 +822,28 @@ export default function MapScreen({
   }, [toast]);
 
   const handlePressSave = useCallback(async () => {
-    // Editing an already-saved route never adds to the count, so it's exempt from the cap.
-    if (tier === 'free' && !editingRoute) {
-      setCheckingRouteLimit(true);
-      try {
-        const count = await countMyRoutes();
-        if (count >= ROUTE_LIMITS.maxSavedRoutesFree) {
-          onRequirePaywall?.();
-          return;
+    const doSave = async () => {
+      // Editing an already-saved route never adds to the count, so it's exempt from the cap.
+      if (tier === 'free' && !editingRoute) {
+        setCheckingRouteLimit(true);
+        try {
+          const count = await countMyRoutes();
+          if (count >= ROUTE_LIMITS.maxSavedRoutesFree) {
+            onRequirePaywall?.();
+            return;
+          }
+        } catch {
+          // If the count check fails, don't block the save on a network hiccup — the
+          // server-side data itself has no hard limit, this is a soft UX gate only.
+        } finally {
+          setCheckingRouteLimit(false);
         }
-      } catch {
-        // If the count check fails, don't block the save on a network hiccup — the
-        // server-side data itself has no hard limit, this is a soft UX gate only.
-      } finally {
-        setCheckingRouteLimit(false);
       }
-    }
-    setShowSaveModal(true);
-  }, [tier, editingRoute, onRequirePaywall]);
+      setShowSaveModal(true);
+    };
+    if (onRequireAuth) onRequireAuth(doSave, 'save_route');
+    else await doSave();
+  }, [tier, editingRoute, onRequirePaywall, onRequireAuth]);
 
   const handleSaveRoute = useCallback(
     async (name: string, description: string, activityType: ActivityType, trailInfo: TrailInfoInput | null) => {

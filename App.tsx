@@ -9,7 +9,7 @@ import { useFonts } from 'expo-font';
 import * as Notifications from 'expo-notifications';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, BackHandler, Linking, StyleSheet, Text, View } from 'react-native';
 import { AuthProvider, useAuth } from './src/lib/AuthContext';
 // Side-effect import — registers the background location task at module
@@ -71,6 +71,25 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 // OFFICIAL_ACCOUNT_ID in scripts/createRace.ts and the group_runs/race_details RLS policies.
 const OFFICIAL_ACCOUNT_ID = 'f9808b4f-125a-4841-bf5e-b244d9f6cf1f';
 
+// Copy for the guest sign-in gate (requireAuth) — names the exact action
+// that triggered the prompt, same MECLABS-style approach as the paywall's
+// TRIGGER_HEADLINE. Keyed by the context string passed to requireAuth().
+const AUTH_CONTEXT_HEADLINE: Record<string, string> = {
+  generic: 'Sign up to build, save, and share routes.',
+  save_route: 'Create an account to save routes.',
+  create_route: 'Create an account to build your own routes.',
+  rsvp: "Create an account to join — it's free.",
+  host_run: 'Create an account to host a run.',
+  join_club: 'Create an account to join this club.',
+  create_club: 'Create an account to start a club.',
+  gpx_import: 'Create an account to import GPX files.',
+  record: 'Create an account to track your runs.',
+  like_route: 'Create an account to like routes.',
+  report_or_block: 'Create an account to report or block.',
+  flyby_video: 'Create an account to create flyby videos.',
+  comment: 'Create an account to join the conversation.',
+};
+
 type Overlay =
   | 'builder'
   | 'myMaps'
@@ -130,6 +149,13 @@ function AuthedApp({
   // replacing it — so a paywall triggered mid-builder (e.g. save-route cap)
   // doesn't unmount MapScreen and lose the in-progress route.
   const [paywallTrigger, setPaywallTrigger] = useState<PaywallTrigger | undefined>(undefined);
+  // Sign-in gate for guests — browsing (Discover, route/run/club/profile
+  // detail) never needs a session; only "transacting" (save, RSVP, host,
+  // join, import, record, report/block, etc.) does. Same stacked-overlay
+  // pattern as the paywall above: set a context string to show the prompt,
+  // and stash the action to auto-run once a session appears.
+  const [authPromptContext, setAuthPromptContext] = useState<string | null>(null);
+  const pendingAuthActionRef = useRef<(() => void) | null>(null);
   const [selectedRoute, setSelectedRoute] = useState<CloudRoute | null>(null);
   const [viewedUserId, setViewedUserId] = useState<string | null>(null);
   const [selectedGroupRunId, setSelectedGroupRunId] = useState<string | null>(null);
@@ -339,21 +365,49 @@ function AuthedApp({
     setPaywallTrigger(trigger);
   }, []);
 
-  const handleTapCreateEvent = useCallback(async () => {
-    if (tier === 'free') {
-      try {
-        const activeCount = await countMyActiveGroupRuns();
-        if (activeCount >= 1) {
-          openPaywall('group_run_limit');
-          return;
-        }
-      } catch {
-        // Don't block on a network hiccup — this is a soft UX gate only,
-        // the server-side check on RSVP/creation is the real enforcement.
+  // Gates a transacting action behind having a session: runs it immediately
+  // if signed in, otherwise stashes it and shows the sign-in prompt. Context
+  // strings map to headline copy in AUTH_CONTEXT_HEADLINE below.
+  const requireAuth = useCallback(
+    (action: () => void, context?: string) => {
+      if (session) {
+        action();
+        return;
       }
-    }
-    setOverlay('createEvent');
-  }, [tier, openPaywall]);
+      pendingAuthActionRef.current = action;
+      setAuthPromptContext(context ?? 'generic');
+    },
+    [session],
+  );
+
+  // Runs the stashed action the moment a session appears — covers both
+  // "signed in from the gated prompt" and "signed in some other way while
+  // the prompt happened to be showing."
+  useEffect(() => {
+    if (!session || !pendingAuthActionRef.current) return;
+    const action = pendingAuthActionRef.current;
+    pendingAuthActionRef.current = null;
+    setAuthPromptContext(null);
+    action();
+  }, [session]);
+
+  const handleTapCreateEvent = useCallback(() => {
+    requireAuth(async () => {
+      if (tier === 'free') {
+        try {
+          const activeCount = await countMyActiveGroupRuns();
+          if (activeCount >= 1) {
+            openPaywall('group_run_limit');
+            return;
+          }
+        } catch {
+          // Don't block on a network hiccup — this is a soft UX gate only,
+          // the server-side check on RSVP/creation is the real enforcement.
+        }
+      }
+      setOverlay('createEvent');
+    }, 'host_run');
+  }, [tier, openPaywall, requireAuth]);
 
   const handleSelectEventRoute = useCallback((route: CloudRoute) => {
     setEventRouteId(route.id);
@@ -439,19 +493,21 @@ function AuthedApp({
   );
 
   const handleStartRecording = useCallback(() => {
-    setResumedRecording(false);
-    setRecordingRoute(null);
-    setRecordingRaceRsvpId(null);
-    setRecordingRaceContext(null);
-    Alert.alert('Record activity', 'What are you doing?', [
-      { text: 'Run', onPress: () => { setRecordingActivityType('run'); navigateTo('recording'); } },
-      { text: 'Trail run', onPress: () => { setRecordingActivityType('trail_run'); navigateTo('recording'); } },
-      { text: 'Hike', onPress: () => { setRecordingActivityType('hike'); navigateTo('recording'); } },
-      { text: 'Ride', onPress: () => { setRecordingActivityType('bike'); navigateTo('recording'); } },
-      { text: 'Walk', onPress: () => { setRecordingActivityType('walk'); navigateTo('recording'); } },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }, [navigateTo]);
+    requireAuth(() => {
+      setResumedRecording(false);
+      setRecordingRoute(null);
+      setRecordingRaceRsvpId(null);
+      setRecordingRaceContext(null);
+      Alert.alert('Record activity', 'What are you doing?', [
+        { text: 'Run', onPress: () => { setRecordingActivityType('run'); navigateTo('recording'); } },
+        { text: 'Trail run', onPress: () => { setRecordingActivityType('trail_run'); navigateTo('recording'); } },
+        { text: 'Hike', onPress: () => { setRecordingActivityType('hike'); navigateTo('recording'); } },
+        { text: 'Ride', onPress: () => { setRecordingActivityType('bike'); navigateTo('recording'); } },
+        { text: 'Walk', onPress: () => { setRecordingActivityType('walk'); navigateTo('recording'); } },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }, 'record');
+  }, [navigateTo, requireAuth]);
 
   const handleCreateNewRouteForEvent = useCallback(() => {
     setCreatingEventForNewRoute(true);
@@ -549,15 +605,15 @@ function AuthedApp({
     <View style={styles.container}>
       <DiscoverMapScreen
         onOpenDetail={(route) => openDetail(route)}
-        onOpenProfile={() => setOverlay('profile')}
+        onOpenProfile={() => (session ? setOverlay('profile') : requireAuth(() => setOverlay('profile'), 'generic'))}
         onOpenGroupRuns={() => setOverlay('groupRuns')}
         onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
         onOpenClubs={() => setOverlay('clubs')}
-        onOpenNotifications={() => navigateTo('notifications')}
+        onOpenNotifications={() => requireAuth(() => navigateTo('notifications'), 'generic')}
         unreadNotificationCount={unreadNotificationCount}
         onStartRecording={handleStartRecording}
         onCreateRoute={() => setOverlay('builder')}
-        onImportGpx={() => (tier === 'paid' ? setOverlay('importGpx') : openPaywall('gpx_import'))}
+        onImportGpx={() => requireAuth(() => (tier === 'paid' ? setOverlay('importGpx') : openPaywall('gpx_import')), 'gpx_import')}
         onCreateEvent={handleTapCreateEvent}
         refreshSignal={discoverRefreshSignal}
       />
@@ -592,6 +648,7 @@ function AuthedApp({
               setDiscoverRefreshSignal((n) => n + 1);
             }}
             onRequirePaywall={() => openPaywall('route_limit')}
+            onRequireAuth={requireAuth}
           />
         </View>
       )}
@@ -672,7 +729,7 @@ function AuthedApp({
             userCity={null}
             onClose={() => setOverlay(null)}
             onOpenClub={(clubId) => openClubProfile(clubId)}
-            onCreateClub={() => navigateTo('createClub')}
+            onCreateClub={() => requireAuth(() => navigateTo('createClub'), 'create_club')}
           />
         </View>
       )}
@@ -701,6 +758,7 @@ function AuthedApp({
             }}
             onOpenProfile={openProfile}
             onRequirePaywall={openPaywall}
+            onRequireAuth={requireAuth}
             onScheduleClubRun={handleTapScheduleClubRun}
           />
         </View>
@@ -842,6 +900,7 @@ function AuthedApp({
             onOpenProfile={openProfile}
             onOpenGroupRun={(groupRunId) => openGroupRunDetail(groupRunId)}
             onRequirePaywall={openPaywall}
+            onRequireAuth={requireAuth}
             onOpenPhotoUpload={(routeId, completionId) => {
               setPhotoUploadTarget({ routeId, completionId });
               navigateTo('photoUpload');
@@ -899,6 +958,7 @@ function AuthedApp({
             onClose={() => navigateBack()}
             onOpenRoute={(routeId) => openDetailById(routeId)}
             onRequirePaywall={() => openPaywall('group_run_join_limit')}
+            onRequireAuth={requireAuth}
             onOpenProfile={openProfile}
             onRunRace={handleRunRace}
             onReopenShareCard={handleReopenShareCard}
@@ -997,6 +1057,18 @@ function AuthedApp({
         </View>
       )}
 
+      {authPromptContext && (
+        <View style={StyleSheet.absoluteFill}>
+          <AuthScreen
+            contextHeadline={AUTH_CONTEXT_HEADLINE[authPromptContext] ?? AUTH_CONTEXT_HEADLINE.generic}
+            onClose={() => {
+              pendingAuthActionRef.current = null;
+              setAuthPromptContext(null);
+            }}
+          />
+        </View>
+      )}
+
       <NotificationPermissionModal
         visible={notificationPrePermission.visible}
         message={notificationPrePermission.message}
@@ -1085,7 +1157,15 @@ function Root() {
     return <UsernameSetupScreen />;
   }
 
-  return session ? (
+  // The password-reset deep link is the one flow that still forces the
+  // full-screen auth entry point even for a signed-out visitor — everything
+  // else is browsable as a guest, gated at the action layer instead (see
+  // AuthedApp's requireAuth).
+  if (!session && passwordResetDone) {
+    return <AuthScreen passwordResetDone={passwordResetDone} onConsumePasswordResetDone={() => setPasswordResetDone(false)} />;
+  }
+
+  return (
     <AuthedApp
       pendingRouteId={pendingRouteId}
       onConsumePendingRoute={() => setPendingRouteId(null)}
@@ -1094,8 +1174,6 @@ function Root() {
       pendingProfileId={pendingProfileId}
       onConsumePendingProfile={() => setPendingProfileId(null)}
     />
-  ) : (
-    <AuthScreen passwordResetDone={passwordResetDone} onConsumePasswordResetDone={() => setPasswordResetDone(false)} />
   );
 }
 

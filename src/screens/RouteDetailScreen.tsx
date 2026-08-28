@@ -80,6 +80,8 @@ interface Props {
   onOpenProfile: (userId: string) => void;
   onOpenGroupRun: (groupRunId: string) => void;
   onRequirePaywall: (trigger: PaywallTrigger) => void;
+  /** Gates a transacting action (like, save, record) behind having a session — guests can browse this screen, but tapping these prompts a sign-in instead of firing a doomed anonymous write. */
+  onRequireAuth: (action: () => void, context?: string) => void;
   onOpenPhotoUpload: (routeId: string, completionId?: string) => void;
   onOpenPhotoViewer: (routeId: string, photoId: string) => void;
   photoRefreshSignal?: number;
@@ -104,6 +106,7 @@ export default function RouteDetailScreen({
   onOpenProfile,
   onOpenGroupRun,
   onRequirePaywall,
+  onRequireAuth,
   onOpenPhotoUpload,
   onOpenPhotoViewer,
   photoRefreshSignal,
@@ -612,10 +615,14 @@ export default function RouteDetailScreen({
 
         {!sheetExpanded && (
           <View style={styles.topRightActions}>
-            <Pressable style={[styles.iconChip, styles.iconChipSolid]} onPress={() => onRecordRoute(route)}>
+            <Pressable style={[styles.iconChip, styles.iconChipSolid]} onPress={() => onRequireAuth(() => onRecordRoute(route), 'record')}>
               <RecordIcon size={16} color={colors.sheetBg} />
             </Pressable>
-            <Pressable style={[styles.iconChip, styles.iconChipSolid]} onPress={handleExportGpx} disabled={exporting}>
+            <Pressable
+              style={[styles.iconChip, styles.iconChipSolid]}
+              onPress={() => onRequireAuth(handleExportGpx, 'generic')}
+              disabled={exporting}
+            >
               {exporting ? <ActivityIndicator size="small" color={colors.sheetBg} /> : <ExportIcon size={18} color={colors.sheetBg} />}
             </Pressable>
             <Pressable style={styles.iconChip} onPress={handleShare}>
@@ -814,7 +821,10 @@ export default function RouteDetailScreen({
           )}
 
           <View style={styles.actionsRow}>
-            <Pressable style={[styles.actionButton, isLiked && styles.actionButtonLiked]} onPress={handleToggleLike}>
+            <Pressable
+              style={[styles.actionButton, isLiked && styles.actionButtonLiked]}
+              onPress={() => onRequireAuth(handleToggleLike, 'like_route')}
+            >
               <HeartIcon size={16} color={isLiked ? colors.sheetBg : colors.ink} filled={isLiked} />
               <Text style={[styles.actionButtonText, isLiked && styles.actionButtonTextLiked]} numberOfLines={1}>
                 {likesCount}
@@ -824,7 +834,7 @@ export default function RouteDetailScreen({
             {!route.isOwnedByMe && (
               <Pressable
                 style={[styles.actionButton, isSaved && styles.actionButtonSaved]}
-                onPress={handleToggleSave}
+                onPress={() => onRequireAuth(handleToggleSave, 'save_route')}
               >
                 <Text
                   style={[styles.actionButtonText, isSaved && styles.actionButtonTextLiked]}

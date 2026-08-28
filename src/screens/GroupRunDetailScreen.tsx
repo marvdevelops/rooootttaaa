@@ -72,6 +72,8 @@ interface Props {
   onClose: () => void;
   onOpenRoute: (routeId: string) => void;
   onRequirePaywall: () => void;
+  /** Gates RSVP/join/comment/race-run actions behind having a session — guests can browse this screen read-only, but transacting prompts a sign-in. */
+  onRequireAuth: (action: () => void, context?: string) => void;
   onOpenProfile: (userId: string) => void;
   onRunRace: (groupRun: GroupRun, rsvpId: string) => void;
   onReopenShareCard: (groupRun: GroupRun, rsvp: RaceRsvp) => void;
@@ -103,7 +105,7 @@ function formatCommentTime(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute, onRequirePaywall, onOpenProfile, onRunRace, onReopenShareCard, onOpenGroupRun, onAddDistanceCategory }: Props) {
+export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute, onRequirePaywall, onRequireAuth, onOpenProfile, onRunRace, onReopenShareCard, onOpenGroupRun, onAddDistanceCategory }: Props) {
   const [groupRun, setGroupRun] = useState<GroupRun | null>(null);
   const [raceDetails, setRaceDetails] = useState<RaceDetails | null>(null);
   const [raceCategories, setRaceCategories] = useState<RaceCategorySummary[]>([]);
@@ -769,7 +771,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                   ) : (
                     <Pressable
                       style={[styles.rsvpButton, groupRun.myRsvpStatus === 'pending' && styles.rsvpButtonPending]}
-                      onPress={handleToggleRsvp}
+                      onPress={() => onRequireAuth(handleToggleRsvp, 'rsvp')}
                     >
                       <Text style={styles.rsvpButtonText}>
                         {groupRun.myRsvpStatus === 'pending' ? 'REQUESTED' : "I'M JOINING THIS RACE"}
@@ -873,7 +875,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                         groupRun.myRsvpStatus === 'approved' && styles.rsvpButtonActive,
                         groupRun.myRsvpStatus === 'pending' && styles.rsvpButtonPending,
                       ]}
-                      onPress={handleToggleRsvp}
+                      onPress={() => onRequireAuth(handleToggleRsvp, 'rsvp')}
                     >
                       <Text
                         style={[

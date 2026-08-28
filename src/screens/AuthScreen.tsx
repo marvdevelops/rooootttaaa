@@ -10,17 +10,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-// Apple Sign In is built (see AppleSignInButton) but temporarily not
-// rendered below — Google is going out first. Apple's availability check is
-// device-based, not config-based, so showing it now would offer a button
-// that errors on tap until the Apple provider is set up in Supabase. Restore
-// the import and the <AppleSignInButton /> line together when that's ready.
-// import AppleSignInButton from '../components/AppleSignInButton';
+import AppleSignInButton from '../components/AppleSignInButton';
+import { CloseIcon } from '../components/icons';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import Logo from '../components/Logo';
 import { useAuth } from '../lib/AuthContext';
 import { isGoogleSignInAvailable } from '../lib/googleAuth';
-import { brutalShadow, colors, fonts } from '../theme/theme';
+import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 
 type Mode = 'signIn' | 'signUp' | 'forgotPassword';
 
@@ -28,9 +24,18 @@ interface Props {
   /** True right after the user completes a password reset on rootah.com and taps back into the app. */
   passwordResetDone?: boolean;
   onConsumePasswordResetDone?: () => void;
+  /**
+   * Present when this is shown as a dismissible sign-in prompt (a guest
+   * browsing the app tapped a gated action) rather than the sole
+   * full-screen entry point. Renders a close button; omit to keep the
+   * original standalone behavior with no way to back out.
+   */
+  onClose?: () => void;
+  /** Overrides the default "Sign up to build..." subtitle with copy naming the specific action that triggered this prompt (e.g. "Create an account to save routes"). */
+  contextHeadline?: string;
 }
 
-export default function AuthScreen({ passwordResetDone, onConsumePasswordResetDone }: Props) {
+export default function AuthScreen({ passwordResetDone, onConsumePasswordResetDone, onClose, contextHeadline }: Props) {
   const { signIn, signUp, resetPassword } = useAuth();
   const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
@@ -90,6 +95,12 @@ export default function AuthScreen({ passwordResetDone, onConsumePasswordResetDo
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        {onClose && (
+          <Pressable style={styles.closeButton} onPress={onClose} hitSlop={8}>
+            <CloseIcon size={16} />
+          </Pressable>
+        )}
+
         <View style={styles.brandRow}>
           <Logo size={44} />
         </View>
@@ -100,14 +111,17 @@ export default function AuthScreen({ passwordResetDone, onConsumePasswordResetDo
         <Text style={styles.subtitle}>
           {isForgotPassword
             ? "Enter your email and we'll send you a link to set a new password."
-            : isSignUp
-              ? 'Sign up to build, save, and share routes.'
-              : 'Log in to pick up your routes and maps.'}
+            : contextHeadline
+              ? contextHeadline
+              : isSignUp
+                ? 'Sign up to build, save, and share routes.'
+                : 'Log in to pick up your routes and maps.'}
         </Text>
 
-        {!isForgotPassword && isGoogleSignInAvailable() && (
+        {!isForgotPassword && (isGoogleSignInAvailable() || Platform.OS === 'ios') && (
           <View style={styles.socialSection}>
-            <GoogleSignInButton onError={setSocialError} />
+            <AppleSignInButton onError={setSocialError} />
+            {isGoogleSignInAvailable() && <GoogleSignInButton onError={setSocialError} />}
 
             {socialError && (
               <View style={styles.errorBanner}>
@@ -143,7 +157,7 @@ export default function AuthScreen({ passwordResetDone, onConsumePasswordResetDo
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
-                placeholderTextColor={colors.mutedLight}
+                placeholderTextColor={colors.mist}
                 style={styles.input}
                 autoCapitalize="none"
                 autoComplete="email"
@@ -158,7 +172,7 @@ export default function AuthScreen({ passwordResetDone, onConsumePasswordResetDo
                   value={password}
                   onChangeText={setPassword}
                   placeholder="At least 6 characters"
-                  placeholderTextColor={colors.mutedLight}
+                  placeholderTextColor={colors.mist}
                   style={styles.input}
                   secureTextEntry
                   autoCapitalize="none"
@@ -190,7 +204,7 @@ export default function AuthScreen({ passwordResetDone, onConsumePasswordResetDo
               disabled={!canSubmit}
             >
               {submitting ? (
-                <ActivityIndicator color={colors.sand} />
+                <ActivityIndicator color={colors.white} />
               ) : (
                 <Text style={styles.submitButtonText}>
                   {isForgotPassword ? 'SEND RESET LINK' : isSignUp ? 'SIGN UP' : 'LOG IN'}
@@ -232,20 +246,34 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
     gap: 8,
   },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 36,
+    height: 36,
+    borderRadius: radii.icon,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...elevation('subtle'),
+    zIndex: 1,
+  },
   brandRow: {
     alignItems: 'center',
     marginBottom: 12,
   },
   title: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.extraBold,
     fontSize: 24,
+    letterSpacing: -0.4,
     color: colors.ink,
     textAlign: 'center',
   },
   subtitle: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -265,90 +293,92 @@ const styles = StyleSheet.create({
     backgroundColor: '#c9bfa2',
   },
   dividerText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 11,
     letterSpacing: 1,
-    color: colors.mutedLight,
+    color: colors.mist,
   },
   form: {
     gap: 14,
   },
   label: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 11,
-    letterSpacing: 1,
-    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: colors.stone,
     marginBottom: 6,
+    textTransform: 'uppercase',
   },
   input: {
-    backgroundColor: colors.white,
-    borderWidth: 3,
-    borderColor: colors.ink,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    fontFamily: fonts.bodyMedium,
+    backgroundColor: colors.surface,
+    borderRadius: radii.sm,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    fontFamily: fonts.medium,
     fontSize: 15,
     color: colors.ink,
+    ...elevation('subtle'),
   },
   forgotPasswordButton: {
     alignSelf: 'flex-end',
     marginTop: -4,
   },
   forgotPasswordText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.stone,
     textDecorationLine: 'underline',
   },
   errorBanner: {
-    backgroundColor: colors.rustDark,
-    borderRadius: 8,
+    backgroundColor: colors.danger,
+    borderRadius: radii.xs,
     padding: 10,
   },
   errorText: {
-    color: colors.cream,
-    fontFamily: fonts.bodyMedium,
+    color: colors.white,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   infoBanner: {
-    backgroundColor: colors.green,
-    borderRadius: 8,
+    backgroundColor: colors.sage,
+    borderRadius: radii.xs,
     padding: 10,
   },
   infoText: {
-    color: colors.ink,
-    fontFamily: fonts.bodyMedium,
+    color: colors.white,
+    fontFamily: fonts.medium,
     fontSize: 13,
   },
   submitButton: {
     height: 56,
-    borderRadius: 14,
-    backgroundColor: colors.rust,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
     marginTop: 6,
-    ...brutalShadow(4),
+    ...elevation('primaryBtn'),
   },
   submitButtonDisabled: {
     opacity: 0.5,
   },
   submitButtonText: {
-    fontFamily: fonts.display,
+    fontFamily: fonts.bold,
     fontSize: 16,
-    color: colors.sand,
+    color: colors.white,
+    lineHeight: 20,
   },
   switchModeButton: {
     marginTop: 24,
     alignItems: 'center',
   },
   switchModeText: {
-    fontFamily: fonts.bodyMedium,
+    fontFamily: fonts.medium,
     fontSize: 14,
-    color: colors.muted,
+    color: colors.stone,
   },
   switchModeTextBold: {
-    fontFamily: fonts.bodyBold,
-    color: colors.rust,
+    fontFamily: fonts.bold,
+    color: colors.coral,
   },
 });
