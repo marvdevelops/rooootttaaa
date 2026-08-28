@@ -150,7 +150,7 @@ export default function SaveRouteModal({
             >
               <View style={styles.headerRow}>
                 <Text style={styles.title}>{isEditing ? 'Update route' : 'Save route'}</Text>
-                <Pressable style={styles.closeButton} onPress={onClose}>
+                <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
                   <CloseIcon size={16} />
                 </Pressable>
               </View>
@@ -245,7 +245,7 @@ export default function SaveRouteModal({
                   <Text style={styles.title}>Trail details</Text>
                   <Text style={styles.subtitle}>Optional — helps others know what to expect</Text>
                 </View>
-                <Pressable style={styles.closeButton} onPress={onClose}>
+                <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
                   <CloseIcon size={16} />
                 </Pressable>
               </View>

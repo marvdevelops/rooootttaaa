@@ -107,7 +107,7 @@ export default function CompletionFollowUpSheet({
                 </>
               )}
             </View>
-            <Pressable style={styles.closeButton} onPress={handleClose}>
+            <Pressable style={styles.closeButton} onPress={handleClose} accessibilityRole="button" accessibilityLabel="Close">
               <CloseIcon size={16} />
             </Pressable>
           </View>

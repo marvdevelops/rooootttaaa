@@ -15,7 +15,7 @@ export default function PosterViewerModal({ imageUrl, onClose }: Props) {
       <View style={styles.backdrop}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         {imageUrl && <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="contain" />}
-        <Pressable style={styles.closeButton} onPress={onClose}>
+        <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
           <CloseIcon size={16} color={colors.white} />
         </Pressable>
       </View>

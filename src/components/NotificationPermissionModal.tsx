@@ -26,7 +26,7 @@ export default function NotificationPermissionModal({ visible, message, onAllow,
           <Pressable style={styles.allowButton} onPress={onAllow}>
             <Text style={styles.allowButtonText}>ALLOW NOTIFICATIONS</Text>
           </Pressable>
-          <Pressable style={styles.dismissButton} onPress={onDismiss}>
+          <Pressable style={styles.dismissButton} onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Close">
             <Text style={styles.dismissButtonText}>Not now</Text>
           </Pressable>
         </View>

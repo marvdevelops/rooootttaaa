@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon, CalendarIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
@@ -78,7 +78,7 @@ export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePayw
         if (e instanceof FreeJoinLimitError) {
           onRequirePaywall();
         } else {
-          Alert.alert('Error', e instanceof Error ? e.message : 'Failed to update RSVP.');
+          setError(e instanceof Error ? e.message : "Couldn't update your RSVP. Try again.");
         }
       }
     },

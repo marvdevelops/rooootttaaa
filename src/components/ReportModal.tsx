@@ -51,7 +51,7 @@ export default function ReportModal({ visible, isSubmitting, onClose, onSubmit }
                 <FlagIcon size={16} color={colors.ink} />
                 <Text style={styles.title}>Report</Text>
               </View>
-              <Pressable style={styles.closeButton} onPress={onClose}>
+              <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
                 <CloseIcon size={16} />
               </Pressable>
             </View>

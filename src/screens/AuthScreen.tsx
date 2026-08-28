@@ -10,6 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppleSignInButton from '../components/AppleSignInButton';
 import { CloseIcon } from '../components/icons';
 import GoogleSignInButton from '../components/GoogleSignInButton';
@@ -36,6 +37,7 @@ interface Props {
 }
 
 export default function AuthScreen({ passwordResetDone, onConsumePasswordResetDone, onClose, contextHeadline }: Props) {
+  const insets = useSafeAreaInsets();
   const { signIn, signUp, resetPassword } = useAuth();
   const [mode, setMode] = useState<Mode>('signIn');
   const [email, setEmail] = useState('');
@@ -96,7 +98,13 @@ export default function AuthScreen({ passwordResetDone, onConsumePasswordResetDo
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {onClose && (
-          <Pressable style={styles.closeButton} onPress={onClose} hitSlop={8}>
+          <Pressable
+            style={[styles.closeButton, { top: insets.top + 8 }]}
+            onPress={onClose}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+          >
             <CloseIcon size={16} />
           </Pressable>
         )}
@@ -248,11 +256,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    // Matches the top offset used everywhere else in the app for an
-    // absolutely-positioned back/close button (RecordingScreen,
-    // RaceShareCardScreen, etc.) — 16 sat right under the iPhone status
-    // bar/notch and was unreachable.
-    top: 60,
+    // Vertical offset is applied inline from useSafeAreaInsets().
     right: 16,
     width: 36,
     height: 36,

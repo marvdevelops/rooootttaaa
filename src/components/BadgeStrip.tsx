@@ -46,7 +46,12 @@ export default function BadgeStrip({ userId }: Props) {
           <Pressable style={styles.detailCard} onPress={(e) => e.stopPropagation()}>
             <View style={styles.detailHeader}>
               <Text style={styles.detailIcon}>{selected?.badge.icon}</Text>
-              <Pressable style={styles.closeButton} onPress={() => setSelected(null)}>
+              <Pressable
+                style={styles.closeButton}
+                onPress={() => setSelected(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
                 <CloseIcon size={16} />
               </Pressable>
             </View>

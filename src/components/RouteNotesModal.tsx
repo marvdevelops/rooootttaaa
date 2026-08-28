@@ -23,7 +23,7 @@ export default function RouteNotesModal({ visible, notes, onClose, onDelete, onE
         <View style={styles.sheet}>
           <View style={styles.headerRow}>
             <Text style={styles.title}>Notes ({notes.length})</Text>
-            <Pressable style={styles.closeButton} onPress={onClose}>
+            <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
               <CloseIcon size={16} />
             </Pressable>
           </View>

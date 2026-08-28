@@ -44,7 +44,7 @@ export default function ReviewModal({ visible, routeId, groupRunId, existing, so
         <View style={styles.sheet}>
           <View style={styles.headerRow}>
             <Text style={styles.title}>Rate this route</Text>
-            <Pressable style={styles.closeButton} onPress={onClose}>
+            <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
               <CloseIcon size={16} />
             </Pressable>
           </View>

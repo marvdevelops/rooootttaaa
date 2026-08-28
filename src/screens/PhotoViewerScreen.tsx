@@ -141,7 +141,7 @@ export default function PhotoViewerScreen({ routeId, initialPhotoId, onClose, on
         )}
       />
 
-      <Pressable style={styles.closeButton} onPress={onClose}>
+      <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
         <BackIcon color={colors.cream} />
       </Pressable>
 

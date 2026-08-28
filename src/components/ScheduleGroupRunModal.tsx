@@ -177,7 +177,7 @@ export default function ScheduleGroupRunModal({
           <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scrollContent}>
             <View style={styles.headerRow}>
               <Text style={styles.title}>{editing ? 'Edit event' : prefillRace ? 'Add a distance' : 'Schedule group run'}</Text>
-              <Pressable style={styles.closeButton} onPress={onClose}>
+              <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
                 <CloseIcon size={16} />
               </Pressable>
             </View>

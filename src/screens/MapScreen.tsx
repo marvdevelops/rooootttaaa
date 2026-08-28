@@ -30,11 +30,6 @@ import { PlaceResult, reverseGeocodeCity, searchPlaces } from '../utils/geocodin
 import { countMyRoutes, createRoute, updateRoute } from '../utils/routesApi';
 import { TrailInfoInput, upsertTrailInfo } from '../utils/trailInfoApi';
 
-// The app doesn't have react-native-safe-area-context wired in (adding it
-// requires a native rebuild, which we're avoiding mid-OTA-cycle) — this is a
-// fixed approximation of the home-indicator / gesture-nav inset so the
-// bottom-anchored builder controls don't crowd the edge of the screen.
-
 const ELEVATION_DEBOUNCE_MS = 1200;
 // A tap this close to the existing route line is treated as "insert a
 // point here" instead of "append a new leg at the end" — lets users drop a
@@ -969,10 +964,20 @@ export default function MapScreen({
         <View style={styles.brandRow}>
           <Logo size={36} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <Pressable style={styles.closeButton} onPress={() => setShowPlaceSearch((v) => !v)}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => setShowPlaceSearch((v) => !v)}
+              accessibilityRole="button"
+              accessibilityLabel="Search for a place"
+            >
               <SearchIcon size={18} />
             </Pressable>
-            <Pressable style={styles.closeButton} onPress={handleRequestClose}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={handleRequestClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close route builder"
+            >
               <CloseIcon />
             </Pressable>
           </View>

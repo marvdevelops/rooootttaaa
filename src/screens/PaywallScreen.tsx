@@ -182,7 +182,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
       <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
         <View style={styles.header}>
           <View style={styles.headerSpacer} />
-          <Pressable style={styles.closeButton} onPress={onClose}>
+          <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
             <CloseIcon size={16} />
           </Pressable>
         </View>
@@ -205,7 +205,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
-        <Pressable style={styles.closeButton} onPress={onClose}>
+        <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
           <CloseIcon size={16} />
         </Pressable>
       </View>

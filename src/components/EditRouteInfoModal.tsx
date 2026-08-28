@@ -36,7 +36,7 @@ export default function EditRouteInfoModal({ visible, initialName, initialDescri
         <View style={styles.sheet}>
           <View style={styles.header}>
             <Text style={styles.title}>Edit route info</Text>
-            <Pressable style={styles.closeButton} onPress={onClose}>
+            <Pressable style={styles.closeButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close">
               <CloseIcon size={16} />
             </Pressable>
           </View>

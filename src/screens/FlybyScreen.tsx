@@ -275,7 +275,7 @@ export default function FlybyScreen({ route, onClose }: Props) {
       )}
 
       {/* Rendered last (after the phase overlays above) so it always sits on top and stays tappable/visible in every phase, including 'ready'. */}
-      <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={8}>
+      <Pressable style={styles.closeButton} onPress={handleClose} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close">
         <BackIcon color={colors.white} />
       </Pressable>
     </View>
