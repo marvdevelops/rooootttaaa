@@ -68,10 +68,6 @@ export default function ActivityShareCardScreen({ activityType, distanceMeters, 
 
   return (
     <View style={styles.container}>
-      <Pressable style={styles.backButton} onPress={onDone}>
-        <BackIcon />
-      </Pressable>
-
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Nice work!</Text>
         <Text style={styles.subtitle}>Tap the card to add a selfie, then share it.</Text>
@@ -117,6 +113,10 @@ export default function ActivityShareCardScreen({ activityType, distanceMeters, 
           <Text style={styles.skipButtonText}>Skip for now</Text>
         </Pressable>
       </ScrollView>
+
+      <Pressable style={styles.backButton} onPress={onDone}>
+        <BackIcon />
+      </Pressable>
     </View>
   );
 }
