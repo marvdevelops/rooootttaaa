@@ -87,7 +87,11 @@ export default function LiveSessionClient({ token, initial }: Props) {
       </div>
 
       <div style={overlayCardStyle}>
-        <span style={eyebrowStyle}>{ended ? 'Tracking ended' : `🔴 Live ${activityLabel(session.activityType)}`}</span>
+        <span style={eyebrowStyle}>
+          {ended
+            ? `${activityLabel(session.activityType)} finished`
+            : `🔴 Live ${activityLabel(session.activityType)}`}
+        </span>
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: '4px 0 2px' }}>{session.athleteUsername}</h1>
         <p style={{ fontSize: 12, color: 'var(--mist, #B0A898)', margin: '0 0 14px' }}>
           {ended ? 'This link is no longer live.' : `Updated ${formatStaleness(session.lastUpdatedAt)}`}

@@ -26,6 +26,13 @@ function verb(activity: string): string {
   );
 }
 
+function noun(activity: string): string {
+  return (
+    { hike: 'hike', bike: 'ride', walk: 'walk', trail_run: 'trail run', run: 'run', other: 'activity' }[activity] ??
+    'run'
+  );
+}
+
 function pace(secPerKm: number | null): string | null {
   if (!secPerKm) return null;
   const m = Math.floor(secPerKm / 60);
@@ -45,6 +52,7 @@ export async function renderLiveOg(token: string) {
   let name = 'A Rootah runner';
   let line = 'is out on a live activity';
   let state: 'live' | 'done' = 'live';
+  let doneLabel = 'Activity finished';
   let distanceM: number | null = null;
   let paceSecPerKm: number | null = null;
 
@@ -52,12 +60,14 @@ export async function renderLiveOg(token: string) {
     name = race.athlete_username;
     state = race.finish_time_seconds != null ? 'done' : 'live';
     line = state === 'done' ? `finished ${race.race_title}` : `is racing ${race.race_title}`;
+    doneLabel = 'Race finished';
     distanceM = race.last_distance_meters;
     paceSecPerKm = race.last_pace_seconds_per_km;
   } else if (session) {
     name = session.athlete_username;
     state = session.status === 'ended' ? 'done' : 'live';
-    line = state === 'done' ? `was ${verb(session.activity_type)}` : `is ${verb(session.activity_type)} right now`;
+    line = state === 'done' ? `finished a ${noun(session.activity_type)}` : `is ${verb(session.activity_type)} right now`;
+    doneLabel = `${noun(session.activity_type)} finished`;
     distanceM = session.last_distance_meters;
     paceSecPerKm = session.last_pace_seconds_per_km;
   }
@@ -120,7 +130,7 @@ export async function renderLiveOg(token: string) {
                   letterSpacing: 3,
                 }}
               >
-                {state === 'live' ? 'Live now' : 'Activity ended'}
+                {state === 'live' ? 'Live now' : doneLabel}
               </div>
             </div>
             <div

@@ -134,7 +134,7 @@ export default function LiveMapClient({ token, initial }: Props) {
       {isFinished ? (
         <div style={overlayCardStyle}>
           <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', color: 'var(--coral, #E84B2A)', textTransform: 'uppercase' }}>
-            🏁 Race finisher
+            🏁 Race finished
           </span>
           <h1 style={{ fontSize: 22, fontWeight: 800, margin: '4px 0 2px' }}>{position.athleteUsername}</h1>
           <p style={{ fontSize: 13, color: 'var(--stone, #8C8078)', margin: 0 }}>

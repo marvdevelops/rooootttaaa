@@ -67,12 +67,23 @@ export async function checkProEntitlement(): Promise<boolean> {
 
 export async function getDefaultOffering(): Promise<PurchasesOffering | null> {
   if (!(await ensureConfigured())) return null;
-  try {
-    const offerings = await Purchases.getOfferings();
-    return offerings.current;
-  } catch {
-    return null;
+  // The first getOfferings() after configure() is occasionally slow or comes
+  // back empty (StoreKit still spinning up, App Store products not yet
+  // cached) — retry a few times before giving up so the paywall doesn't
+  // dead-end on a transient miss. This is what Apple review flags when a
+  // reviewer opens the paywall a beat after launch.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const offerings = await Purchases.getOfferings();
+      if (offerings.current && offerings.current.availablePackages.length > 0) {
+        return offerings.current;
+      }
+    } catch {
+      // fall through to retry
+    }
+    if (attempt < 3) await new Promise((r) => setTimeout(r, 800 * (attempt + 1)));
   }
+  return null;
 }
 
 export async function logOutRevenueCat(): Promise<void> {

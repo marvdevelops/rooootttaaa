@@ -118,7 +118,8 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
 
-  useEffect(() => {
+  const loadOffering = useCallback(() => {
+    setLoadingOffering(true);
     getDefaultOffering()
       .then((o) => {
         setOffering(o);
@@ -131,6 +132,10 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
       })
       .finally(() => setLoadingOffering(false));
   }, []);
+
+  useEffect(() => {
+    loadOffering();
+  }, [loadOffering]);
 
   const packages = offering?.availablePackages ?? [];
   const selectedPackage = useMemo(
@@ -264,7 +269,12 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
             })}
           </View>
         ) : (
-          <Text style={styles.subtitle}>Pricing isn&apos;t available right now — please try again shortly.</Text>
+          <View style={styles.retryWrap}>
+            <Text style={styles.subtitle}>We couldn&apos;t load the plans just now.</Text>
+            <Pressable style={styles.retryButton} onPress={loadOffering} accessibilityRole="button" accessibilityLabel="Try again">
+              <Text style={styles.retryButtonText}>Try again</Text>
+            </Pressable>
+          </View>
         )}
       </ScrollView>
 
@@ -372,6 +382,25 @@ const styles = StyleSheet.create({
   },
   featureList: {
     gap: 10,
+  },
+  retryWrap: {
+    marginTop: 20,
+    alignItems: 'center',
+    gap: 14,
+  },
+  retryButton: {
+    height: 46,
+    paddingHorizontal: 26,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...elevation('primaryBtn'),
+  },
+  retryButtonText: {
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.white,
   },
   featureRow: {
     flexDirection: 'row',

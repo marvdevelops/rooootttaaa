@@ -400,25 +400,22 @@ export default function RecordingScreen({
     ]);
   }, [sessionId, performFinish]);
 
-  // Race finish detection: near the route's final point, and far enough
-  // along that this isn't just an early loop back near the start. Prompted,
-  // not auto-stopped — GPS noise near a finish chute is common enough that
-  // a silent auto-stop would be worse than asking.
-  const hasPromptedFinish = useRef(false);
+  // Route finish hint — when the runner reaches the end of the planned route,
+  // nudge them once with a dismissible banner. The activity is NEVER stopped
+  // automatically: the runner always ends it themselves with the stop button.
+  const hasHintedFinish = useRef(false);
+  const [showFinishHint, setShowFinishHint] = useState(false);
   useEffect(() => {
-    if (!raceRsvpId || !routeIndex || !plannedSegments || !lastPoint || lastPoint.isPaused || hasPromptedFinish.current) return;
+    if (!routeIndex || !plannedSegments || !lastPoint || lastPoint.isPaused || hasHintedFinish.current) return;
 
     const progress = getRouteProgress(routeIndex, plannedSegments, { latitude: lastPoint.lat, longitude: lastPoint.lng }, lastMatchedIndexRef.current);
     if (!progress) return;
 
     const traveledFraction = routeIndex.totalMeters > 0 ? progress.traveledMeters / routeIndex.totalMeters : 0;
     if (progress.remainingMeters <= 30 && traveledFraction >= 0.9) {
-      hasPromptedFinish.current = true;
+      hasHintedFinish.current = true;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      Alert.alert("Looks like you've finished!", 'End your race?', [
-        { text: 'Not yet', style: 'cancel', onPress: () => { hasPromptedFinish.current = false; } },
-        { text: 'Finish', style: 'default', onPress: performFinish },
-      ]);
+      setShowFinishHint(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastPoint]);
@@ -529,6 +526,13 @@ export default function RecordingScreen({
 
         {isOffRoute && <DeviationBanner onPress={() => setIsOffRoute(false)} />}
         {isPaused && <AutoPauseBanner onResume={resumeRecording} />}
+        {showFinishHint && (
+          <Pressable style={styles.finishHint} onPress={() => setShowFinishHint(false)}>
+            <Text style={styles.finishHintText}>
+              You&apos;ve reached the end of the route — tap the stop button when you&apos;re done.
+            </Text>
+          </Pressable>
+        )}
 
         <RecordingStats
           activityType={activityType}
@@ -601,6 +605,18 @@ const styles = StyleSheet.create({
     right: 16,
     bottom: 40,
     gap: 12,
+  },
+  finishHint: {
+    backgroundColor: colors.ink,
+    borderRadius: radii.sm,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  finishHintText: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: colors.surface,
+    lineHeight: 18,
   },
   controlsRow: {
     flexDirection: 'row',
