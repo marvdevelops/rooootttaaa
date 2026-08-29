@@ -58,7 +58,17 @@ const VERB: Record<string, string> = {
 };
 
 function meta(title: string, description: string, token: string): Metadata {
-  return { title, description, ...NOINDEX, openGraph: { type: 'website', title, description, images: [ogImage(token)] } };
+  const url = `https://app.rootah.com/live/${token}`;
+  return {
+    title,
+    description,
+    ...NOINDEX,
+    // Override the site-wide canonical from the root layout — without this,
+    // scrapers (Facebook, etc.) follow rel="canonical" to app.rootah.com and
+    // show the homepage card instead of this activity.
+    alternates: { canonical: url },
+    openGraph: { type: 'website', title, description, url, images: [ogImage(token)] },
+  };
 }
 
 export async function buildLiveMetadata(token: string): Promise<Metadata> {
