@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { BackIcon, CalendarIcon, LockIcon, UserIcon, UsersIcon } from '../components/icons';
+import { BackIcon, CalendarIcon, LockIcon, UsersIcon } from '../components/icons';
 import { useAuth } from '../lib/AuthContext';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { GroupRun } from '../types/route';
@@ -299,8 +299,8 @@ export default function ClubProfileScreen({
                 {m.avatarUrl ? (
                   <Image source={{ uri: m.avatarUrl }} style={styles.memberAvatar} />
                 ) : (
-                  <View style={[styles.memberAvatar, styles.avatarPlaceholder]}>
-                    <UserIcon size={16} color={colors.stone} />
+                  <View style={[styles.memberAvatar, styles.memberAvatarPlaceholder]}>
+                    <Text style={styles.memberAvatarInitial}>{m.username.slice(0, 1).toUpperCase()}</Text>
                   </View>
                 )}
                 <Text style={styles.memberUsername} numberOfLines={1}>
@@ -572,6 +572,16 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
+  },
+  memberAvatarPlaceholder: {
+    backgroundColor: colors.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberAvatarInitial: {
+    fontFamily: fonts.extraBold,
+    fontSize: 15,
+    color: colors.white,
   },
   memberUsername: {
     flex: 1,

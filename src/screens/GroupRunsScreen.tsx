@@ -14,6 +14,8 @@ interface Props {
   onCreateEvent: () => void;
 }
 
+type Tab = 'runs' | 'races';
+
 function formatWhen(ms: number): string {
   const d = new Date(ms);
   return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) +
@@ -24,8 +26,11 @@ function formatWhen(ms: number): string {
 export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePaywall, onRequireAuth, onCreateEvent }: Props) {
   const insets = useSafeAreaInsets();
   const [runs, setRuns] = useState<GroupRun[]>([]);
+  const [tab, setTab] = useState<Tab>('runs');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const visible = runs.filter((r) => (tab === 'races' ? r.category === 'race' : r.category !== 'race'));
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -94,6 +99,22 @@ export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePayw
         <Text style={styles.title}>Group Runs</Text>
       </View>
 
+      <View style={styles.tabRow}>
+        {(['runs', 'races'] as Tab[]).map((t) => (
+          <Pressable
+            key={t}
+            style={[styles.tabButton, tab === t && styles.tabButtonActive]}
+            onPress={() => setTab(t)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === t }}
+          >
+            <Text style={[styles.tabButtonText, tab === t && styles.tabButtonTextActive]}>
+              {t === 'runs' ? 'Runs' : 'Races'}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       {error && (
         <View style={styles.errorBanner}>
           <Text style={styles.errorText}>{error}</Text>
@@ -106,26 +127,34 @@ export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePayw
         </View>
       )}
 
-      {!loading && runs.length === 0 && !error && (
+      {!loading && visible.length === 0 && !error && (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No upcoming group runs</Text>
-          <Text style={styles.emptyBody}>
-            Schedule one on any route, or open a route and tap &quot;Schedule group run&quot;.
+          <Text style={styles.emptyTitle}>
+            {tab === 'races' ? 'No upcoming races' : 'No upcoming group runs'}
           </Text>
-          <Pressable
-            style={styles.emptyCta}
-            onPress={onCreateEvent}
-            accessibilityRole="button"
-            accessibilityLabel="Schedule a group run"
-          >
-            <CalendarIcon size={15} color={colors.white} />
-            <Text style={styles.emptyCtaText}>Schedule a group run</Text>
-          </Pressable>
+          {tab === 'races' ? (
+            <Text style={styles.emptyBody}>Races you join show up here.</Text>
+          ) : (
+            <>
+              <Text style={styles.emptyBody}>
+                Schedule one on any route, or open a route and tap &quot;Schedule group run&quot;.
+              </Text>
+              <Pressable
+                style={styles.emptyCta}
+                onPress={onCreateEvent}
+                accessibilityRole="button"
+                accessibilityLabel="Schedule a group run"
+              >
+                <CalendarIcon size={15} color={colors.white} />
+                <Text style={styles.emptyCtaText}>Schedule a group run</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       )}
 
       <FlatList
-        data={runs}
+        data={visible}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         onRefresh={refresh}
@@ -197,6 +226,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 16,
+  },
+  tabRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  tabButton: {
+    flex: 1,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    ...elevation('subtle'),
+  },
+  tabButtonActive: {
+    backgroundColor: colors.coral,
+    ...elevation('primaryBtn'),
+  },
+  tabButtonText: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  tabButtonTextActive: {
+    color: colors.white,
   },
   backButton: {
     width: 40,

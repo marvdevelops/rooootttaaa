@@ -16,6 +16,18 @@ function generateShareToken(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+const LIVE_BASE_URL = 'https://app.rootah.com/live';
+
+/** Public spectator URL. The username segment is cosmetic — the token is still
+ * the whole access control — but it makes a shared link recognisable
+ * ("app.rootah.com/live/marvin/…"). The web route also accepts the plain
+ * `/live/<token>` form so older links keep working. */
+export function liveTrackingUrl(shareToken: string, username?: string | null): string {
+  return username
+    ? `${LIVE_BASE_URL}/${encodeURIComponent(username)}/${shareToken}`
+    : `${LIVE_BASE_URL}/${shareToken}`;
+}
+
 export interface LiveSession {
   id: string;
   shareToken: string;

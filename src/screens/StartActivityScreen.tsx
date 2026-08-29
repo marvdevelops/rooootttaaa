@@ -7,15 +7,14 @@ import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute, LatLng } from '../types/route';
 import { haversineDistance } from '../utils/distance';
 import { findNearbyRoutes } from '../utils/routesApi';
-import { endLiveSession, startLiveSession, updateLiveSessionMeta } from '../utils/liveTrackingApi';
+import { endLiveSession, liveTrackingUrl, startLiveSession, updateLiveSessionMeta } from '../utils/liveTrackingApi';
+import { useAuth } from '../lib/AuthContext';
 
 /** A live session opened before the run starts, handed to the recording flow so it broadcasts from the first GPS fix. */
 export interface PreStartLiveSession {
   id: string;
   shareToken: string;
 }
-
-const LIVE_URL_BASE = 'https://app.rootah.com/live';
 
 interface Props {
   initialActivityType?: ActivityType;
@@ -58,6 +57,7 @@ export default function StartActivityScreen({
   onStartWithRoute,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { profile } = useAuth();
   const [activityType, setActivityType] = useState<ActivityType>(initialActivityType);
   // null = "free run, no route"
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
@@ -100,7 +100,7 @@ export default function StartActivityScreen({
   );
 
   const startLabel = selectedRoute ? `Follow ${selectedRoute.name}` : 'Start free run';
-  const liveUrl = liveSession ? `${LIVE_URL_BASE}/${liveSession.shareToken}` : null;
+  const liveUrl = liveSession ? liveTrackingUrl(liveSession.shareToken, profile?.username) : null;
 
   // Keep an already-issued session's activity type / route in sync if the
   // runner changes their mind before starting — same token, so a link they've
@@ -179,7 +179,7 @@ export default function StartActivityScreen({
           <CloseIcon size={16} />
         </Pressable>
         <Text style={styles.title}>Start an activity</Text>
-        <View style={styles.iconButton} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -337,6 +337,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...elevation('subtle'),
+  },
+  headerSpacer: {
+    width: 36,
+    height: 36,
   },
   title: {
     fontFamily: fonts.extraBold,

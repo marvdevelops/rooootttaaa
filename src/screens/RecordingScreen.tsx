@@ -19,10 +19,10 @@ import { ActivityType, RouteSegment } from '../types/route';
 import { RecordingSession } from '../types/recording';
 import { buildRouteProgressIndex, findNextClimb, getRouteProgress, UpcomingClimb } from '../utils/routeProgress';
 import { getRaceShareToken, startRaceRun, updateRaceLivePosition } from '../utils/racesApi';
-import { endLiveSession, startLiveSession, updateLivePosition } from '../utils/liveTrackingApi';
+import { endLiveSession, liveTrackingUrl, startLiveSession, updateLivePosition } from '../utils/liveTrackingApi';
+import { useAuth } from '../lib/AuthContext';
 import { haversineDistance } from '../utils/distance';
 
-const LIVE_TRACKING_BASE_URL = 'https://app.rootah.com/live';
 
 const RACE_LIVE_UPDATE_MS = 5_000;
 
@@ -69,6 +69,7 @@ export default function RecordingScreen({
 }: Props) {
   const insets = useSafeAreaInsets();
   useKeepAwake();
+  const { profile } = useAuth();
   const { startRecording, pauseRecording, resumeRecording, finishRecording, discardSession } = useRecording();
 
   const isPaused = useRecordingStore((s) => s.isPaused);
@@ -335,9 +336,9 @@ export default function RecordingScreen({
 
   const handleShareLiveLink = useCallback(() => {
     if (!liveShareToken) return;
-    const url = `${LIVE_TRACKING_BASE_URL}/${liveShareToken}`;
+    const url = liveTrackingUrl(liveShareToken, profile?.username);
     Share.share({ message: `Follow me live on Rootah: ${url}`, url }).catch(() => {});
-  }, [liveShareToken]);
+  }, [liveShareToken, profile?.username]);
 
   // Non-race runs: opt in to live sharing. First tap asks for consent and
   // opens the session; later taps just re-open the share sheet.
@@ -360,7 +361,7 @@ export default function RecordingScreen({
               const session = await startLiveSession(activityType, routeId ?? null);
               setLiveSessionId(session.id);
               setLiveShareToken(session.shareToken);
-              const url = `${LIVE_TRACKING_BASE_URL}/${session.shareToken}`;
+              const url = liveTrackingUrl(session.shareToken, profile?.username);
               Share.share({ message: `Follow me live on Rootah: ${url}`, url }).catch(() => {});
             } catch (e) {
               Alert.alert('Could not start sharing', e instanceof Error ? e.message : 'Try again.');
@@ -371,7 +372,7 @@ export default function RecordingScreen({
         },
       ],
     );
-  }, [liveShareToken, startingLiveShare, activityType, routeId, handleShareLiveLink]);
+  }, [liveShareToken, startingLiveShare, activityType, routeId, handleShareLiveLink, profile?.username]);
 
   const handleManualPauseToggle = useCallback(() => {
     if (isPaused) {
