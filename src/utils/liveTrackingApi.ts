@@ -97,6 +97,12 @@ export async function updateLiveSessionMeta(
     .eq('id', sessionId);
 }
 
+/** How many people have opened the runner's live link. Best-effort; 0 on any error. */
+export async function getLiveSessionViewCount(sessionId: string): Promise<number> {
+  const { data } = await supabase.from('live_sessions').select('view_count').eq('id', sessionId).maybeSingle();
+  return (data?.view_count as number | undefined) ?? 0;
+}
+
 /** Ends the session — the public page stops resolving the token from here on. */
 export async function endLiveSession(sessionId: string): Promise<void> {
   await supabase

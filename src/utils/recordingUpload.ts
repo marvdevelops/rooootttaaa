@@ -420,3 +420,40 @@ export async function listMyRecordedRuns(userId: string, limit = 30): Promise<Re
     raceTitle: raceTitleByRunId.get(row.id as string) ?? null,
   }));
 }
+
+export interface PublicActivity {
+  id: string;
+  activityType: ActivityType;
+  distanceMeters: number;
+  movingTimeSeconds: number;
+  elapsedTimeSeconds: number;
+  avgPaceSecondsPerKm: number | null;
+  avgSpeedKmh: number | null;
+  elevationGainMeters: number | null;
+  finishedAt: number;
+}
+
+/** A user's non-private recorded activities with their stats — for the public profile. */
+export async function listPublicActivities(userId: string, limit = 20): Promise<PublicActivity[]> {
+  const { data, error } = await supabase
+    .from('recorded_runs')
+    .select(
+      'id, activity_type, distance_meters, moving_time_seconds, elapsed_time_seconds, avg_pace_seconds_per_km, avg_speed_kmh, elevation_gain_meters, finished_at, is_private',
+    )
+    .eq('user_id', userId)
+    .eq('is_private', false)
+    .order('finished_at', { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    activityType: r.activity_type as ActivityType,
+    distanceMeters: r.distance_meters as number,
+    movingTimeSeconds: r.moving_time_seconds as number,
+    elapsedTimeSeconds: r.elapsed_time_seconds as number,
+    avgPaceSecondsPerKm: (r.avg_pace_seconds_per_km as number | null) ?? null,
+    avgSpeedKmh: (r.avg_speed_kmh as number | null) ?? null,
+    elevationGainMeters: (r.elevation_gain_meters as number | null) ?? null,
+    finishedAt: new Date(r.finished_at as string).getTime(),
+  }));
+}

@@ -19,7 +19,7 @@ import { ActivityType, RouteSegment } from '../types/route';
 import { RecordingSession } from '../types/recording';
 import { buildRouteProgressIndex, findNextClimb, getRouteProgress, UpcomingClimb } from '../utils/routeProgress';
 import { getRaceShareToken, startRaceRun, updateRaceLivePosition } from '../utils/racesApi';
-import { endLiveSession, liveTrackingUrl, startLiveSession, updateLivePosition } from '../utils/liveTrackingApi';
+import { endLiveSession, getLiveSessionViewCount, liveTrackingUrl, startLiveSession, updateLivePosition } from '../utils/liveTrackingApi';
 import { useAuth } from '../lib/AuthContext';
 import { logRouteCompletion } from '../utils/completionsApi';
 import { haversineDistance } from '../utils/distance';
@@ -98,6 +98,23 @@ export default function RecordingScreen({
   // either here via the share button, or ahead of time on the Start screen.
   const [liveSessionId, setLiveSessionId] = useState<string | null>(initialLiveSessionId ?? null);
   const [startingLiveShare, setStartingLiveShare] = useState(false);
+  const [liveViewCount, setLiveViewCount] = useState(0);
+
+  useEffect(() => {
+    if (!liveSessionId) return;
+    let alive = true;
+    const tick = () => {
+      getLiveSessionViewCount(liveSessionId).then((n) => {
+        if (alive) setLiveViewCount(n);
+      });
+    };
+    tick();
+    const id = setInterval(tick, 20_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, [liveSessionId]);
 
   const routeIndex = useMemo(() => (plannedSegments ? buildRouteProgressIndex(plannedSegments) : null), [plannedSegments]);
   const plannedPath = useMemo(() => plannedSegments?.flatMap((s) => s.path), [plannedSegments]);
@@ -500,7 +517,7 @@ export default function RecordingScreen({
             )}
             {!raceRsvpId && (
               <Pressable
-                style={[styles.iconButton, liveSessionId && styles.iconButtonLive]}
+                style={[styles.iconButton, styles.liveShareButton, liveSessionId && styles.iconButtonLive]}
                 onPress={handleToggleLiveShare}
                 accessibilityRole="button"
                 accessibilityLabel={liveSessionId ? 'Sharing live location — share link again' : 'Share your live location'}
@@ -508,7 +525,12 @@ export default function RecordingScreen({
                 {startingLiveShare ? (
                   <ActivityIndicator size="small" color={liveSessionId ? colors.white : colors.ink} />
                 ) : (
-                  <ShareIcon size={16} color={liveSessionId ? colors.white : colors.ink} />
+                  <>
+                    <ShareIcon size={16} color={liveSessionId ? colors.white : colors.ink} />
+                    {liveSessionId != null && liveViewCount > 0 && (
+                      <Text style={styles.liveViewCountText}>{liveViewCount}</Text>
+                    )}
+                  </>
                 )}
               </Pressable>
             )}
@@ -593,6 +615,17 @@ const styles = StyleSheet.create({
   },
   iconButtonLive: {
     backgroundColor: colors.coral,
+  },
+  liveShareButton: {
+    flexDirection: 'row',
+    gap: 5,
+    width: undefined,
+    paddingHorizontal: 10,
+  },
+  liveViewCountText: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.white,
   },
   elevationToggleGlyph: {
     fontSize: 16,

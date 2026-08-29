@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import ElevationChart from '../../components/ElevationChart';
 import LiveTrackMap from '../../components/LiveTrackMap';
 import { createClient } from '../../lib/supabase/client';
-import { activityLabel, getLiveSession, LiveSession } from '../../lib/liveSessionsApi';
+import { activityLabel, getLiveSession, incrementLiveSessionView, LiveSession } from '../../lib/liveSessionsApi';
 import { getRoute } from '../../lib/routesApi';
 import { RouteSegment } from '../../lib/types';
 
@@ -40,7 +40,18 @@ function formatStaleness(updatedAt: number | null): string {
 export default function LiveSessionClient({ token, initial }: Props) {
   const [session, setSession] = useState(initial);
   const [segments, setSegments] = useState<RouteSegment[]>([]);
+  const [views, setViews] = useState(initial.viewCount);
   const [, forceTick] = useState(0);
+
+  // Count this view once.
+  const countedRef = useRef(false);
+  useEffect(() => {
+    if (countedRef.current) return;
+    countedRef.current = true;
+    incrementLiveSessionView(token).then((n) => {
+      if (typeof n === 'number') setViews(n);
+    });
+  }, [token]);
 
   // Optional course line — only if the session was following a public route.
   useEffect(() => {
@@ -59,7 +70,7 @@ export default function LiveSessionClient({ token, initial }: Props) {
         { event: 'UPDATE', schema: 'public', table: 'live_sessions', filter: `id=eq.${session.sessionId}` },
         () => {
           getLiveSession(token)
-            .then((s) => s && setSession(s))
+            .then((s) => { if (s) { setSession(s); setViews(s.viewCount); } })
             .catch(() => {});
         },
       )
@@ -93,8 +104,11 @@ export default function LiveSessionClient({ token, initial }: Props) {
             : `🔴 Live ${activityLabel(session.activityType)}`}
         </span>
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: '4px 0 2px' }}>{session.athleteUsername}</h1>
-        <p style={{ fontSize: 12, color: 'var(--mist, #B0A898)', margin: '0 0 14px' }}>
-          {ended ? 'This link is no longer live.' : `Updated ${formatStaleness(session.lastUpdatedAt)}`}
+        <p style={{ fontSize: 12, color: 'var(--mist, #B0A898)', margin: '0 0 14px', display: 'flex', gap: 10 }}>
+          <span>{ended ? 'This link is no longer live.' : `Updated ${formatStaleness(session.lastUpdatedAt)}`}</span>
+          {views > 0 && (
+            <span>· {views} {views === 1 ? 'person' : 'people'} watching</span>
+          )}
         </p>
 
         <div style={{ display: 'flex', gap: 10 }}>

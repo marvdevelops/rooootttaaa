@@ -15,6 +15,7 @@ export interface LiveSession {
   lastUpdatedAt: number | null;
   startedAt: number | null;
   expiresAt: number | null;
+  viewCount: number;
 }
 
 interface LiveSessionRow {
@@ -32,6 +33,7 @@ interface LiveSessionRow {
   last_updated_at: string | null;
   started_at: string | null;
   expires_at: string | null;
+  view_count: number | null;
 }
 
 function toLiveSession(row: LiveSessionRow): LiveSession {
@@ -50,6 +52,7 @@ function toLiveSession(row: LiveSessionRow): LiveSession {
     lastUpdatedAt: row.last_updated_at ? new Date(row.last_updated_at).getTime() : null,
     startedAt: row.started_at ? new Date(row.started_at).getTime() : null,
     expiresAt: row.expires_at ? new Date(row.expires_at).getTime() : null,
+    viewCount: row.view_count ?? 0,
   };
 }
 
@@ -59,6 +62,12 @@ export type { LiveSessionRow };
 /** Client-side lookup — used to re-read after a Realtime UPDATE. The server
  * variant lives inline in app/live/[token]/page.tsx so this module never pulls
  * `next/headers` into the client bundle. */
+export async function incrementLiveSessionView(token: string): Promise<number | null> {
+  const supabase = createClient();
+  const { data } = await supabase.rpc('increment_live_session_view', { token });
+  return typeof data === 'number' ? data : null;
+}
+
 export async function getLiveSession(token: string): Promise<LiveSession | null> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc('get_live_session', { token });

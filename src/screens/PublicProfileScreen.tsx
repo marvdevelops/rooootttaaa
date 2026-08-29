@@ -18,6 +18,33 @@ import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute, GroupRun } from '../types/route';
 import BadgeStrip from '../components/BadgeStrip';
 import { blockUser } from '../utils/blocksApi';
+import { listPublicActivities, PublicActivity } from '../utils/recordingUpload';
+
+const ACTIVITY_NOUN: Record<ActivityType, string> = {
+  run: 'Run',
+  trail_run: 'Trail run',
+  hike: 'Hike',
+  bike: 'Ride',
+  walk: 'Walk',
+  other: 'Activity',
+};
+
+function fmtDur(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.round(sec % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+function fmtPace(secPerKm: number | null): string {
+  if (!secPerKm || secPerKm <= 0) return '--';
+  const m = Math.floor(secPerKm / 60);
+  const s = Math.round(secPerKm % 60);
+  return `${m}:${String(s).padStart(2, '0')}/km`;
+}
+function fmtActivityWhen(ms: number): string {
+  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
 import { PublicProfile, getProfile } from '../utils/profilesApi';
 import { createReport, ReportReason } from '../utils/reportsApi';
 import { fetchUpcomingEvents } from '../utils/groupRunsApi';
@@ -53,6 +80,7 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [routes, setRoutes] = useState<CloudRoute[]>([]);
   const [events, setEvents] = useState<GroupRun[]>([]);
+  const [activities, setActivities] = useState<PublicActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showReportModal, setShowReportModal] = useState(false);
@@ -113,14 +141,16 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
     setLoading(true);
     setError(null);
     try {
-      const [profileData, routesData, eventsData] = await Promise.all([
+      const [profileData, routesData, eventsData, activitiesData] = await Promise.all([
         getProfile(userId),
         listRoutesByOwner(userId),
         fetchUpcomingEvents(userId).catch(() => []), // non-critical — the rest of the profile still works without it
+        listPublicActivities(userId).catch(() => []),
       ]);
       setProfile(profileData);
       setRoutes(routesData);
       setEvents(eventsData);
+      setActivities(activitiesData);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load profile.');
     } finally {
@@ -207,6 +237,44 @@ export default function PublicProfileScreen({ userId, onClose, onOpenDetail, onO
                   <Text style={styles.moderationLink}>Block</Text>
                 </Pressable>
               </View>
+
+              {activities.length > 0 && (
+                <View style={styles.eventsSection}>
+                  <Text style={styles.eventsSectionTitle}>Recent activities</Text>
+                  {activities.map((a) => (
+                    <View key={a.id} style={styles.activityCard}>
+                      <View style={styles.activityTopRow}>
+                        <Text style={styles.activityType}>{ACTIVITY_NOUN[a.activityType]}</Text>
+                        <Text style={styles.activityWhen}>{fmtActivityWhen(a.finishedAt)}</Text>
+                      </View>
+                      <View style={styles.activityStatsRow}>
+                        <View style={styles.activityStat}>
+                          <Text style={styles.activityStatValue}>{(a.distanceMeters / 1000).toFixed(2)} km</Text>
+                          <Text style={styles.activityStatLabel}>Distance</Text>
+                        </View>
+                        <View style={styles.activityStat}>
+                          <Text style={styles.activityStatValue}>{fmtDur(a.movingTimeSeconds)}</Text>
+                          <Text style={styles.activityStatLabel}>Time</Text>
+                        </View>
+                        <View style={styles.activityStat}>
+                          <Text style={styles.activityStatValue}>
+                            {a.activityType === 'bike' && a.avgSpeedKmh
+                              ? `${a.avgSpeedKmh.toFixed(1)} km/h`
+                              : fmtPace(a.avgPaceSecondsPerKm)}
+                          </Text>
+                          <Text style={styles.activityStatLabel}>{a.activityType === 'bike' ? 'Speed' : 'Pace'}</Text>
+                        </View>
+                        {a.elevationGainMeters != null && (
+                          <View style={styles.activityStat}>
+                            <Text style={styles.activityStatValue}>+{Math.round(a.elevationGainMeters)} m</Text>
+                            <Text style={styles.activityStatLabel}>Climb</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
 
               {events.length > 0 && (
                 <View style={styles.eventsSection}>
@@ -397,6 +465,48 @@ const styles = StyleSheet.create({
     width: '100%',
     marginTop: spacing.lg,
     gap: spacing.sm,
+  },
+  activityCard: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    gap: spacing.sm,
+    ...elevation('subtle'),
+  },
+  activityTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  activityType: {
+    fontFamily: fonts.extraBold,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  activityWhen: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.stone,
+  },
+  activityStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  activityStat: {
+    gap: 1,
+  },
+  activityStatValue: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  activityStatLabel: {
+    fontFamily: fonts.medium,
+    fontSize: 10,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+    color: colors.stone,
   },
   eventsSectionTitle: {
     fontFamily: fonts.bold,
