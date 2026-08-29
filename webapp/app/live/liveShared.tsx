@@ -41,49 +41,67 @@ function ogImage(token: string) {
   return { url: `/live/og?token=${encodeURIComponent(token)}`, width: 1200, height: 630 };
 }
 
-/** Activity-aware verb for copy: "running", "hiking", "riding", … */
-function activityVerb(activityType: string): string {
-  switch (activityType) {
-    case 'hike':
-      return 'hiking';
-    case 'bike':
-      return 'riding';
-    case 'walk':
-      return 'walking';
-    case 'trail_run':
-      return 'trail running';
-    default:
-      return 'running';
-  }
+const NOUN: Record<string, string> = {
+  hike: 'hike',
+  bike: 'ride',
+  walk: 'walk',
+  trail_run: 'trail run',
+  run: 'run',
+  other: 'activity',
+};
+const VERB: Record<string, string> = {
+  hike: 'hiking',
+  bike: 'riding',
+  walk: 'walking',
+  trail_run: 'trail running',
+  run: 'running',
+  other: 'out on an activity',
+};
+
+function meta(title: string, description: string, token: string): Metadata {
+  return { title, description, ...NOINDEX, openGraph: { type: 'website', title, description, images: [ogImage(token)] } };
 }
 
 export async function buildLiveMetadata(token: string): Promise<Metadata> {
   const race = await fetchRacePosition(token);
   if (race) {
-    const isFinished = race.finish_time_seconds != null;
-    const title = isFinished
-      ? `${race.athlete_username} finished ${race.race_title}`
-      : `${race.athlete_username} is racing ${race.race_title} — live`;
-    const description = isFinished
-      ? `See ${race.athlete_username}'s finish time, pace, and the course on Rootah.`
-      : `Track ${race.athlete_username}'s position, pace, and distance on the course in real time — and send them a cheer.`;
-    return { title, description, ...NOINDEX, openGraph: { type: 'website', title, description, images: [ogImage(token)] } };
+    const done = race.finish_time_seconds != null;
+    return done
+      ? meta(
+          `${race.athlete_username} finished ${race.race_title}`,
+          `See how ${race.athlete_username}'s race went — finish time, pace, and the full course.`,
+          token,
+        )
+      : meta(
+          `Follow ${race.athlete_username} — racing ${race.race_title} live`,
+          `They're on the course right now. Watch their position, pace, and distance update in real time, and send a cheer.`,
+          token,
+        );
   }
 
   const session = await fetchLiveSession(token);
   if (session) {
-    const verb = activityVerb(session.activityType);
-    const ended = session.status === 'ended';
-    const title = ended
-      ? `${session.athleteUsername} was ${verb} — live tracking on Rootah`
-      : `${session.athleteUsername} is ${verb} right now — track them live`;
-    const description = ended
-      ? `${session.athleteUsername}'s live activity has ended. Track your own runs and share them with Rootah.`
-      : `Follow ${session.athleteUsername} on the map as they go — live position, pace, and distance, updating every few seconds.`;
-    return { title, description, ...NOINDEX, openGraph: { type: 'website', title, description, images: [ogImage(token)] } };
+    const noun = NOUN[session.activityType] ?? 'run';
+    const verb = VERB[session.activityType] ?? 'moving';
+    const done = session.status === 'ended';
+    return done
+      ? meta(
+          `${session.athleteUsername} just finished a ${noun}`,
+          `See how the ${noun} went — distance, pace, and the route on Rootah.`,
+          token,
+        )
+      : meta(
+          `Follow ${session.athleteUsername} live — ${verb} right now`,
+          `Watch them move on the map. Live position, pace, and distance, updating every few seconds. No app needed.`,
+          token,
+        );
   }
 
-  return { title: 'This live link isn’t active', description: 'It may have ended or expired.', ...NOINDEX };
+  return {
+    title: 'This live link isn’t active',
+    description: 'The activity has ended or the link has expired.',
+    ...NOINDEX,
+  };
 }
 
 export async function renderLivePage(token: string) {
