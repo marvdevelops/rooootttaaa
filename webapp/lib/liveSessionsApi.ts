@@ -1,5 +1,4 @@
 import { createClient } from './supabase/client';
-import { createClient as createServerClient } from './supabase/server';
 
 export interface LiveSession {
   sessionId: string;
@@ -54,15 +53,12 @@ function toLiveSession(row: LiveSessionRow): LiveSession {
   };
 }
 
-/** Token-gated lookup for a non-race live session. Server variant for the page/metadata. */
-export async function getLiveSessionServer(token: string): Promise<LiveSession | null> {
-  const supabase = await createServerClient();
-  const { data } = await supabase.rpc('get_live_session', { token });
-  const row = (data as LiveSessionRow[] | null)?.[0];
-  return row ? toLiveSession(row) : null;
-}
+export { toLiveSession };
+export type { LiveSessionRow };
 
-/** Client variant — used to re-read after a Realtime UPDATE. */
+/** Client-side lookup — used to re-read after a Realtime UPDATE. The server
+ * variant lives inline in app/live/[token]/page.tsx so this module never pulls
+ * `next/headers` into the client bundle. */
 export async function getLiveSession(token: string): Promise<LiveSession | null> {
   const supabase = createClient();
   const { data, error } = await supabase.rpc('get_live_session', { token });

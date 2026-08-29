@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createClient } from '../../../lib/supabase/server';
-import { activityLabel, getLiveSessionServer } from '../../../lib/liveSessionsApi';
+import { activityLabel, toLiveSession, type LiveSession, type LiveSessionRow } from '../../../lib/liveSessionsApi';
 import LiveMapClient from './LiveMapClient';
 import LiveSessionClient from './LiveSessionClient';
 
@@ -32,6 +32,13 @@ async function fetchRacePosition(token: string): Promise<RaceLivePositionRow | n
   return (data as RaceLivePositionRow[] | null)?.[0] ?? null;
 }
 
+async function fetchLiveSession(token: string): Promise<LiveSession | null> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc('get_live_session', { token });
+  const row = (data as LiveSessionRow[] | null)?.[0];
+  return row ? toLiveSession(row) : null;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params;
   const noindex = { robots: { index: false, follow: false } } as const;
@@ -48,7 +55,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title, description, ...noindex, openGraph: { type: 'website', title, description } };
   }
 
-  const session = await getLiveSessionServer(token);
+  const session = await fetchLiveSession(token);
   if (session) {
     const label = activityLabel(session.activityType);
     const title = `🔴 ${session.athleteUsername} is on a live ${label} — Rootah`;
@@ -87,7 +94,7 @@ export default async function LiveTrackingPage({ params }: Props) {
     );
   }
 
-  const session = await getLiveSessionServer(token);
+  const session = await fetchLiveSession(token);
   if (session) {
     return <LiveSessionClient token={token} initial={session} />;
   }
