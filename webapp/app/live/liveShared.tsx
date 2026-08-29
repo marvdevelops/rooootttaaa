@@ -19,6 +19,8 @@ interface RaceLivePositionRow {
   started_at: string | null;
   finish_time_seconds: number | null;
   live_view_count: number;
+  race_distance_km: number | null;
+  event_logo_url: string | null;
 }
 
 export async function fetchRacePosition(token: string): Promise<RaceLivePositionRow | null> {
@@ -85,14 +87,18 @@ async function buildLiveMetadataInner(token: string): Promise<Metadata> {
   const race = await fetchRacePosition(token);
   if (race) {
     const done = race.finish_time_seconds != null;
+    const dist =
+      race.race_distance_km && race.race_distance_km > 0
+        ? ` (${Number(race.race_distance_km).toFixed(1)} km)`
+        : '';
     return done
       ? meta(
-          `${race.athlete_username} finished ${race.race_title}`,
+          `${race.athlete_username} finished ${race.race_title}${dist}`,
           `See how ${race.athlete_username}'s race went — finish time, pace, and the full course.`,
           token,
         )
       : meta(
-          `Follow ${race.athlete_username} — racing ${race.race_title} live`,
+          `${race.race_title}${dist} — follow ${race.athlete_username} live`,
           `They're on the course right now. Watch their position, pace, and distance update in real time, and send a cheer.`,
           token,
         );
