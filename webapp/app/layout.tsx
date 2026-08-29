@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '../lib/AuthContext';
+import { jsonLdScript } from '../lib/jsonLd';
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: '--font-body',
@@ -73,9 +74,9 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
     <html lang="en" className={plusJakartaSans.variable}>
       <body>
         {/* eslint-disable-next-line react/no-danger */}
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(organizationJsonLd) }} />
         {/* eslint-disable-next-line react/no-danger */}
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(websiteJsonLd) }} />
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

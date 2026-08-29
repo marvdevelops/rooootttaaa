@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { createClient } from '../../../lib/supabase/server';
+import { jsonLdScript } from '../../../lib/jsonLd';
 import RouteDetailClient from './RouteDetailClient';
 
 const ACTIVITY_LABEL: Record<string, string> = {
@@ -96,11 +97,11 @@ export default async function RouteDetailPage({ params }: PageProps<'/routes/[id
     <>
       {breadcrumbJsonLd && (
         // eslint-disable-next-line react/no-danger
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }} />
       )}
       {placeJsonLd && (
         // eslint-disable-next-line react/no-danger
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(placeJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(placeJsonLd) }} />
       )}
       <RouteDetailClient id={id} />
     </>
