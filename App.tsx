@@ -196,6 +196,8 @@ function AuthedApp({
   const [recordingRoute, setRecordingRoute] = useState<CloudRoute | null>(null);
   const [recordingRaceRsvpId, setRecordingRaceRsvpId] = useState<string | null>(null);
   const [recordingRaceContext, setRecordingRaceContext] = useState<{ raceDetails: RaceDetails; raceTitle: string } | null>(null);
+  // A live-location session the runner opened on the Start screen before the run began.
+  const [recordingLiveSession, setRecordingLiveSession] = useState<{ id: string; shareToken: string } | null>(null);
   const [raceFinishStats, setRaceFinishStats] = useState<{ distanceMeters: number; finishTimeSeconds: number; paceSecondsPerKm: number | null } | null>(null);
   const [activityFinishStats, setActivityFinishStats] = useState<{ activityType: ActivityType; distanceMeters: number; movingTimeSeconds: number; paceSecondsPerKm: number | null } | null>(null);
   // True only when the share card was reopened later from the race event
@@ -488,6 +490,7 @@ function AuthedApp({
       setRecordingRoute(route);
       setRecordingRaceRsvpId(null);
       setRecordingRaceContext(null);
+      setRecordingLiveSession(null);
       setRecordingActivityType(route.activityType);
       navigateTo('recording');
     },
@@ -548,16 +551,18 @@ function AuthedApp({
       setRecordingRoute(null);
       setRecordingRaceRsvpId(null);
       setRecordingRaceContext(null);
+      setRecordingLiveSession(null);
       setOverlay('startActivity');
     }, 'record');
   }, [requireAuth]);
 
   const handleStartFreeRun = useCallback(
-    (activityType: ActivityType) => {
+    (activityType: ActivityType, liveSession: { id: string; shareToken: string } | null) => {
       setResumedRecording(false);
       setRecordingRoute(null);
       setRecordingRaceRsvpId(null);
       setRecordingRaceContext(null);
+      setRecordingLiveSession(liveSession);
       setRecordingActivityType(activityType);
       navigateTo('recording');
     },
@@ -565,11 +570,12 @@ function AuthedApp({
   );
 
   const handleStartRouteRun = useCallback(
-    (activityType: ActivityType, route: CloudRoute) => {
+    (activityType: ActivityType, route: CloudRoute, liveSession: { id: string; shareToken: string } | null) => {
       setResumedRecording(false);
       setRecordingRoute(route);
       setRecordingRaceRsvpId(null);
       setRecordingRaceContext(null);
+      setRecordingLiveSession(liveSession);
       setRecordingActivityType(activityType);
       navigateTo('recording');
     },
@@ -864,6 +870,8 @@ function AuthedApp({
             plannedSegments={recordingRoute?.segments}
             alreadyStarted={resumedRecording}
             raceRsvpId={recordingRaceRsvpId ?? undefined}
+            initialLiveSessionId={recordingLiveSession?.id}
+            initialLiveShareToken={recordingLiveSession?.shareToken}
             onFinish={(session) => {
               setFinishedRecordingSession(session);
               setOverlay('recordingSummary');

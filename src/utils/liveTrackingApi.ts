@@ -71,6 +71,20 @@ export async function updateLivePosition(
   if (error) throw new Error(error.message);
 }
 
+/** Keeps the session's activity type / followed route current when the runner
+ * tweaks them after sharing the link but before starting — same token, so any
+ * link already sent keeps working. */
+export async function updateLiveSessionMeta(
+  sessionId: string,
+  activityType: ActivityType,
+  routeId?: string | null,
+): Promise<void> {
+  await supabase
+    .from('live_sessions')
+    .update({ activity_type: activityType, route_id: routeId ?? null })
+    .eq('id', sessionId);
+}
+
 /** Ends the session — the public page stops resolving the token from here on. */
 export async function endLiveSession(sessionId: string): Promise<void> {
   await supabase

@@ -1,18 +1,27 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { CheckIcon, CloseIcon, RunnerIcon } from '../components/icons';
+import { CheckIcon, CloseIcon, RunnerIcon, ShareIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType, CloudRoute, LatLng } from '../types/route';
 import { haversineDistance } from '../utils/distance';
 import { findNearbyRoutes } from '../utils/routesApi';
+import { endLiveSession, startLiveSession, updateLiveSessionMeta } from '../utils/liveTrackingApi';
+
+/** A live session opened before the run starts, handed to the recording flow so it broadcasts from the first GPS fix. */
+export interface PreStartLiveSession {
+  id: string;
+  shareToken: string;
+}
+
+const LIVE_URL_BASE = 'https://app.rootah.com/live';
 
 interface Props {
   initialActivityType?: ActivityType;
   onCancel: () => void;
-  onStartFree: (activityType: ActivityType) => void;
-  onStartWithRoute: (activityType: ActivityType, route: CloudRoute) => void;
+  onStartFree: (activityType: ActivityType, liveSession: PreStartLiveSession | null) => void;
+  onStartWithRoute: (activityType: ActivityType, route: CloudRoute, liveSession: PreStartLiveSession | null) => void;
 }
 
 const ACTIVITY_OPTIONS: { value: ActivityType; label: string }[] = [
@@ -55,6 +64,10 @@ export default function StartActivityScreen({
   const [nearby, setNearby] = useState<CloudRoute[]>([]);
   const [origin, setOrigin] = useState<LatLng | null>(null);
   const [loading, setLoading] = useState(true);
+  // Non-null once the runner opts into sharing their location before starting.
+  const [liveSession, setLiveSession] = useState<PreStartLiveSession | null>(null);
+  const [busyLive, setBusyLive] = useState(false);
+  const startedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,10 +100,63 @@ export default function StartActivityScreen({
   );
 
   const startLabel = selectedRoute ? `Follow ${selectedRoute.name}` : 'Start free run';
+  const liveUrl = liveSession ? `${LIVE_URL_BASE}/${liveSession.shareToken}` : null;
+
+  // Keep an already-issued session's activity type / route in sync if the
+  // runner changes their mind before starting — same token, so a link they've
+  // already sent keeps working.
+  useEffect(() => {
+    if (!liveSession) return;
+    updateLiveSessionMeta(liveSession.id, activityType, selectedRouteId).catch(() => {});
+  }, [liveSession, activityType, selectedRouteId]);
+
+  // If they back out without starting, don't leave an orphaned live session.
+  useEffect(() => {
+    return () => {
+      if (liveSession && !startedRef.current) endLiveSession(liveSession.id).catch(() => {});
+    };
+  }, [liveSession]);
+
+  const handleToggleLive = () => {
+    if (busyLive) return;
+    if (liveSession) {
+      const id = liveSession.id;
+      setLiveSession(null);
+      endLiveSession(id).catch(() => {});
+      return;
+    }
+    Alert.alert(
+      'Share your live location?',
+      'Anyone with the link can see where you are, your pace, and your distance until you stop sharing or it expires in 12 hours. Share it now so people can follow from the start.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Get link',
+          onPress: async () => {
+            setBusyLive(true);
+            try {
+              const s = await startLiveSession(activityType, selectedRouteId);
+              setLiveSession({ id: s.id, shareToken: s.shareToken });
+            } catch (e) {
+              Alert.alert('Could not start sharing', e instanceof Error ? e.message : 'Try again.');
+            } finally {
+              setBusyLive(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleSendLink = () => {
+    if (!liveUrl) return;
+    Share.share({ message: `Follow me live on Rootah: ${liveUrl}`, url: liveUrl }).catch(() => {});
+  };
 
   const handleStart = () => {
-    if (selectedRoute) onStartWithRoute(activityType, selectedRoute);
-    else onStartFree(activityType);
+    startedRef.current = true;
+    if (selectedRoute) onStartWithRoute(activityType, selectedRoute, liveSession);
+    else onStartFree(activityType, liveSession);
   };
 
   const awayLabel = (route: CloudRoute): string | null => {
@@ -194,6 +260,36 @@ export default function StartActivityScreen({
               </Pressable>
             );
           })
+        )}
+
+        <Text style={styles.sectionLabel}>Live location</Text>
+        <Pressable
+          style={[styles.liveRow, liveSession && styles.liveRowActive]}
+          onPress={handleToggleLive}
+          accessibilityRole="switch"
+          accessibilityLabel="Share my live location"
+          accessibilityState={{ checked: !!liveSession }}
+        >
+          <View style={styles.routeCardBody}>
+            <Text style={styles.routeName}>Share my live location</Text>
+            <Text style={styles.routeMeta}>
+              {liveSession ? 'On — anyone with the link can follow you' : 'Off — get a link to send before you start'}
+            </Text>
+          </View>
+          {busyLive ? (
+            <ActivityIndicator color={colors.coral} />
+          ) : (
+            <View style={[styles.switchTrack, liveSession && styles.switchTrackOn]}>
+              <View style={[styles.switchKnob, liveSession && styles.switchKnobOn]} />
+            </View>
+          )}
+        </Pressable>
+
+        {liveSession && (
+          <Pressable style={styles.sendLinkButton} onPress={handleSendLink} accessibilityRole="button" accessibilityLabel="Send live tracking link">
+            <ShareIcon size={15} color={colors.white} />
+            <Text style={styles.sendLinkText}>Send link</Text>
+          </Pressable>
         )}
       </ScrollView>
 
@@ -375,6 +471,55 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.stone,
     paddingVertical: spacing.sm,
+  },
+  liveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    ...elevation('subtle'),
+  },
+  liveRowActive: {
+    borderColor: colors.coral,
+  },
+  switchTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.mist,
+    padding: 3,
+    justifyContent: 'center',
+  },
+  switchTrackOn: {
+    backgroundColor: colors.coral,
+  },
+  switchKnob: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.white,
+  },
+  switchKnobOn: {
+    alignSelf: 'flex-end',
+  },
+  sendLinkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 46,
+    borderRadius: radii.pill,
+    backgroundColor: colors.coral,
+    ...elevation('primaryBtn'),
+  },
+  sendLinkText: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.white,
   },
   footer: {
     paddingHorizontal: spacing.lg,

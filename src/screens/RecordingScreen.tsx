@@ -49,11 +49,24 @@ interface Props {
   alreadyStarted?: boolean;
   /** Set when recording against a race — issues the live-tracking share token on start, and throttle-broadcasts position every 30s for the public spectator page. */
   raceRsvpId?: string;
+  /** A live-location session the runner opened on the Start screen before the run began — broadcasting picks up from the first GPS fix instead of waiting for them to tap the share button. */
+  initialLiveSessionId?: string;
+  initialLiveShareToken?: string;
   onFinish: (session: RecordingSession) => void;
   onDiscard: () => void;
 }
 
-export default function RecordingScreen({ activityType, routeId, plannedSegments, alreadyStarted, raceRsvpId, onFinish, onDiscard }: Props) {
+export default function RecordingScreen({
+  activityType,
+  routeId,
+  plannedSegments,
+  alreadyStarted,
+  raceRsvpId,
+  initialLiveSessionId,
+  initialLiveShareToken,
+  onFinish,
+  onDiscard,
+}: Props) {
   const insets = useSafeAreaInsets();
   useKeepAwake();
   const { startRecording, pauseRecording, resumeRecording, finishRecording, discardSession } = useRecording();
@@ -78,9 +91,10 @@ export default function RecordingScreen({ activityType, routeId, plannedSegments
   const [phase, setPhase] = useState<Phase>(alreadyStarted ? 'recording' : 'ready');
   const [countdownLabel, setCountdownLabel] = useState('3');
   const [checkingProximity, setCheckingProximity] = useState(false);
-  const [liveShareToken, setLiveShareToken] = useState<string | null>(null);
-  // Set once the runner opts into live-location sharing for a non-race run.
-  const [liveSessionId, setLiveSessionId] = useState<string | null>(null);
+  const [liveShareToken, setLiveShareToken] = useState<string | null>(initialLiveShareToken ?? null);
+  // Set once the runner opts into live-location sharing for a non-race run —
+  // either here via the share button, or ahead of time on the Start screen.
+  const [liveSessionId, setLiveSessionId] = useState<string | null>(initialLiveSessionId ?? null);
   const [startingLiveShare, setStartingLiveShare] = useState(false);
 
   const routeIndex = useMemo(() => (plannedSegments ? buildRouteProgressIndex(plannedSegments) : null), [plannedSegments]);
