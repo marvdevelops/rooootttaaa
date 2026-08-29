@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import ElevationChart from '../../../components/ElevationChart';
-import LiveTrackMap from '../../../components/LiveTrackMap';
-import { createClient } from '../../../lib/supabase/client';
-import { activityLabel, getLiveSession, LiveSession } from '../../../lib/liveSessionsApi';
-import { getRoute } from '../../../lib/routesApi';
-import { RouteSegment } from '../../../lib/types';
+import ElevationChart from '../../components/ElevationChart';
+import LiveTrackMap from '../../components/LiveTrackMap';
+import { createClient } from '../../lib/supabase/client';
+import { activityLabel, getLiveSession, LiveSession } from '../../lib/liveSessionsApi';
+import { getRoute } from '../../lib/routesApi';
+import { RouteSegment } from '../../lib/types';
 
 interface Props {
   token: string;

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import ElevationChart from '../../../components/ElevationChart';
-import LiveTrackMap from '../../../components/LiveTrackMap';
-import { createClient } from '../../../lib/supabase/client';
+import ElevationChart from '../../components/ElevationChart';
+import LiveTrackMap from '../../components/LiveTrackMap';
+import { createClient } from '../../lib/supabase/client';
 import {
   getRaceLivePosition,
   getRaceRoute,
@@ -13,7 +13,7 @@ import {
   RaceLivePosition,
   RaceRoute,
   sendRaceCheer,
-} from '../../../lib/racesApi';
+} from '../../lib/racesApi';
 
 interface Props {
   token: string;
@@ -120,7 +120,7 @@ export default function LiveMapClient({ token, initial }: Props) {
       {!isFinished && (
         <div style={cheerBarStyle}>
           {cheerSent ? (
-            <div style={cheerSentToastStyle}>Sent "{cheerSent}" 🎉</div>
+            <div style={cheerSentToastStyle}>Sent &ldquo;{cheerSent}&rdquo; 🎉</div>
           ) : (
             QUICK_CHEER_MESSAGES.map((message) => (
               <button key={message} style={cheerButtonStyle} onClick={() => handleSendCheer(message)} disabled={sendingCheer}>

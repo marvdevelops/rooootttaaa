@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { activityLabel, toLiveSession, type LiveSession, type LiveSessionRow } from '../../lib/liveSessionsApi';
-import LiveMapClient from './[token]/LiveMapClient';
-import LiveSessionClient from './[token]/LiveSessionClient';
+import LiveMapClient from './LiveMapClient';
+import LiveSessionClient from './LiveSessionClient';
 
 interface RaceLivePositionRow {
   rsvp_id: string;
@@ -37,6 +37,10 @@ export async function fetchLiveSession(token: string): Promise<LiveSession | nul
 
 const NOINDEX = { robots: { index: false, follow: false } } as const;
 
+function ogImage(token: string) {
+  return { url: `/live/og?token=${encodeURIComponent(token)}`, width: 1200, height: 630 };
+}
+
 /** Activity-aware verb for copy: "running", "hiking", "riding", … */
 function activityVerb(activityType: string): string {
   switch (activityType) {
@@ -63,7 +67,7 @@ export async function buildLiveMetadata(token: string): Promise<Metadata> {
     const description = isFinished
       ? `See ${race.athlete_username}'s finish time, pace, and the course on Rootah.`
       : `Track ${race.athlete_username}'s position, pace, and distance on the course in real time — and send them a cheer.`;
-    return { title, description, ...NOINDEX, openGraph: { type: 'website', title, description } };
+    return { title, description, ...NOINDEX, openGraph: { type: 'website', title, description, images: [ogImage(token)] } };
   }
 
   const session = await fetchLiveSession(token);
@@ -76,7 +80,7 @@ export async function buildLiveMetadata(token: string): Promise<Metadata> {
     const description = ended
       ? `${session.athleteUsername}'s live activity has ended. Track your own runs and share them with Rootah.`
       : `Follow ${session.athleteUsername} on the map as they go — live position, pace, and distance, updating every few seconds.`;
-    return { title, description, ...NOINDEX, openGraph: { type: 'website', title, description } };
+    return { title, description, ...NOINDEX, openGraph: { type: 'website', title, description, images: [ogImage(token)] } };
   }
 
   return { title: 'This live link isn’t active', description: 'It may have ended or expired.', ...NOINDEX };
