@@ -151,6 +151,24 @@ export async function pickPhotoFromLibrary(): Promise<PickedPhoto | null> {
   return { uri: asset.uri, fileSize: asset.fileSize };
 }
 
+/** Multi-select from the library for attaching images to a post (club updates).
+ * EXIF stripped. Returns up to `limit` local URIs. */
+export async function pickPostImages(limit = 3): Promise<string[]> {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    throw new PhotoUploadError('Photo library permission denied — enable it in Settings to add images.');
+  }
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    allowsMultipleSelection: true,
+    selectionLimit: limit,
+    quality: 0.85,
+    exif: false,
+  });
+  if (result.canceled) return [];
+  return (result.assets ?? []).slice(0, limit).map((a) => a.uri);
+}
+
 /** Same EXIF-stripping guarantee as the library picker, for photos taken in-app. */
 export async function takePhotoWithCamera(): Promise<PickedPhoto | null> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -207,6 +225,104 @@ export async function takeSelfie(): Promise<PickedPhoto | null> {
     format: ImageManipulator.SaveFormat.JPEG,
   });
   return { uri: cropped.uri, fileSize: asset.fileSize };
+}
+
+/**
+ * Quick full-frame capture for in-run photos — no editor, no forced aspect
+ * ratio (a run photo is whatever the moment looked like). EXIF stripped like
+ * every other capture path so location never rides along in the file.
+ */
+export async function capturePhoto(): Promise<PickedPhoto | null> {
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permission.granted) {
+    throw new PhotoUploadError('Camera permission denied — enable it in Settings to take a photo.');
+  }
+  const result = await ImagePicker.launchCameraAsync({
+    allowsEditing: false,
+    quality: 0.8,
+    exif: false,
+  });
+  const asset = result.assets?.[0];
+  if (result.canceled || !asset) return null;
+  return { uri: asset.uri, fileSize: asset.fileSize };
+}
+
+export interface RunPhoto {
+  id: string;
+  storagePath: string;
+  imageUrl: string;
+  lat: number | null;
+  lng: number | null;
+  capturedAt: number;
+}
+
+interface RunPhotoRow {
+  id: string;
+  storage_path: string;
+  lat: number | null;
+  lng: number | null;
+  captured_at: string;
+}
+
+/** Resizes to max 1600px wide, uploads to the shared route-photos bucket, then
+ * links the object to a recorded_runs row. Called from the summary screen once
+ * the run has a server id. Best-effort per photo — a failure is swallowed by
+ * the caller so one bad shot doesn't block the save. */
+export async function uploadRunPhoto(
+  runId: string,
+  photo: { uri: string; lat: number | null; lng: number | null; capturedAt: number },
+): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new PhotoUploadError('You must be signed in to save a photo.');
+
+  let ImageManipulator: typeof import('expo-image-manipulator');
+  try {
+    ImageManipulator = await import('expo-image-manipulator');
+  } catch {
+    throw new PhotoUploadError('Photo uploads need the latest app update.');
+  }
+
+  const resized = await ImageManipulator.manipulateAsync(photo.uri, [{ resize: { width: 1600 } }], {
+    compress: 0.8,
+    format: ImageManipulator.SaveFormat.JPEG,
+    base64: true,
+  });
+  if (!resized.base64) throw new PhotoUploadError('Failed to process photo.');
+
+  const photoId = generateId();
+  // Second path segment must be the uploader's id — the route-photos bucket's
+  // insert policy checks (storage.foldername(name))[2] = auth.uid().
+  const path = `${runId}/${userId}/${photoId}.jpg`;
+  const up = await supabase.storage.from('route-photos').upload(path, decode(resized.base64), { contentType: 'image/jpeg' });
+  if (up.error) throw new PhotoUploadError(up.error.message);
+
+  const { error } = await supabase.from('recorded_run_photos').insert({
+    id: photoId,
+    run_id: runId,
+    user_id: userId,
+    storage_path: path,
+    lat: photo.lat,
+    lng: photo.lng,
+    captured_at: new Date(photo.capturedAt).toISOString(),
+  });
+  if (error) throw new PhotoUploadError(error.message);
+}
+
+export async function listRunPhotos(runId: string): Promise<RunPhoto[]> {
+  const { data, error } = await supabase
+    .from('recorded_run_photos')
+    .select('id, storage_path, lat, lng, captured_at')
+    .eq('run_id', runId)
+    .order('captured_at', { ascending: true });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as RunPhotoRow[]).map((r) => ({
+    id: r.id,
+    storagePath: r.storage_path,
+    imageUrl: publicUrl(r.storage_path),
+    lat: r.lat,
+    lng: r.lng,
+    capturedAt: new Date(r.captured_at).getTime(),
+  }));
 }
 
 export interface UploadRoutePhotoInput {

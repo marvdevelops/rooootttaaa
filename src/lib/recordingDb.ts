@@ -29,6 +29,18 @@ db.execSync(`
 
   CREATE INDEX IF NOT EXISTS idx_points_session
     ON recording_points (session_id, timestamp);
+
+  CREATE TABLE IF NOT EXISTS recording_photos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    uri TEXT NOT NULL,
+    lat REAL,
+    lng REAL,
+    captured_at INTEGER NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_photos_session
+    ON recording_photos (session_id, captured_at);
 `);
 
 // Local-only id, never sent to Supabase directly (the uploaded row gets its
@@ -136,6 +148,52 @@ export function getActiveSession(): RecordingSession | null {
 
 export function deleteSession(sessionId: string) {
   db.runSync('DELETE FROM recording_points WHERE session_id = ?', [sessionId]);
+  db.runSync('DELETE FROM recording_photos WHERE session_id = ?', [sessionId]);
   db.runSync('DELETE FROM recording_session WHERE id = ?', [sessionId]);
   if (getCurrentSessionId() === sessionId) setCurrentSessionId(null);
+}
+
+export interface RecordingPhoto {
+  id: number;
+  uri: string;
+  lat: number | null;
+  lng: number | null;
+  capturedAt: number;
+}
+
+interface PhotoRow {
+  id: number;
+  uri: string;
+  lat: number | null;
+  lng: number | null;
+  captured_at: number;
+}
+
+/** Records an in-run photo against the current session. Photos live on-device
+ * only until the run is saved, then RecordingSummaryScreen uploads them. */
+export function addRecordingPhoto(sessionId: string, uri: string, lat: number | null, lng: number | null) {
+  db.runSync('INSERT INTO recording_photos (session_id, uri, lat, lng, captured_at) VALUES (?, ?, ?, ?, ?)', [
+    sessionId,
+    uri,
+    lat,
+    lng,
+    Date.now(),
+  ]);
+}
+
+export function getRecordingPhotos(sessionId: string): RecordingPhoto[] {
+  const rows = db.getAllSync<PhotoRow>(
+    'SELECT id, uri, lat, lng, captured_at FROM recording_photos WHERE session_id = ? ORDER BY captured_at',
+    [sessionId],
+  );
+  return rows.map((r) => ({ id: r.id, uri: r.uri, lat: r.lat, lng: r.lng, capturedAt: r.captured_at }));
+}
+
+export function deleteRecordingPhoto(id: number) {
+  db.runSync('DELETE FROM recording_photos WHERE id = ?', [id]);
+}
+
+export function countRecordingPhotos(sessionId: string): number {
+  const row = db.getFirstSync<{ n: number }>('SELECT COUNT(*) as n FROM recording_photos WHERE session_id = ?', [sessionId]);
+  return row?.n ?? 0;
 }

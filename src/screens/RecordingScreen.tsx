@@ -7,7 +7,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import AutoPauseBanner from '../components/AutoPauseBanner';
 import DeviationBanner from '../components/DeviationBanner';
 import ElevationProfileChart from '../components/ElevationProfileChart';
-import { CloseIcon, LockIcon, PauseIcon, PlayIcon, ShareIcon } from '../components/icons';
+import { CameraIcon, CloseIcon, LockIcon, PauseIcon, PlayIcon, ShareIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import RecordingMap from '../components/RecordingMap';
 import RecordingStats from '../components/RecordingStats';
@@ -23,6 +23,8 @@ import { endLiveSession, getLiveSessionViewCount, liveTrackingUrl, startLiveSess
 import { useAuth } from '../lib/AuthContext';
 import { logRouteCompletion } from '../utils/completionsApi';
 import { haversineDistance } from '../utils/distance';
+import { capturePhoto } from '../utils/photosApi';
+import { addRecordingPhoto, countRecordingPhotos } from '../lib/recordingDb';
 
 
 const RACE_LIVE_UPDATE_MS = 5_000;
@@ -99,6 +101,12 @@ export default function RecordingScreen({
   const [liveSessionId, setLiveSessionId] = useState<string | null>(initialLiveSessionId ?? null);
   const [startingLiveShare, setStartingLiveShare] = useState(false);
   const [liveViewCount, setLiveViewCount] = useState(0);
+  const [photoCount, setPhotoCount] = useState(0);
+  const [capturingPhoto, setCapturingPhoto] = useState(false);
+
+  useEffect(() => {
+    if (sessionId) setPhotoCount(countRecordingPhotos(sessionId));
+  }, [sessionId]);
 
   useEffect(() => {
     if (!liveSessionId) return;
@@ -392,6 +400,23 @@ export default function RecordingScreen({
     );
   }, [liveShareToken, startingLiveShare, activityType, routeId, handleShareLiveLink, profile?.username]);
 
+  const handleCapturePhoto = useCallback(async () => {
+    if (!sessionId || capturingPhoto) return;
+    setCapturingPhoto(true);
+    try {
+      const photo = await capturePhoto();
+      if (!photo) return;
+      const here = useRecordingStore.getState().lastPoint;
+      addRecordingPhoto(sessionId, photo.uri, here?.lat ?? null, here?.lng ?? null);
+      setPhotoCount((n) => n + 1);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch (e) {
+      Alert.alert('Camera unavailable', e instanceof Error ? e.message : 'Could not take a photo.');
+    } finally {
+      setCapturingPhoto(false);
+    }
+  }, [sessionId, capturingPhoto]);
+
   const handleManualPauseToggle = useCallback(() => {
     if (isPaused) {
       resumeRecording();
@@ -534,6 +559,24 @@ export default function RecordingScreen({
                 )}
               </Pressable>
             )}
+            {sessionId && (
+              <Pressable
+                style={[styles.iconButton, styles.liveShareButton]}
+                onPress={handleCapturePhoto}
+                disabled={capturingPhoto}
+                accessibilityRole="button"
+                accessibilityLabel="Take a photo"
+              >
+                {capturingPhoto ? (
+                  <ActivityIndicator size="small" color={colors.ink} />
+                ) : (
+                  <>
+                    <CameraIcon size={16} />
+                    {photoCount > 0 && <Text style={styles.photoCountText}>{photoCount}</Text>}
+                  </>
+                )}
+              </Pressable>
+            )}
             <Pressable style={styles.iconButton} onPress={() => setLocked(true)}>
               <LockIcon size={16} />
             </Pressable>
@@ -626,6 +669,11 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.white,
+  },
+  photoCountText: {
+    fontFamily: fonts.bold,
+    fontSize: 12,
+    color: colors.ink,
   },
   elevationToggleGlyph: {
     fontSize: 16,

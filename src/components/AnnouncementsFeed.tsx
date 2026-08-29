@@ -1,8 +1,10 @@
+import { Image } from 'expo-image';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { TrashIcon } from './icons';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { CameraIcon, CloseIcon, TrashIcon } from './icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { Announcement } from '../utils/announcementsApi';
+import { pickPostImages } from '../utils/photosApi';
 
 interface Props {
   posts: Announcement[];
@@ -11,9 +13,13 @@ interface Props {
   canManage: boolean;
   /** Word for the empty state / composer, e.g. "club" or "event". */
   context: string;
-  onCreate: (body: string) => Promise<void>;
+  /** When true, the composer lets the author attach up to 3 images. */
+  allowImages?: boolean;
+  onCreate: (body: string, imageUris: string[]) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
 }
+
+const MAX_IMAGES = 3;
 
 function timeAgo(ms: number): string {
   const min = Math.round((Date.now() - ms) / 60000);
@@ -24,17 +30,28 @@ function timeAgo(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-export default function AnnouncementsFeed({ posts, loading, canManage, context, onCreate, onDelete }: Props) {
+export default function AnnouncementsFeed({ posts, loading, canManage, context, allowImages = false, onCreate, onDelete }: Props) {
   const [draft, setDraft] = useState('');
+  const [images, setImages] = useState<string[]>([]);
   const [posting, setPosting] = useState(false);
+
+  const addImages = async () => {
+    try {
+      const picked = await pickPostImages(MAX_IMAGES - images.length);
+      if (picked.length) setImages((cur) => [...cur, ...picked].slice(0, MAX_IMAGES));
+    } catch (e) {
+      Alert.alert('Could not add images', e instanceof Error ? e.message : 'Try again.');
+    }
+  };
 
   const submit = async () => {
     const body = draft.trim();
-    if (!body || posting) return;
+    if ((!body && images.length === 0) || posting) return;
     setPosting(true);
     try {
-      await onCreate(body);
+      await onCreate(body, images);
       setDraft('');
+      setImages([]);
     } catch (e) {
       Alert.alert('Could not post', e instanceof Error ? e.message : 'Try again.');
     } finally {
@@ -49,6 +66,8 @@ export default function AnnouncementsFeed({ posts, loading, canManage, context, 
     ]);
   };
 
+  const canSubmit = (draft.trim().length > 0 || images.length > 0) && !posting;
+
   return (
     <View style={styles.wrap}>
       {canManage && (
@@ -62,15 +81,48 @@ export default function AnnouncementsFeed({ posts, loading, canManage, context, 
             multiline
             maxLength={2000}
           />
-          <Pressable
-            style={[styles.postButton, (!draft.trim() || posting) && styles.postButtonDisabled]}
-            onPress={submit}
-            disabled={!draft.trim() || posting}
-            accessibilityRole="button"
-            accessibilityLabel="Post update"
-          >
-            {posting ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.postButtonText}>Post</Text>}
-          </Pressable>
+
+          {images.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
+              {images.map((uri) => (
+                <View key={uri} style={styles.previewWrap}>
+                  <Image source={{ uri }} style={styles.preview} contentFit="cover" />
+                  <Pressable
+                    style={styles.previewRemove}
+                    onPress={() => setImages((cur) => cur.filter((u) => u !== uri))}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove image"
+                  >
+                    <CloseIcon size={12} color={colors.white} />
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          <View style={styles.composerActions}>
+            {allowImages && images.length < MAX_IMAGES && (
+              <Pressable
+                style={styles.addImageButton}
+                onPress={addImages}
+                accessibilityRole="button"
+                accessibilityLabel="Add images"
+              >
+                <CameraIcon size={16} color={colors.stone} />
+                <Text style={styles.addImageText}>Add photos</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={[styles.postButton, !canSubmit && styles.postButtonDisabled]}
+              onPress={submit}
+              disabled={!canSubmit}
+              accessibilityRole="button"
+              accessibilityLabel="Post update"
+            >
+              {posting ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.postButtonText}>Post</Text>}
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -93,7 +145,14 @@ export default function AnnouncementsFeed({ posts, loading, canManage, context, 
                 </Pressable>
               )}
             </View>
-            <Text style={styles.postBody}>{p.body}</Text>
+            {p.body.length > 0 && <Text style={styles.postBody}>{p.body}</Text>}
+            {p.imageUrls.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
+                {p.imageUrls.map((uri) => (
+                  <Image key={uri} source={{ uri }} style={styles.postImage} contentFit="cover" />
+                ))}
+              </ScrollView>
+            )}
           </View>
         ))
       )}
@@ -119,8 +178,50 @@ const styles = StyleSheet.create({
     minHeight: 44,
     maxHeight: 140,
   },
+  previewRow: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  previewWrap: {
+    position: 'relative',
+  },
+  preview: {
+    width: 84,
+    height: 84,
+    borderRadius: radii.sm,
+    backgroundColor: colors.cream,
+  },
+  previewRemove: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  composerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  addImageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingRight: 8,
+  },
+  addImageText: {
+    fontFamily: fonts.bold,
+    fontSize: 12.5,
+    color: colors.stone,
+  },
   postButton: {
     alignSelf: 'flex-end',
+    marginLeft: 'auto',
     height: 38,
     paddingHorizontal: 20,
     borderRadius: radii.pill,
@@ -165,5 +266,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.ink,
+  },
+  postImage: {
+    width: 200,
+    height: 200,
+    borderRadius: radii.sm,
+    backgroundColor: colors.cream,
   },
 });

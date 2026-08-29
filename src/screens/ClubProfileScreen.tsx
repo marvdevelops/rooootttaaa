@@ -13,7 +13,7 @@ import {
 import { BackIcon, CalendarIcon, LockIcon, UsersIcon } from '../components/icons';
 import { useAuth } from '../lib/AuthContext';
 import AnnouncementsFeed from '../components/AnnouncementsFeed';
-import { Announcement, createClubPost, deleteClubPost, listClubPosts } from '../utils/announcementsApi';
+import { Announcement, createClubPost, deleteClubPost, listClubPosts, uploadClubPostImages } from '../utils/announcementsApi';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { GroupRun } from '../types/route';
 import { RunClub } from '../types/club';
@@ -269,8 +269,10 @@ export default function ClubProfileScreen({
               loading={postsLoading}
               canManage={isAdmin}
               context="club"
-              onCreate={async (body) => {
-                await createClubPost(club.id, body);
+              allowImages
+              onCreate={async (body, imageUris) => {
+                const paths = await uploadClubPostImages(imageUris);
+                await createClubPost(club.id, body, paths);
                 refreshPosts();
               }}
               onDelete={async (id) => {

@@ -1,10 +1,12 @@
 import { File, Paths } from 'expo-file-system';
+import { Image } from 'expo-image';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RecordingMap from '../components/RecordingMap';
 import { BackIcon, CompassIcon, ExportIcon, TrashIcon } from '../components/icons';
+import { listRunPhotos, RunPhoto } from '../utils/photosApi';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType } from '../types/route';
 import { formatDuration } from '../utils/completionsApi';
@@ -47,6 +49,7 @@ export default function RecordedRunDetailScreen({ runId, onClose, onOpenRoute, o
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [photos, setPhotos] = useState<RunPhoto[]>([]);
 
   useEffect(() => {
     setLoading(true);
@@ -55,6 +58,7 @@ export default function RecordedRunDetailScreen({ runId, onClose, onOpenRoute, o
       .then(setRun)
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load this run.'))
       .finally(() => setLoading(false));
+    listRunPhotos(runId).then(setPhotos).catch(() => setPhotos([]));
   }, [runId]);
 
   const handleExportGpx = useCallback(async () => {
@@ -150,6 +154,14 @@ export default function RecordedRunDetailScreen({ runId, onClose, onOpenRoute, o
                 <Text style={[styles.statLabel, styles.statLabelOnColor]}>ELEVATION</Text>
               </View>
             </View>
+
+            {photos.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photosRow}>
+                {photos.map((p) => (
+                  <Image key={p.id} source={{ uri: p.imageUrl }} style={styles.photoThumb} contentFit="cover" />
+                ))}
+              </ScrollView>
+            )}
 
             {run.splits.length > 0 && (
               <View style={styles.splitsCard}>
@@ -301,6 +313,16 @@ const styles = StyleSheet.create({
   },
   statLabelOnColor: {
     color: 'rgba(255,255,255,0.85)',
+  },
+  photosRow: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  photoThumb: {
+    width: 108,
+    height: 144,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
   },
   splitsCard: {
     backgroundColor: colors.surface,

@@ -1,11 +1,13 @@
 import { File, Paths } from 'expo-file-system';
+import { Image } from 'expo-image';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import RecordingMap from '../components/RecordingMap';
 import { BackIcon, ExportIcon, TrashIcon } from '../components/icons';
-import { deleteSession, getSessionPoints } from '../lib/recordingDb';
+import { deleteSession, getRecordingPhotos, getSessionPoints } from '../lib/recordingDb';
+import { uploadRunPhoto } from '../utils/photosApi';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ActivityType } from '../types/route';
 import { formatDuration } from '../utils/completionsApi';
@@ -44,6 +46,7 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
   const [discarding, setDiscarding] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [refiningElevation, setRefiningElevation] = useState(false);
+  const [photos] = useState(() => getRecordingPhotos(sessionId));
 
   useEffect(() => {
     const initial = summarizeSession(sessionId);
@@ -64,6 +67,13 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
     setSaving(true);
     try {
       const { recordedRunId } = await uploadRecording(summary, activityType, routeId, startedAt);
+
+      // In-run photos, uploaded after the run row exists so they can link to
+      // it. Best-effort — a failed photo shouldn't undo a saved run.
+      for (const p of photos) {
+        await uploadRunPhoto(recordedRunId, { uri: p.uri, lat: p.lat, lng: p.lng, capturedAt: p.capturedAt }).catch(() => {});
+      }
+
       if (raceRsvpId) {
         // Non-fatal — the run itself is already saved; a failed race link
         // just means the finish screen/share card won't have this run's
@@ -83,7 +93,7 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
     } finally {
       setSaving(false);
     }
-  }, [summary, activityType, routeId, startedAt, raceRsvpId, onRaceFinished, onActivityFinished, sessionId, onDone]);
+  }, [summary, activityType, routeId, startedAt, raceRsvpId, onRaceFinished, onActivityFinished, sessionId, onDone, photos]);
 
   const handleExportGpx = useCallback(async () => {
     setExporting(true);
@@ -167,6 +177,17 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
           <View style={styles.refiningRow}>
             <ActivityIndicator size="small" color={colors.stone} />
             <Text style={styles.refiningText}>Refining elevation data…</Text>
+          </View>
+        )}
+
+        {photos.length > 0 && (
+          <View>
+            <Text style={styles.photosLabel}>{photos.length} photo{photos.length === 1 ? '' : 's'} from this {ACTIVITY_LABEL[activityType].toLowerCase()}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photosRow}>
+              {photos.map((p) => (
+                <Image key={p.id} source={{ uri: p.uri }} style={styles.photoThumb} contentFit="cover" />
+              ))}
+            </ScrollView>
           </View>
         )}
 
@@ -275,6 +296,22 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
     fontSize: 12.5,
     color: colors.stone,
+  },
+  photosLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.ink,
+    marginBottom: 8,
+  },
+  photosRow: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  photoThumb: {
+    width: 108,
+    height: 144,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
   },
   splitsCard: {
     backgroundColor: colors.surface,
