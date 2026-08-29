@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { GroupRun, GroupRunParticipant, GroupRunStatus, RaceCategorySummary, RaceEventSummary, RsvpStatus } from '../types/route';
+import { ActivityType, GroupRun, GroupRunParticipant, GroupRunStatus, RaceCategorySummary, RaceEventSummary, RsvpStatus } from '../types/route';
 import { track } from '../lib/analytics';
 import { OFFICIAL_ACCOUNT_ID } from '../constants/officialAccount';
 
@@ -21,6 +21,7 @@ interface GroupRunRow {
   series_id: string | null;
   category: 'training' | 'race';
   visibility: 'public' | 'club';
+  activity_type: ActivityType;
   routes: { name: string; distance_km: number } | { name: string; distance_km: number }[] | null;
   profiles: { username: string } | { username: string }[] | null;
   run_clubs: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[] | null;
@@ -78,6 +79,7 @@ function buildGroupRun(
     seriesId: row.series_id,
     category: row.category,
     visibility: row.visibility ?? 'public',
+    activityType: row.activity_type ?? 'run',
   };
 }
 
@@ -155,6 +157,8 @@ export interface CreateGroupRunInput {
   clubId?: string | null;
   /** 'club' = only members of `clubId` can see it (requires clubId). Defaults to 'public'. */
   visibility?: 'public' | 'club';
+  /** What the event is — run / trail_run / walk / hike / bike. Defaults to the route's own type upstream. */
+  activityType?: ActivityType;
   /** Only the official Rootah account is allowed to set this — enforced server-side by the group_runs insert RLS policy. */
   race?: RaceMetaInput | null;
 }
@@ -175,6 +179,7 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
       club_id: input.clubId ?? null,
       category: input.race ? 'race' : 'training',
       visibility: input.clubId && input.visibility === 'club' ? 'club' : 'public',
+      activity_type: input.activityType ?? 'run',
     })
     .select(GROUP_RUN_SELECT)
     .single();
@@ -215,6 +220,7 @@ export interface UpdateGroupRunInput {
   maxParticipants: number | null;
   /** Change who can see the event. 'club' only allowed on events that belong to a club. */
   visibility?: 'public' | 'club';
+  activityType?: ActivityType;
   /** Only relevant for races (category is set at creation and isn't editable here) — updates race_details. */
   race?: RaceMetaInput | null;
 }
@@ -231,6 +237,7 @@ export async function updateGroupRun(id: string, input: UpdateGroupRunInput): Pr
       scheduled_at: input.scheduledAt.toISOString(),
       max_participants: input.maxParticipants,
       ...(input.visibility ? { visibility: input.visibility } : {}),
+      ...(input.activityType ? { activity_type: input.activityType } : {}),
     })
     .eq('id', id)
     .select(GROUP_RUN_SELECT)

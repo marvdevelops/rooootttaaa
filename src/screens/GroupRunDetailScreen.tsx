@@ -28,6 +28,7 @@ import { useAuth } from '../lib/AuthContext';
 import { useUserTier } from '../hooks/useUserTier';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import {
+  ActivityType,
   CloudRoute,
   GroupRun,
   GroupRunComment,
@@ -69,6 +70,15 @@ const MAX_DEPTH = 2;
 // Matches OFFICIAL_ACCOUNT_ID in App.tsx and scripts/createRace.ts — kept
 // duplicated rather than threaded through props for this one gate.
 const OFFICIAL_ACCOUNT_ID = 'f9808b4f-125a-4841-bf5e-b244d9f6cf1f';
+
+const ACTIVITY_LABEL: Record<ActivityType, string> = {
+  run: 'Run',
+  trail_run: 'Trail run',
+  hike: 'Hike',
+  bike: 'Bike',
+  walk: 'Walk',
+  other: 'Activity',
+};
 
 interface Props {
   groupRunId: string;
@@ -381,6 +391,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       _recurrence: RecurrenceInput | null,
       race: RaceInput | null,
       visibility: 'public' | 'club' = 'public',
+      activityType: ActivityType = 'run',
     ) => {
       if (!groupRun) return;
       setSavingEdit(true);
@@ -391,6 +402,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
           scheduledAt,
           maxParticipants,
           visibility: groupRun.clubId ? visibility : undefined,
+          activityType,
           race: race
             ? {
                 raceDate: race.raceDate,
@@ -821,9 +833,14 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                 </Pressable>
               )}
 
-              <View style={styles.whenBadge}>
-                <CalendarIcon size={13} />
-                <Text style={styles.whenText}>{formatWhen(groupRun.scheduledAt)}</Text>
+              <View style={styles.eventBadgeRow}>
+                <View style={styles.whenBadge}>
+                  <CalendarIcon size={13} />
+                  <Text style={styles.whenText}>{formatWhen(groupRun.scheduledAt)}</Text>
+                </View>
+                <View style={styles.eventActivityBadge}>
+                  <Text style={styles.eventActivityBadgeText}>{ACTIVITY_LABEL[groupRun.activityType]}</Text>
+                </View>
               </View>
               <Text style={styles.eventTitle}>{groupRun.title}</Text>
               <View style={styles.eventRouteRow}>
@@ -1125,6 +1142,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
             scheduledAt: new Date(groupRun.scheduledAt),
             maxParticipants: groupRun.maxParticipants,
             visibility: groupRun.visibility,
+            activityType: groupRun.activityType,
             raceDate: raceDetails ? new Date(`${raceDetails.raceDate}T00:00:00`) : null,
             organizerName: raceDetails?.organizerName ?? '',
             organizerLogoUrl: raceDetails?.organizerLogoUrl ?? '',
@@ -1415,6 +1433,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.ink,
   },
+  eventBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   whenBadge: {
     flexDirection: 'row',
     alignSelf: 'flex-start',
@@ -1424,7 +1448,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.xs,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    marginBottom: 4,
+  },
+  eventActivityBadge: {
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  eventActivityBadgeText: {
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.08 * 9,
+    textTransform: 'uppercase',
+    color: colors.ink,
   },
   whenText: {
     fontFamily: fonts.bold,

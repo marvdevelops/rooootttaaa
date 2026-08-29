@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
+import { ActivityType } from '../types/route';
 import { RecurrenceFrequency } from '../types/recurringSeries';
 import { CloseIcon, LockIcon } from './icons';
 import { UserTier } from '../hooks/useUserTier';
@@ -33,11 +34,20 @@ export interface RecurrenceInput {
   endDate: Date | null;
 }
 
+const EVENT_ACTIVITIES: { value: ActivityType; label: string }[] = [
+  { value: 'run', label: 'Run' },
+  { value: 'trail_run', label: 'Trail run' },
+  { value: 'walk', label: 'Walk' },
+  { value: 'hike', label: 'Hike' },
+  { value: 'bike', label: 'Bike' },
+];
+
 export interface EditingGroupRun {
   title: string;
   description: string;
   scheduledAt: Date;
   maxParticipants: number | null;
+  activityType?: ActivityType;
   /** Current visibility — only meaningful when the event belongs to a club. */
   visibility?: 'public' | 'club';
   /** Set when the event being edited is a race — shows the race-day picker and branding fields without the "make this a race" toggle (category isn't editable after creation). */
@@ -68,6 +78,8 @@ interface Props {
   editing?: EditingGroupRun | null;
   /** True when this event belongs to a run club — unlocks the public / club-only visibility choice. */
   clubEvent?: boolean;
+  /** Seeds the activity picker when creating (typically the picked route's own type). */
+  defaultActivityType?: ActivityType;
   /** Present when creating a NEW distance category for an existing multi-distance event — seeds the race toggle on and its branding/date fields (read-only there, since every category shares one event's identity) while leaving title/route to be picked fresh. Ignored when `editing` is set. */
   prefillRace?: RacePrefill | null;
   onClose: () => void;
@@ -79,6 +91,7 @@ interface Props {
     recurrence: RecurrenceInput | null,
     race: RaceInput | null,
     visibility: 'public' | 'club',
+    activityType: ActivityType,
   ) => void;
   onRequirePaywall: () => void;
 }
@@ -113,6 +126,7 @@ export default function ScheduleGroupRunModal({
   isOfficialAccount,
   editing,
   clubEvent,
+  defaultActivityType,
   prefillRace,
   onClose,
   onSchedule,
@@ -132,6 +146,7 @@ export default function ScheduleGroupRunModal({
   const [eventBannerUrl, setEventBannerUrl] = useState('');
   const [eventLogoUrl, setEventLogoUrl] = useState('');
   const [clubOnly, setClubOnly] = useState(false);
+  const [activity, setActivity] = useState<ActivityType>('run');
 
   // Only reset fields on the closed->open transition — `editing` is a fresh
   // object literal from the caller on every render (GroupRunDetailScreen
@@ -157,9 +172,10 @@ export default function ScheduleGroupRunModal({
       setEventLogoUrl(editing?.eventLogoUrl ?? prefillRace?.eventLogoUrl ?? '');
       setRaceDate(editing?.raceDate ?? prefillRace?.raceDate ?? defaultTime());
       setClubOnly(editing?.visibility === 'club');
+      setActivity(editing?.activityType ?? defaultActivityType ?? 'run');
     }
     wasVisible.current = visible;
-  }, [visible, editing, prefillRace]);
+  }, [visible, editing, prefillRace, defaultActivityType]);
 
   const handleToggleRecurrence = (v: boolean) => {
     if (v && tier === 'free') {
@@ -208,6 +224,25 @@ export default function ScheduleGroupRunModal({
                 maxLength={60}
               />
             </View>
+
+            {!prefillRace && (
+              <View>
+                <Text style={styles.label}>ACTIVITY</Text>
+                <View style={styles.activityRow}>
+                  {EVENT_ACTIVITIES.map((opt) => (
+                    <Pressable
+                      key={opt.value}
+                      style={[styles.activityChip, activity === opt.value && styles.activityChipActive]}
+                      onPress={() => setActivity(opt.value)}
+                    >
+                      <Text style={[styles.activityChipText, activity === opt.value && styles.activityChipTextActive]}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
 
             <View>
               <Text style={styles.label}>DETAILS</Text>
@@ -449,6 +484,7 @@ export default function ScheduleGroupRunModal({
                       }
                     : null,
                   clubEvent && clubOnly ? 'club' : 'public',
+                  activity,
                 )
               }
               disabled={!title.trim() || isSaving}
@@ -619,6 +655,31 @@ const styles = StyleSheet.create({
   },
   recurrenceDetailsDisabled: {
     opacity: 0.5,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  activityChip: {
+    paddingHorizontal: 14,
+    height: 38,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...elevation('subtle'),
+  },
+  activityChipActive: {
+    backgroundColor: colors.coral,
+  },
+  activityChipText: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.ink,
+  },
+  activityChipTextActive: {
+    color: colors.white,
   },
   frequencyRow: {
     flexDirection: 'row',

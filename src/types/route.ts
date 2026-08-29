@@ -151,6 +151,8 @@ export interface GroupRun {
   category: 'training' | 'race';
   /** 'club' = visible only to members of `clubId` (and the host / people already in). 'public' = discoverable by anyone. */
   visibility: 'public' | 'club';
+  /** What the event is — set at creation, independent of the route's own type. */
+  activityType: ActivityType;
 }
 
 export interface RaceDetails {

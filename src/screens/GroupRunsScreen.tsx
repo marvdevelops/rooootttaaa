@@ -3,8 +3,17 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BackIcon, CalendarIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
-import { GroupRun } from '../types/route';
+import { ActivityType, GroupRun } from '../types/route';
 import { FreeJoinLimitError, listUpcomingGroupRuns, setGroupRunRsvp } from '../utils/groupRunsApi';
+
+const ACTIVITY_LABEL: Record<ActivityType, string> = {
+  run: 'Run',
+  trail_run: 'Trail run',
+  hike: 'Hike',
+  bike: 'Bike',
+  walk: 'Walk',
+  other: 'Activity',
+};
 
 interface Props {
   onClose: () => void;
@@ -171,6 +180,11 @@ export default function GroupRunsScreen({ onClose, onOpenGroupRun, onRequirePayw
                 <CalendarIcon size={13} />
                 <Text style={styles.whenText}>{formatWhen(item.scheduledAt)}</Text>
               </View>
+              {item.category !== 'race' && (
+                <View style={styles.activityBadge}>
+                  <Text style={styles.activityBadgeText}>{ACTIVITY_LABEL[item.activityType]}</Text>
+                </View>
+              )}
             </View>
             <Text style={styles.cardTitle} numberOfLines={1}>
               {item.title}
@@ -334,7 +348,22 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginBottom: 4,
+  },
+  activityBadge: {
+    backgroundColor: 'rgba(0,0,0,0.06)',
+    borderRadius: radii.xs,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  activityBadgeText: {
+    fontFamily: fonts.bold,
+    fontSize: 9,
+    letterSpacing: 0.08 * 9,
+    textTransform: 'uppercase',
+    color: colors.ink,
   },
   whenBadge: {
     flexDirection: 'row',

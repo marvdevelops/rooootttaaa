@@ -526,12 +526,16 @@ export default function RouteDetailScreen({
       scheduledAt: Date,
       maxParticipants: number | null,
       recurrence: RecurrenceInput | null,
+      _race: unknown,
+      _visibility: unknown,
+      activityType: ActivityType = route.activityType,
     ) => {
       setIsScheduling(true);
       try {
         if (recurrence) {
           await createSeries({
             routeId: route.id,
+            activityType,
             title,
             description,
             firstOccurrenceAt: scheduledAt,
@@ -539,7 +543,7 @@ export default function RouteDetailScreen({
             endDate: recurrence.endDate,
           });
         } else {
-          await createGroupRun({ routeId: route.id, title, description, scheduledAt, maxParticipants });
+          await createGroupRun({ routeId: route.id, activityType, title, description, scheduledAt, maxParticipants });
         }
         setShowScheduleModal(false);
         refreshGroupRuns();
@@ -550,7 +554,7 @@ export default function RouteDetailScreen({
         setIsScheduling(false);
       }
     },
-    [route.id, refreshGroupRuns, notificationPrePermission.maybePrompt],
+    [route.id, route.activityType, refreshGroupRuns, notificationPrePermission.maybePrompt],
   );
 
   const handleToggleRsvp = useCallback(
@@ -1118,6 +1122,7 @@ export default function RouteDetailScreen({
         visible={showScheduleModal}
         isSaving={isScheduling}
         tier={tier}
+        defaultActivityType={route.activityType}
         onClose={() => setShowScheduleModal(false)}
         onSchedule={handleSchedule}
         onRequirePaywall={() => onRequirePaywall('group_run_limit')}

@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { RecurrenceFrequency, RecurringSeries } from '../types/recurringSeries';
-import { GroupRun } from '../types/route';
+import { ActivityType, GroupRun } from '../types/route';
 
 interface SeriesRow {
   id: string;
@@ -42,6 +42,7 @@ export interface CreateSeriesInput {
   clubId?: string | null;
   /** 'club' hides the series (and every occurrence it generates) from non-members. Requires clubId. */
   visibility?: 'public' | 'club';
+  activityType?: ActivityType;
   title: string;
   description: string;
   /** The first occurrence's date + time — sets series_start_date, day_of_week/day_of_month, and start_time. */
@@ -70,6 +71,7 @@ export async function createSeries(input: CreateSeriesInput): Promise<RecurringS
       route_id: input.routeId,
       club_id: input.clubId ?? null,
       visibility: input.clubId && input.visibility === 'club' ? 'club' : 'public',
+      activity_type: input.activityType ?? 'run',
       title: input.title,
       description: input.description,
       start_time: toTimeString(input.firstOccurrenceAt),

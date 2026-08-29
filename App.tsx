@@ -170,6 +170,7 @@ function AuthedApp({
   // "Create event" flow — a non-null value drives the top-level schedule
   // modal regardless of which overlay is currently showing underneath it.
   const [eventRouteId, setEventRouteId] = useState<string | null>(null);
+  const [eventRouteActivityType, setEventRouteActivityType] = useState<ActivityType>('run');
   // Set when the "Create event" flow was launched from a club's Events tab —
   // tags the resulting group run to that club.
   const [eventClubId, setEventClubId] = useState<string | null>(null);
@@ -460,6 +461,7 @@ function AuthedApp({
 
   const handleSelectEventRoute = useCallback((route: CloudRoute) => {
     setEventRouteId(route.id);
+    setEventRouteActivityType(route.activityType);
     setOverlay(null);
   }, []);
 
@@ -597,6 +599,7 @@ function AuthedApp({
       recurrence: RecurrenceInput | null,
       race: RaceInput | null,
       visibility: 'public' | 'club' = 'public',
+      activityType: ActivityType = 'run',
     ) => {
       if (!eventRouteId) return;
       setIsSchedulingEvent(true);
@@ -606,6 +609,7 @@ function AuthedApp({
             routeId: eventRouteId,
             clubId: eventClubId,
             visibility,
+            activityType,
             title,
             description,
             firstOccurrenceAt: scheduledAt,
@@ -626,6 +630,7 @@ function AuthedApp({
             maxParticipants,
             clubId: eventClubId,
             visibility,
+            activityType,
             race: race
               ? {
                   raceDate: race.raceDate,
@@ -710,6 +715,7 @@ function AuthedApp({
               if (creatingEventForNewRoute) {
                 setCreatingEventForNewRoute(false);
                 setEventRouteId(route.id);
+                setEventRouteActivityType(route.activityType);
                 setOverlay(null);
                 setDiscoverRefreshSignal((n) => n + 1);
                 return;
@@ -1128,6 +1134,7 @@ function AuthedApp({
         tier={tier}
         isOfficialAccount={session?.user.id === OFFICIAL_ACCOUNT_ID}
         clubEvent={!!eventClubId}
+        defaultActivityType={eventRouteActivityType}
         prefillRace={addCategoryContext?.prefillRace ?? null}
         onClose={() => {
           setEventRouteId(null);

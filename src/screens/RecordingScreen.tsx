@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import AutoPauseBanner from '../components/AutoPauseBanner';
@@ -169,14 +169,18 @@ export default function RecordingScreen({
         }
       })
       .catch((e) => {
-        const message =
-          e instanceof LocationPermissionError
-            ? e.reason === 'foreground-denied'
-              ? 'Rootah needs location access to record.'
-              : "To track your run with the screen off, Rootah needs 'Always' location access."
-            : e instanceof Error
-              ? e.message
-              : 'Failed to start recording.';
+        if (e instanceof LocationPermissionError) {
+          const message =
+            e.reason === 'foreground-denied'
+              ? 'Rootah needs location access to record. Open Settings and set location access to “While Using the App” or “Always”.'
+              : 'To track your run with the screen off, Rootah needs “Always” location access. Open Settings, tap Location, and choose “Always”.';
+          Alert.alert('Location access needed', message, [
+            { text: 'Not now', style: 'cancel', onPress: onDiscard },
+            { text: 'Open Settings', onPress: () => { Linking.openSettings().catch(() => {}); onDiscard(); } },
+          ]);
+          return;
+        }
+        const message = e instanceof Error ? e.message : 'Failed to start recording.';
         Alert.alert('Cannot start recording', message, [{ text: 'OK', onPress: onDiscard }]);
       })
       .finally(() => setStarting(false));
