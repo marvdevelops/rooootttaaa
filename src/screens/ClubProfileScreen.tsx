@@ -10,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { BackIcon, CalendarIcon, LockIcon, UsersIcon } from '../components/icons';
+import { BackIcon, CalendarIcon, LockIcon, MapPinIcon, UsersIcon } from '../components/icons';
 import { useAuth } from '../lib/AuthContext';
 import AnnouncementsFeed from '../components/AnnouncementsFeed';
 import { Announcement, createClubPost, deleteClubPost, listClubPosts, uploadClubPostImages } from '../utils/announcementsApi';
@@ -220,7 +220,12 @@ export default function ClubProfileScreen({
               </Text>
               {club.isPrivate && <LockIcon size={14} color={colors.stone} />}
             </View>
-            {club.city && <Text style={styles.clubMeta}>📍 {club.city}</Text>}
+            {club.city && (
+              <View style={styles.memberCountRow}>
+                <MapPinIcon size={12} color={colors.stone} />
+                <Text style={styles.clubMeta}>{club.city}</Text>
+              </View>
+            )}
             {club.memberCount > 1 && (
               <View style={styles.memberCountRow}>
                 <UsersIcon size={12} color={colors.stone} />

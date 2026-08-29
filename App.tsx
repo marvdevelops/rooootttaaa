@@ -1229,6 +1229,8 @@ function Root() {
         typeof data.run_id === 'string'
       ) {
         setPendingGroupRunId(data.run_id);
+      } else if (data.type === 'event_announcement' && typeof data.group_run_id === 'string') {
+        setPendingGroupRunId(data.group_run_id);
       }
     };
 

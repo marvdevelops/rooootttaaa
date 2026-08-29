@@ -67,7 +67,12 @@ export default function NotificationsScreen({ onClose, onOpenRoute, onOpenGroupR
         typeof data.run_id === 'string'
       ) {
         onOpenGroupRun(data.run_id);
-      } else if (n.type === 'club_join_request' && typeof data.club_id === 'string') {
+      } else if (n.type === 'event_announcement' && typeof data.group_run_id === 'string') {
+        onOpenGroupRun(data.group_run_id);
+      } else if (
+        (n.type === 'club_join_request' || n.type === 'club_announcement') &&
+        typeof data.club_id === 'string'
+      ) {
         onOpenClub(data.club_id);
       }
     },

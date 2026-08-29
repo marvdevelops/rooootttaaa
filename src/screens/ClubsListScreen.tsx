@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { BackIcon, LockIcon, PlusIcon, UsersIcon } from '../components/icons';
+import { BackIcon, LockIcon, MapPinIcon, PlusIcon, UsersIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { RunClub } from '../types/club';
 import { listNearbyClubs } from '../utils/clubsApi';
@@ -119,11 +119,17 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
                   </Text>
                   {item.isPrivate && <LockIcon size={12} color={colors.stone} />}
                 </View>
-                {item.city && <Text style={styles.cardMeta}>📍 {item.city}</Text>}
+                {item.city && (
+                  <View style={styles.cardMetaRow}>
+                    <MapPinIcon size={13} color={colors.stone} />
+                    <Text style={styles.cardMeta}>{item.city}</Text>
+                  </View>
+                )}
                 {item.memberCount > 1 && (
-                  <Text style={styles.cardMeta}>
-                    👥 {item.memberCount} members
-                  </Text>
+                  <View style={styles.cardMetaRow}>
+                    <UsersIcon size={13} color={colors.stone} />
+                    <Text style={styles.cardMeta}>{item.memberCount} members</Text>
+                  </View>
                 )}
               </View>
             </Pressable>
@@ -271,6 +277,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     letterSpacing: -0.3,
     color: colors.ink,
+  },
+  cardMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   cardMeta: {
     fontFamily: fonts.medium,

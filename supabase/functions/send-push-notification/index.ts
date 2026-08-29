@@ -125,7 +125,67 @@ interface FanOutNotification {
   title: string;
   body: string;
   data: Record<string, unknown>;
-  prefColumn: 'club_new_run_enabled' | 'club_join_request_enabled';
+  prefColumn: 'club_new_run_enabled' | 'club_join_request_enabled' | 'announcements_enabled';
+}
+
+function truncate(s: string, n = 140): string {
+  return s.length > n ? `${s.slice(0, n - 1)}…` : s;
+}
+
+/** A club update/announcement — notifies every active club member except the author. */
+async function buildClubAnnouncementNotification(record: Record<string, unknown>): Promise<FanOutNotification | null> {
+  const clubId = record.club_id as string;
+  const authorId = record.author_id as string;
+  const body = (record.body as string) ?? '';
+
+  const { data: club } = await supabase.from('run_clubs').select('name').eq('id', clubId).maybeSingle();
+  if (!club) return null;
+
+  const { data: members } = await supabase
+    .from('club_memberships')
+    .select('user_id')
+    .eq('club_id', clubId)
+    .eq('status', 'active')
+    .neq('user_id', authorId);
+  const recipientIds = (members ?? []).map((m) => m.user_id as string);
+  if (recipientIds.length === 0) return null;
+
+  return {
+    recipientIds,
+    actorId: authorId,
+    title: `${club.name} posted an update`,
+    body: truncate(body),
+    data: { type: 'club_announcement', club_id: clubId, post_id: record.id as string },
+    prefColumn: 'announcements_enabled',
+  };
+}
+
+/** An event/race update — notifies everyone with an approved RSVP except the author. */
+async function buildEventAnnouncementNotification(record: Record<string, unknown>): Promise<FanOutNotification | null> {
+  const groupRunId = record.group_run_id as string;
+  const authorId = record.author_id as string;
+  const body = (record.body as string) ?? '';
+
+  const { data: run } = await supabase.from('group_runs').select('title').eq('id', groupRunId).maybeSingle();
+  if (!run) return null;
+
+  const { data: rsvps } = await supabase
+    .from('group_run_rsvps')
+    .select('user_id')
+    .eq('group_run_id', groupRunId)
+    .eq('status', 'approved')
+    .neq('user_id', authorId);
+  const recipientIds = (rsvps ?? []).map((r) => r.user_id as string);
+  if (recipientIds.length === 0) return null;
+
+  return {
+    recipientIds,
+    actorId: authorId,
+    title: `Update: ${run.title}`,
+    body: truncate(body),
+    data: { type: 'event_announcement', group_run_id: groupRunId, post_id: record.id as string },
+    prefColumn: 'announcements_enabled',
+  };
 }
 
 /** A new group run tagged to a club — notifies every active club member (except the host, who created it). */
@@ -223,6 +283,17 @@ async function insertNotification(
   await supabase.from('notifications').insert({ recipient_id: recipientId, actor_id: actorId, type, title, body, data });
 }
 
+/** Delivers a fan-out notification to each recipient, honouring blocks + prefs. */
+async function runFanOut(fanOut: FanOutNotification | null): Promise<void> {
+  if (!fanOut) return;
+  for (const recipientId of fanOut.recipientIds) {
+    if (await isBlocked(recipientId, fanOut.actorId)) continue;
+    if (!(await isPreferenceEnabled(recipientId, fanOut.prefColumn))) continue;
+    await insertNotification(recipientId, fanOut.actorId, fanOut.data.type as string, fanOut.title, fanOut.body, fanOut.data);
+    await sendAndCleanup(recipientId, fanOut.title, fanOut.body, fanOut.data);
+  }
+}
+
 async function sendAndCleanup(recipientId: string, title: string, body: string, data: Record<string, unknown>) {
   const { data: tokens } = await supabase.from('push_tokens').select('id, token').eq('user_id', recipientId);
   if (!tokens || tokens.length === 0) return;
@@ -273,30 +344,22 @@ serve(async (req) => {
   }
 
   if (payload.type === 'INSERT' && payload.table === 'group_runs') {
-    const fanOut = await buildClubNewRunNotification(payload.record);
-    if (fanOut) {
-      for (const recipientId of fanOut.recipientIds) {
-        if (await isBlocked(recipientId, fanOut.actorId)) continue;
-        if (await isPreferenceEnabled(recipientId, fanOut.prefColumn)) {
-          await insertNotification(recipientId, fanOut.actorId, fanOut.data.type as string, fanOut.title, fanOut.body, fanOut.data);
-          await sendAndCleanup(recipientId, fanOut.title, fanOut.body, fanOut.data);
-        }
-      }
-    }
+    await runFanOut(await buildClubNewRunNotification(payload.record));
+    return new Response('OK', { status: 200 });
+  }
+
+  if (payload.type === 'INSERT' && payload.table === 'club_posts') {
+    await runFanOut(await buildClubAnnouncementNotification(payload.record));
+    return new Response('OK', { status: 200 });
+  }
+
+  if (payload.type === 'INSERT' && payload.table === 'group_run_posts') {
+    await runFanOut(await buildEventAnnouncementNotification(payload.record));
     return new Response('OK', { status: 200 });
   }
 
   if (payload.type === 'INSERT' && payload.table === 'club_memberships') {
-    const fanOut = await buildClubJoinRequestNotification(payload.record);
-    if (fanOut) {
-      for (const recipientId of fanOut.recipientIds) {
-        if (await isBlocked(recipientId, fanOut.actorId)) continue;
-        if (await isPreferenceEnabled(recipientId, fanOut.prefColumn)) {
-          await insertNotification(recipientId, fanOut.actorId, fanOut.data.type as string, fanOut.title, fanOut.body, fanOut.data);
-          await sendAndCleanup(recipientId, fanOut.title, fanOut.body, fanOut.data);
-        }
-      }
-    }
+    await runFanOut(await buildClubJoinRequestNotification(payload.record));
     return new Response('OK', { status: 200 });
   }
 

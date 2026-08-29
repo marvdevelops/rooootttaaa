@@ -198,6 +198,20 @@ export function UsersIcon({ size = 18, color = colors.ink }: { size?: number; co
   );
 }
 
+export function MapPinIcon({ size = 14, color = colors.stone }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 21c4.5-4.2 7-7.8 7-11a7 7 0 10-14 0c0 3.2 2.5 6.8 7 11z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <Path d="M12 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" stroke={color} strokeWidth={1.8} />
+    </Svg>
+  );
+}
+
 export function GearIcon({ size = 20, color = colors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
