@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 import { activityLabel, toLiveSession, type LiveSession, type LiveSessionRow } from '../../lib/liveSessionsApi';
 import LiveMapClient from './LiveMapClient';
@@ -63,6 +62,16 @@ function meta(title: string, description: string, token: string): Metadata {
 }
 
 export async function buildLiveMetadata(token: string): Promise<Metadata> {
+  try {
+    return await buildLiveMetadataInner(token);
+  } catch {
+    // Never let a metadata error bubble — Next would silently fall back to the
+    // site's default card, which is exactly the bug this route exists to fix.
+    return meta('Live activity on Rootah', 'Follow this activity live on the map.', token);
+  }
+}
+
+async function buildLiveMetadataInner(token: string): Promise<Metadata> {
   const race = await fetchRacePosition(token);
   if (race) {
     const done = race.finish_time_seconds != null;
@@ -97,11 +106,11 @@ export async function buildLiveMetadata(token: string): Promise<Metadata> {
         );
   }
 
-  return {
-    title: 'This live link isn’t active',
-    description: 'The activity has ended or the link has expired.',
-    ...NOINDEX,
-  };
+  return meta(
+    'This live link isn’t active',
+    'The activity has ended or the link has expired.',
+    token,
+  );
 }
 
 export async function renderLivePage(token: string) {
@@ -135,7 +144,44 @@ export async function renderLivePage(token: string) {
     return <LiveSessionClient token={token} initial={session} />;
   }
 
-  notFound();
+  // Dead / expired token — a friendly branded page rather than a bare 404, so
+  // an old shared link still lands somewhere that makes sense.
+  return (
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        padding: 24,
+        textAlign: 'center',
+        background: 'var(--cream, #F2EDE5)',
+        color: 'var(--ink, #1A1614)',
+      }}
+    >
+      <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>This live link isn’t active</h1>
+      <p style={{ fontSize: 15, color: 'var(--stone, #8C8078)', margin: 0, maxWidth: 320 }}>
+        The activity has ended or the link has expired.
+      </p>
+      <a
+        href="https://rootah.com/#download"
+        style={{
+          marginTop: 8,
+          padding: '12px 22px',
+          borderRadius: 999,
+          background: 'var(--coral, #E84B2A)',
+          color: '#fff',
+          fontWeight: 700,
+          fontSize: 14,
+          textDecoration: 'none',
+        }}
+      >
+        Get Rootah
+      </a>
+    </div>
+  );
 }
 
 export { activityLabel };
