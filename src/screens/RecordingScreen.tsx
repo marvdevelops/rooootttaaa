@@ -21,6 +21,7 @@ import { buildRouteProgressIndex, findNextClimb, getRouteProgress, UpcomingClimb
 import { getRaceShareToken, startRaceRun, updateRaceLivePosition } from '../utils/racesApi';
 import { endLiveSession, liveTrackingUrl, startLiveSession, updateLivePosition } from '../utils/liveTrackingApi';
 import { useAuth } from '../lib/AuthContext';
+import { logRouteCompletion } from '../utils/completionsApi';
 import { haversineDistance } from '../utils/distance';
 
 
@@ -388,9 +389,15 @@ export default function RecordingScreen({
     const finishedSessionId = sessionId;
     const startedAtValue = startedAt ?? Date.now();
     if (liveSessionId) endLiveSession(liveSessionId).catch(() => {});
+    // Finishing a recorded run that was following a saved route counts as
+    // "I ran this route" — log the completion with the real elapsed time.
+    // Races have their own completion path (finishRaceRun), so skip those.
+    if (routeId && !raceRsvpId) {
+      logRouteCompletion(routeId, { source: 'recording', durationSeconds: elapsedSeconds }).catch(() => {});
+    }
     await finishRecording(finishedSessionId);
     onFinish({ id: finishedSessionId, activityType, routeId: routeId ?? null, startedAt: startedAtValue, status: 'finished' });
-  }, [sessionId, startedAt, finishRecording, onFinish, activityType, routeId, liveSessionId]);
+  }, [sessionId, startedAt, finishRecording, onFinish, activityType, routeId, liveSessionId, raceRsvpId, elapsedSeconds]);
 
   const handleFinish = useCallback(() => {
     if (!sessionId) return;

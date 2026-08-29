@@ -8,6 +8,14 @@ import { RecordingPoint } from '../types/recording';
 // this keeps re-renders of a long recording's polyline cheap.
 const MAX_LIVE_PATH_POINTS = 5000;
 
+// Raw GPS/barometric altitude jitters several metres between fixes. The live
+// gain counter uses simple hysteresis — only bank a climb once you're this
+// far above the last locked-in altitude, and re-baseline on an equivalent
+// drop — so idle wiggle doesn't inflate the number. The final saved figure
+// (recordingUpload.summarizeSession) recomputes this properly from the
+// smoothed full-resolution track.
+const LIVE_ELEVATION_HYSTERESIS_METERS = 4;
+
 interface RecordingStoreState {
   isRecording: boolean;
   isPaused: boolean;
@@ -15,6 +23,8 @@ interface RecordingStoreState {
   startedAt: number | null;
   distanceMeters: number;
   elevationGainMeters: number;
+  /** Last altitude the live gain counter locked in — its hysteresis baseline. */
+  committedAltitude: number | null;
   lastPoint: RecordingPoint | null;
   pointCount: number;
   /** Non-paused points only, for drawing the live track on the map. */
@@ -33,6 +43,7 @@ const initial = {
   startedAt: null as number | null,
   distanceMeters: 0,
   elevationGainMeters: 0,
+  committedAltitude: null as number | null,
   lastPoint: null as RecordingPoint | null,
   pointCount: 0,
   livePath: [] as LatLng[],
@@ -50,14 +61,22 @@ export const useRecordingStore = create<RecordingStoreState>((set, get) => ({
 
     let distanceMeters = state.distanceMeters;
     let elevationGainMeters = state.elevationGainMeters;
+    let committedAltitude = state.committedAltitude;
 
     if (!point.isPaused && state.lastPoint && !state.lastPoint.isPaused) {
       distanceMeters += haversineDistance(
         { latitude: state.lastPoint.lat, longitude: state.lastPoint.lng },
         { latitude: point.lat, longitude: point.lng },
       );
-      if (state.lastPoint.altitude !== null && point.altitude !== null && point.altitude > state.lastPoint.altitude) {
-        elevationGainMeters += point.altitude - state.lastPoint.altitude;
+      if (point.altitude !== null) {
+        if (committedAltitude === null) {
+          committedAltitude = point.altitude;
+        } else if (point.altitude - committedAltitude >= LIVE_ELEVATION_HYSTERESIS_METERS) {
+          elevationGainMeters += point.altitude - committedAltitude;
+          committedAltitude = point.altitude;
+        } else if (committedAltitude - point.altitude >= LIVE_ELEVATION_HYSTERESIS_METERS) {
+          committedAltitude = point.altitude;
+        }
       }
     }
 
@@ -67,7 +86,7 @@ export const useRecordingStore = create<RecordingStoreState>((set, get) => ({
       if (livePath.length > MAX_LIVE_PATH_POINTS) livePath = livePath.slice(livePath.length - MAX_LIVE_PATH_POINTS);
     }
 
-    set({ distanceMeters, elevationGainMeters, lastPoint: point, pointCount: state.pointCount + 1, livePath });
+    set({ distanceMeters, elevationGainMeters, committedAltitude, lastPoint: point, pointCount: state.pointCount + 1, livePath });
   },
 
   setPaused: (isPaused) => set({ isPaused }),

@@ -1,4 +1,4 @@
-import { Camera, LineLayer, MapView, ShapeSource, StyleURL, UserLocation } from '@rnmapbox/maps';
+import { Camera, LineLayer, MapView, ShapeSource, StyleURL, UserLocation, UserTrackingMode } from '@rnmapbox/maps';
 import type { Feature, LineString } from 'geojson';
 import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -65,7 +65,15 @@ export default function RecordingMap({ livePath, plannedPath, isLive = true }: P
         pitchEnabled={!isLive}
       >
         {isLive ? (
-          <Camera followUserLocation followZoomLevel={17} followPitch={0} animationDuration={500} />
+          // "course" keeps the map rotated so the direction you're heading is
+          // always up — like Strava / Google Maps navigation.
+          <Camera
+            followUserLocation
+            followUserMode={UserTrackingMode.FollowWithCourse}
+            followZoomLevel={17}
+            followPitch={0}
+            animationDuration={500}
+          />
         ) : (
           reviewBounds && (
             <Camera
