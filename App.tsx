@@ -877,6 +877,7 @@ function AuthedApp({
             activityType={recordingActivityType}
             routeId={recordingRoute?.id}
             plannedSegments={recordingRoute?.segments}
+            plannedElevationPath={recordingRoute?.elevationProfile}
             alreadyStarted={resumedRecording}
             raceRsvpId={recordingRaceRsvpId ?? undefined}
             initialLiveSessionId={recordingLiveSession?.id}

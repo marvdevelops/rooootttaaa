@@ -7,7 +7,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import AutoPauseBanner from '../components/AutoPauseBanner';
 import DeviationBanner from '../components/DeviationBanner';
 import ElevationProfileChart from '../components/ElevationProfileChart';
-import { CameraIcon, CloseIcon, LockIcon, PauseIcon, PlayIcon, ShareIcon } from '../components/icons';
+import { CameraIcon, CloseIcon, LockIcon, PauseIcon, PlayIcon, ShareIcon, TerrainIcon } from '../components/icons';
 import Logo from '../components/Logo';
 import RecordingMap from '../components/RecordingMap';
 import RecordingStats from '../components/RecordingStats';
@@ -15,7 +15,7 @@ import RouteAheadPanel from '../components/RouteAheadPanel';
 import { useRecording, LocationPermissionError } from '../hooks/useRecording';
 import { useRecordingStore } from '../stores/recordingStore';
 import { colors, elevation, fonts, radii } from '../theme/theme';
-import { ActivityType, RouteSegment } from '../types/route';
+import { ActivityType, PathPoint, RouteSegment } from '../types/route';
 import { RecordingSession } from '../types/recording';
 import { buildRouteProgressIndex, findNextClimb, getRouteProgress, UpcomingClimb } from '../utils/routeProgress';
 import { getRaceShareToken, startRaceRun, updateRaceLivePosition } from '../utils/racesApi';
@@ -48,6 +48,8 @@ interface Props {
   routeId?: string;
   /** Route-aware mode — pass the saved route's segments to enable deviation alerts and the what's-ahead panel. */
   plannedSegments?: RouteSegment[];
+  /** The route's elevation-annotated path (route.elevationProfile) — the segment paths above usually carry no altitude, so the live elevation overlay needs this to draw anything. */
+  plannedElevationPath?: PathPoint[];
   /** Set when the store/background task were already re-attached to a crash-recovered session (see App.tsx) — skips calling startRecording() again, which would otherwise create a second, duplicate session. */
   alreadyStarted?: boolean;
   /** Set when recording against a race — issues the live-tracking share token on start, and throttle-broadcasts position every 30s for the public spectator page. */
@@ -63,6 +65,7 @@ export default function RecordingScreen({
   activityType,
   routeId,
   plannedSegments,
+  plannedElevationPath,
   alreadyStarted,
   raceRsvpId,
   initialLiveSessionId,
@@ -126,6 +129,14 @@ export default function RecordingScreen({
 
   const routeIndex = useMemo(() => (plannedSegments ? buildRouteProgressIndex(plannedSegments) : null), [plannedSegments]);
   const plannedPath = useMemo(() => plannedSegments?.flatMap((s) => s.path), [plannedSegments]);
+  // The elevation overlay needs altitude on its points; segment paths usually
+  // don't have it, so prefer the route's dedicated elevation profile.
+  const elevationChartPath = useMemo(() => {
+    if (plannedElevationPath && plannedElevationPath.filter((p) => typeof p.elevation === 'number').length >= 2) {
+      return plannedElevationPath;
+    }
+    return plannedPath;
+  }, [plannedElevationPath, plannedPath]);
   const offRouteStreak = useRef(0);
   // Last-matched flat path index — passed back into getRouteProgress as a
   // continuity hint so a u-turn or repeated loop doesn't snap onto the
@@ -530,8 +541,13 @@ export default function RecordingScreen({
           <Logo size={36} />
           <View style={styles.topButtons}>
             {plannedPath && (
-              <Pressable style={styles.iconButton} onPress={() => setShowElevationOverlay((v) => !v)}>
-                <Text style={styles.elevationToggleGlyph}>⛰</Text>
+              <Pressable
+                style={[styles.iconButton, showElevationOverlay && styles.iconButtonLive]}
+                onPress={() => setShowElevationOverlay((v) => !v)}
+                accessibilityRole="button"
+                accessibilityLabel={showElevationOverlay ? 'Hide elevation profile' : 'Show elevation profile'}
+              >
+                <TerrainIcon size={16} color={showElevationOverlay ? colors.white : colors.ink} />
               </Pressable>
             )}
             {raceRsvpId && liveShareToken && (
@@ -593,7 +609,7 @@ export default function RecordingScreen({
 
       {plannedPath && showElevationOverlay && !locked && (
         <View style={styles.elevationOverlay} pointerEvents="none">
-          <ElevationProfileChart path={plannedPath} progressKm={traveledKm} compact transparent onDark />
+          <ElevationProfileChart path={elevationChartPath ?? []} progressKm={traveledKm} compact transparent onDark />
         </View>
       )}
 
@@ -678,9 +694,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 12,
     color: colors.ink,
-  },
-  elevationToggleGlyph: {
-    fontSize: 16,
   },
   elevationOverlay: {
     position: 'absolute',
