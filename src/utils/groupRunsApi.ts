@@ -20,6 +20,7 @@ interface GroupRunRow {
   club_id: string | null;
   series_id: string | null;
   category: 'training' | 'race';
+  visibility: 'public' | 'club';
   routes: { name: string; distance_km: number } | { name: string; distance_km: number }[] | null;
   profiles: { username: string } | { username: string }[] | null;
   run_clubs: { name: string; avatar_url: string | null } | { name: string; avatar_url: string | null }[] | null;
@@ -76,6 +77,7 @@ function buildGroupRun(
     clubAvatarUrl: club?.avatar_url ?? null,
     seriesId: row.series_id,
     category: row.category,
+    visibility: row.visibility ?? 'public',
   };
 }
 
@@ -151,6 +153,8 @@ export interface CreateGroupRunInput {
   maxParticipants: number | null;
   /** Tags this run as a club event — shows the club name/avatar on the card and notifies members. */
   clubId?: string | null;
+  /** 'club' = only members of `clubId` can see it (requires clubId). Defaults to 'public'. */
+  visibility?: 'public' | 'club';
   /** Only the official Rootah account is allowed to set this — enforced server-side by the group_runs insert RLS policy. */
   race?: RaceMetaInput | null;
 }
@@ -170,6 +174,7 @@ export async function createGroupRun(input: CreateGroupRunInput): Promise<GroupR
       max_participants: input.maxParticipants,
       club_id: input.clubId ?? null,
       category: input.race ? 'race' : 'training',
+      visibility: input.clubId && input.visibility === 'club' ? 'club' : 'public',
     })
     .select(GROUP_RUN_SELECT)
     .single();
@@ -208,6 +213,8 @@ export interface UpdateGroupRunInput {
   description: string;
   scheduledAt: Date;
   maxParticipants: number | null;
+  /** Change who can see the event. 'club' only allowed on events that belong to a club. */
+  visibility?: 'public' | 'club';
   /** Only relevant for races (category is set at creation and isn't editable here) — updates race_details. */
   race?: RaceMetaInput | null;
 }
@@ -223,6 +230,7 @@ export async function updateGroupRun(id: string, input: UpdateGroupRunInput): Pr
       description: input.description,
       scheduled_at: input.scheduledAt.toISOString(),
       max_participants: input.maxParticipants,
+      ...(input.visibility ? { visibility: input.visibility } : {}),
     })
     .eq('id', id)
     .select(GROUP_RUN_SELECT)

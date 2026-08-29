@@ -596,6 +596,7 @@ function AuthedApp({
       maxParticipants: number | null,
       recurrence: RecurrenceInput | null,
       race: RaceInput | null,
+      visibility: 'public' | 'club' = 'public',
     ) => {
       if (!eventRouteId) return;
       setIsSchedulingEvent(true);
@@ -604,6 +605,7 @@ function AuthedApp({
           const series = await createSeries({
             routeId: eventRouteId,
             clubId: eventClubId,
+            visibility,
             title,
             description,
             firstOccurrenceAt: scheduledAt,
@@ -623,6 +625,7 @@ function AuthedApp({
             scheduledAt,
             maxParticipants,
             clubId: eventClubId,
+            visibility,
             race: race
               ? {
                   raceDate: race.raceDate,
@@ -1124,6 +1127,7 @@ function AuthedApp({
         isSaving={isSchedulingEvent}
         tier={tier}
         isOfficialAccount={session?.user.id === OFFICIAL_ACCOUNT_ID}
+        clubEvent={!!eventClubId}
         prefillRace={addCategoryContext?.prefillRace ?? null}
         onClose={() => {
           setEventRouteId(null);

@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CameraIcon, CloseIcon, TrashIcon } from './icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { Announcement } from '../utils/announcementsApi';
@@ -34,6 +34,7 @@ export default function AnnouncementsFeed({ posts, loading, canManage, context, 
   const [draft, setDraft] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [posting, setPosting] = useState(false);
+  const [fullScreenUri, setFullScreenUri] = useState<string | null>(null);
 
   const addImages = async () => {
     try {
@@ -149,13 +150,24 @@ export default function AnnouncementsFeed({ posts, loading, canManage, context, 
             {p.imageUrls.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.previewRow}>
                 {p.imageUrls.map((uri) => (
-                  <Image key={uri} source={{ uri }} style={styles.postImage} contentFit="cover" />
+                  <Pressable key={uri} onPress={() => setFullScreenUri(uri)} accessibilityRole="imagebutton" accessibilityLabel="View photo full screen">
+                    <Image source={{ uri }} style={styles.postImage} contentFit="cover" />
+                  </Pressable>
                 ))}
               </ScrollView>
             )}
           </View>
         ))
       )}
+
+      <Modal visible={fullScreenUri !== null} transparent animationType="fade" onRequestClose={() => setFullScreenUri(null)}>
+        <Pressable style={styles.fullScreenBackdrop} onPress={() => setFullScreenUri(null)}>
+          {fullScreenUri && <Image source={{ uri: fullScreenUri }} style={styles.fullScreenImage} contentFit="contain" />}
+          <Pressable style={styles.fullScreenClose} onPress={() => setFullScreenUri(null)} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
+            <CloseIcon size={18} color={colors.white} />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -272,5 +284,26 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: radii.sm,
     backgroundColor: colors.cream,
+  },
+  fullScreenBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fullScreenClose: {
+    position: 'absolute',
+    top: 52,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

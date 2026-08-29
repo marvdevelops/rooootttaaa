@@ -149,6 +149,8 @@ export interface GroupRun {
   seriesId: string | null;
   /** 'race' events get day-of-gated "Run This Race" tracking, branding, and a live-tracking link — everything else behaves like a normal group run. */
   category: 'training' | 'race';
+  /** 'club' = visible only to members of `clubId` (and the host / people already in). 'public' = discoverable by anyone. */
+  visibility: 'public' | 'club';
 }
 
 export interface RaceDetails {

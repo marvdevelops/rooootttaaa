@@ -380,6 +380,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       maxParticipants: number | null,
       _recurrence: RecurrenceInput | null,
       race: RaceInput | null,
+      visibility: 'public' | 'club' = 'public',
     ) => {
       if (!groupRun) return;
       setSavingEdit(true);
@@ -389,6 +390,7 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
           description,
           scheduledAt,
           maxParticipants,
+          visibility: groupRun.clubId ? visibility : undefined,
           race: race
             ? {
                 raceDate: race.raceDate,
@@ -839,6 +841,12 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
               </View>
               {!!groupRun.description && <Text style={styles.eventDescription}>{groupRun.description}</Text>}
 
+              {groupRun.visibility === 'club' && (
+                <View style={styles.seriesBadge}>
+                  <Text style={styles.seriesBadgeText}>🔒 {groupRun.clubName ? `${groupRun.clubName.toUpperCase()} ONLY` : 'CLUB ONLY'}</Text>
+                </View>
+              )}
+
               {groupRun.seriesId && !groupRun.isHostedByMe && !isArchived && (
                 <View style={styles.seriesRow}>
                   <View style={styles.seriesBadge}>
@@ -1110,11 +1118,13 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
           isSaving={savingEdit}
           tier={tier}
           isOfficialAccount={session?.user.id === OFFICIAL_ACCOUNT_ID}
+          clubEvent={!!groupRun.clubId}
           editing={{
             title: groupRun.title,
             description: groupRun.description,
             scheduledAt: new Date(groupRun.scheduledAt),
             maxParticipants: groupRun.maxParticipants,
+            visibility: groupRun.visibility,
             raceDate: raceDetails ? new Date(`${raceDetails.raceDate}T00:00:00`) : null,
             organizerName: raceDetails?.organizerName ?? '',
             organizerLogoUrl: raceDetails?.organizerLogoUrl ?? '',

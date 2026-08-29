@@ -38,6 +38,8 @@ export interface EditingGroupRun {
   description: string;
   scheduledAt: Date;
   maxParticipants: number | null;
+  /** Current visibility — only meaningful when the event belongs to a club. */
+  visibility?: 'public' | 'club';
   /** Set when the event being edited is a race — shows the race-day picker and branding fields without the "make this a race" toggle (category isn't editable after creation). */
   raceDate: Date | null;
   organizerName?: string;
@@ -64,6 +66,8 @@ interface Props {
   isOfficialAccount?: boolean;
   /** Present to edit an existing event instead of creating a new one — prefills fields, hides recurrence (out of scope for an edit), and relabels the sheet/button. */
   editing?: EditingGroupRun | null;
+  /** True when this event belongs to a run club — unlocks the public / club-only visibility choice. */
+  clubEvent?: boolean;
   /** Present when creating a NEW distance category for an existing multi-distance event — seeds the race toggle on and its branding/date fields (read-only there, since every category shares one event's identity) while leaving title/route to be picked fresh. Ignored when `editing` is set. */
   prefillRace?: RacePrefill | null;
   onClose: () => void;
@@ -74,6 +78,7 @@ interface Props {
     maxParticipants: number | null,
     recurrence: RecurrenceInput | null,
     race: RaceInput | null,
+    visibility: 'public' | 'club',
   ) => void;
   onRequirePaywall: () => void;
 }
@@ -107,6 +112,7 @@ export default function ScheduleGroupRunModal({
   tier,
   isOfficialAccount,
   editing,
+  clubEvent,
   prefillRace,
   onClose,
   onSchedule,
@@ -125,6 +131,7 @@ export default function ScheduleGroupRunModal({
   const [organizerLogoUrl, setOrganizerLogoUrl] = useState('');
   const [eventBannerUrl, setEventBannerUrl] = useState('');
   const [eventLogoUrl, setEventLogoUrl] = useState('');
+  const [clubOnly, setClubOnly] = useState(false);
 
   // Only reset fields on the closed->open transition — `editing` is a fresh
   // object literal from the caller on every render (GroupRunDetailScreen
@@ -149,6 +156,7 @@ export default function ScheduleGroupRunModal({
       setEventBannerUrl(editing?.eventBannerUrl ?? prefillRace?.eventBannerUrl ?? '');
       setEventLogoUrl(editing?.eventLogoUrl ?? prefillRace?.eventLogoUrl ?? '');
       setRaceDate(editing?.raceDate ?? prefillRace?.raceDate ?? defaultTime());
+      setClubOnly(editing?.visibility === 'club');
     }
     wasVisible.current = visible;
   }, [visible, editing, prefillRace]);
@@ -262,6 +270,25 @@ export default function ScheduleGroupRunModal({
                 </Pressable>
               </View>
             </View>
+
+            {clubEvent && (
+              <View style={styles.recurrenceRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.recurrenceLabel}>Club members only</Text>
+                  <Text style={styles.recurrenceSub}>
+                    {clubOnly
+                      ? 'Only members of this club can see and join.'
+                      : 'Anyone can discover and join this event.'}
+                  </Text>
+                </View>
+                <Switch
+                  value={clubOnly}
+                  onValueChange={setClubOnly}
+                  trackColor={{ true: colors.coral, false: '#E0DAD2' }}
+                  thumbColor={colors.white}
+                />
+              </View>
+            )}
 
             {!editing && (
               <View>
@@ -421,6 +448,7 @@ export default function ScheduleGroupRunModal({
                         eventTitle: prefillRace?.eventTitle,
                       }
                     : null,
+                  clubEvent && clubOnly ? 'club' : 'public',
                 )
               }
               disabled={!title.trim() || isSaving}

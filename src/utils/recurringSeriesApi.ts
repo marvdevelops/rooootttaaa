@@ -40,6 +40,8 @@ async function currentUserId(): Promise<string | null> {
 export interface CreateSeriesInput {
   routeId: string;
   clubId?: string | null;
+  /** 'club' hides the series (and every occurrence it generates) from non-members. Requires clubId. */
+  visibility?: 'public' | 'club';
   title: string;
   description: string;
   /** The first occurrence's date + time — sets series_start_date, day_of_week/day_of_month, and start_time. */
@@ -67,6 +69,7 @@ export async function createSeries(input: CreateSeriesInput): Promise<RecurringS
       host_id: hostId,
       route_id: input.routeId,
       club_id: input.clubId ?? null,
+      visibility: input.clubId && input.visibility === 'club' ? 'club' : 'public',
       title: input.title,
       description: input.description,
       start_time: toTimeString(input.firstOccurrenceAt),
