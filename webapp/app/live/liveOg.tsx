@@ -1,4 +1,5 @@
 import { ImageResponse } from 'next/og';
+import { lookup } from 'node:dns/promises';
 import { createClient } from '../../lib/supabase/server';
 
 export const ogSize = { width: 1200, height: 630 };
@@ -57,12 +58,57 @@ function duration(sec: number | null): string | null {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/** True for loopback / private / link-local / CGNAT / metadata-style addresses
+ * that a server-side fetch must never be pointed at (SSRF guard). */
+function isBlockedIp(ip: string): boolean {
+  // IPv4-mapped IPv6 (::ffff:10.0.0.1) — unwrap and test as IPv4.
+  const mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i);
+  if (mapped) ip = mapped[1];
+
+  if (ip.includes('.')) {
+    const p = ip.split('.').map(Number);
+    if (p.length !== 4 || p.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return true;
+    const [a, b] = p;
+    if (a === 0 || a === 10 || a === 127) return true;
+    if (a === 169 && b === 254) return true; // link-local + cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+    if (a === 192 && b === 0 && p[2] === 0) return true;
+    if (a === 198 && (b === 18 || b === 19)) return true; // benchmark
+    if (a >= 224) return true; // multicast + reserved
+    return false;
+  }
+
+  const v6 = ip.toLowerCase();
+  if (v6 === '::' || v6 === '::1') return true;
+  if (v6.startsWith('fe80') || v6.startsWith('fc') || v6.startsWith('fd')) return true; // link-local + ULA
+  if (v6.startsWith('ff')) return true; // multicast
+  return false;
+}
+
 /** Fetch a remote logo and inline it — next/og throws on a failed <img src>, so
- * an unreachable organizer URL must not reach the renderer. */
+ * an unreachable organizer URL must not reach the renderer. HTTPS-only, and
+ * the resolved host must be a public address (no SSRF into internal services /
+ * cloud metadata via an attacker-supplied organizer_logo_url). */
 async function inlineImage(url: string | null): Promise<string | null> {
-  if (!url || !/^https?:\/\//.test(url)) return null;
+  if (!url) return null;
+  let parsed: URL;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(3000) });
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:') return null;
+  const host = parsed.hostname.replace(/^\[|\]$/g, '');
+  if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) return null;
+
+  try {
+    const resolved = await lookup(host, { all: true });
+    if (resolved.length === 0 || resolved.some((r) => isBlockedIp(r.address))) return null;
+
+    // redirect: 'error' — a 3xx to an internal host would bypass the check above.
+    const res = await fetch(parsed, { signal: AbortSignal.timeout(3000), redirect: 'error' });
     if (!res.ok) return null;
     const type = res.headers.get('content-type') ?? 'image/png';
     if (!type.startsWith('image/')) return null;

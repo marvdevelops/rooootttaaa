@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { ActivityType } from '../types/route';
+import { secureRandomHex } from './secureToken';
 
 /**
  * Live-location sharing for any recorded activity (races have their own path
@@ -9,11 +10,9 @@ import { ActivityType } from '../types/route';
  */
 
 function generateShareToken(): string {
-  // Unguessable, URL-safe. Length matters more than readability — this token
-  // is the only thing gating the public page.
-  const bytes = new Uint8Array(24);
-  for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  // Unguessable, URL-safe. This token is the only thing gating the public
+  // page, so it must come from a CSPRNG, not Math.random.
+  return secureRandomHex(24);
 }
 
 const LIVE_BASE_URL = 'https://app.rootah.com/live';

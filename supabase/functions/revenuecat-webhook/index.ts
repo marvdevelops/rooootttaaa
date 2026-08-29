@@ -22,6 +22,21 @@ const supabase = createClient(
 
 const RC_WEBHOOK_AUTH = Deno.env.get('RC_WEBHOOK_AUTH_HEADER')!;
 
+/** Length-independent constant-time string compare — avoids leaking the
+ * secret one byte at a time via response-timing on the `!==` short-circuit. */
+function timingSafeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  // Fold the length difference into the result instead of returning early.
+  let diff = ab.length ^ bb.length;
+  const len = Math.max(ab.length, bb.length);
+  for (let i = 0; i < len; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  }
+  return diff === 0;
+}
+
 // Events that mean the user is actively subscribed.
 const PAID_EVENTS = new Set(['INITIAL_PURCHASE', 'RENEWAL', 'PRODUCT_CHANGE', 'UNCANCELLATION']);
 
@@ -29,8 +44,8 @@ const PAID_EVENTS = new Set(['INITIAL_PURCHASE', 'RENEWAL', 'PRODUCT_CHANGE', 'U
 const FREE_EVENTS = new Set(['CANCELLATION', 'EXPIRATION', 'BILLING_ISSUE']);
 
 serve(async (req) => {
-  const authHeader = req.headers.get('Authorization');
-  if (authHeader !== RC_WEBHOOK_AUTH) {
+  const authHeader = req.headers.get('Authorization') ?? '';
+  if (!RC_WEBHOOK_AUTH || !timingSafeEqual(authHeader, RC_WEBHOOK_AUTH)) {
     return new Response('Unauthorized', { status: 401 });
   }
 

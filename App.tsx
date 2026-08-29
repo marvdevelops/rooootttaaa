@@ -1210,7 +1210,9 @@ function Root() {
       if (profileMatch) setPendingProfileId(profileMatch[1]);
       // Sent by rootah.com/reset-password after a successful password
       // reset — the user resets on the web, then taps through back here.
-      if (/login\?.*reset=success/.test(url)) setPasswordResetDone(true);
+      // Anchored to the /login path + query so an unrelated deep link that
+      // merely contains "reset=success" can't flip the confirmation state.
+      if (/(?:^|\/)login\?[^#]*(?:^|[?&])reset=success(?:&|$)/.test(url)) setPasswordResetDone(true);
     };
 
     Linking.getInitialURL().then(handleUrl);

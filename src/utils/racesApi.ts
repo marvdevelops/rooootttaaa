@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { RaceCategorySummary, RaceDetails, RaceEventSummary, RaceRsvp } from '../types/route';
+import { secureRandomHex } from './secureToken';
 
 interface RaceDetailsRow {
   group_run_id: string;
@@ -117,10 +118,8 @@ export async function getMyRaceRsvp(groupRunId: string): Promise<RaceRsvp | null
 
 function generateShareToken(): string {
   // Unguessable, URL-safe — this is the entire access control for the
-  // public /live/[token] page, so length matters more than readability.
-  const bytes = new Uint8Array(24);
-  for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  // public /live/[token] page, so it must come from a CSPRNG.
+  return secureRandomHex(24);
 }
 
 /** Looks up an already-issued share token — used when a recording screen re-attaches to a crash-recovered race session instead of starting fresh. */

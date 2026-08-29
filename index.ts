@@ -1,3 +1,7 @@
+// Installs global.crypto.getRandomValues (Hermes has no Web Crypto). Must run
+// before anything that generates a security token — see src/utils/secureToken.
+import 'react-native-get-random-values';
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';
