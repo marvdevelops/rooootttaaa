@@ -168,6 +168,47 @@ export async function takePhotoWithCamera(): Promise<PickedPhoto | null> {
   return { uri: asset.uri, fileSize: asset.fileSize };
 }
 
+/**
+ * Front-camera selfie centre-cropped to 9:16 for the share cards. iOS's
+ * built-in editor only crops square, so we skip it and crop ourselves with
+ * image-manipulator — consistent on both platforms.
+ */
+export async function takeSelfie(): Promise<PickedPhoto | null> {
+  const permission = await ImagePicker.requestCameraPermissionsAsync();
+  if (!permission.granted) {
+    throw new PhotoUploadError('Camera permission denied — enable it in Settings to take a selfie.');
+  }
+  const result = await ImagePicker.launchCameraAsync({
+    cameraType: ImagePicker.CameraType.front,
+    allowsEditing: false,
+    quality: 0.9,
+    exif: false,
+  });
+  const asset = result.assets?.[0];
+  if (result.canceled || !asset) return null;
+
+  const w = asset.width ?? 0;
+  const h = asset.height ?? 0;
+  if (!w || !h) return { uri: asset.uri, fileSize: asset.fileSize };
+
+  const ImageManipulator = await import('expo-image-manipulator');
+  const targetRatio = 9 / 16;
+  let crop: { originX: number; originY: number; width: number; height: number };
+  if (w / h > targetRatio) {
+    const cropW = Math.round(h * targetRatio);
+    crop = { originX: Math.round((w - cropW) / 2), originY: 0, width: cropW, height: h };
+  } else {
+    const cropH = Math.round(w / targetRatio);
+    crop = { originX: 0, originY: Math.round((h - cropH) / 2), width: w, height: cropH };
+  }
+
+  const cropped = await ImageManipulator.manipulateAsync(asset.uri, [{ crop }], {
+    compress: 0.9,
+    format: ImageManipulator.SaveFormat.JPEG,
+  });
+  return { uri: cropped.uri, fileSize: asset.fileSize };
+}
+
 export interface UploadRoutePhotoInput {
   routeId: string;
   photo: PickedPhoto;

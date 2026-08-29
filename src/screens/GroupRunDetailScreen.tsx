@@ -17,6 +17,8 @@ import {
 import { CalendarIcon, CloseIcon, CompassIcon, EditIcon, ExpandIcon, ReplyIcon, SendIcon, ShareIcon, TrashIcon, UserIcon } from '../components/icons';
 import NotificationPermissionModal from '../components/NotificationPermissionModal';
 import RaceBadge from '../components/RaceBadge';
+import AnnouncementsFeed from '../components/AnnouncementsFeed';
+import { Announcement, createEventPost, deleteEventPost, listEventPosts } from '../utils/announcementsApi';
 import ReportModal from '../components/ReportModal';
 import RunThisRaceButton from '../components/RunThisRaceButton';
 import PosterViewerModal from '../components/PosterViewerModal';
@@ -116,6 +118,8 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
   const [viewingPoster, setViewingPoster] = useState<string | null>(null);
   const [route, setRoute] = useState<CloudRoute | null>(null);
   const [comments, setComments] = useState<GroupRunComment[]>([]);
+  const [eventPosts, setEventPosts] = useState<Announcement[]>([]);
+  const [eventPostsLoading, setEventPostsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
@@ -156,6 +160,11 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
       listGroupRunParticipants(groupRunId)
         .then(setParticipants)
         .catch(() => {});
+      setEventPostsLoading(true);
+      listEventPosts(groupRunId)
+        .then(setEventPosts)
+        .catch(() => {})
+        .finally(() => setEventPostsLoading(false));
       // Non-critical — the event page still works if the route preview fails to load.
       getRoute(run.routeId)
         .then(setRoute)
@@ -975,6 +984,24 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                 <Text style={styles.secondaryActionText}>SHARE</Text>
               </Pressable>
             </View>
+          </View>
+
+          <View style={styles.commentsSection}>
+            <Text style={styles.commentsTitle}>Updates</Text>
+            <AnnouncementsFeed
+              posts={eventPosts}
+              loading={eventPostsLoading}
+              canManage={!!groupRun?.isHostedByMe}
+              context={groupRun?.category === 'race' ? 'race' : 'event'}
+              onCreate={async (body) => {
+                await createEventPost(groupRunId, body);
+                setEventPosts(await listEventPosts(groupRunId));
+              }}
+              onDelete={async (id) => {
+                await deleteEventPost(id);
+                setEventPosts(await listEventPosts(groupRunId));
+              }}
+            />
           </View>
 
           <View style={styles.commentsSection}>

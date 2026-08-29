@@ -11,7 +11,7 @@ import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { RaceDetails } from '../types/route';
 import { getProfile, PublicProfile } from '../utils/profilesApi';
 import { saveShareCardPath } from '../utils/racesApi';
-import { takePhotoWithCamera } from '../utils/photosApi';
+import { takeSelfie } from '../utils/photosApi';
 
 interface Props {
   rsvpId: string;
@@ -49,7 +49,7 @@ export default function RaceShareCardScreen({
   const handleTakeSelfie = useCallback(async () => {
     setCapturingSelfie(true);
     try {
-      const photo = await takePhotoWithCamera();
+      const photo = await takeSelfie();
       if (photo) setSelfieUri(photo.uri);
     } catch (e) {
       Alert.alert('Camera error', e instanceof Error ? e.message : 'Could not open the camera.');

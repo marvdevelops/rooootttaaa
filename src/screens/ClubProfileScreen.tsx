@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { BackIcon, CalendarIcon, LockIcon, UsersIcon } from '../components/icons';
 import { useAuth } from '../lib/AuthContext';
+import AnnouncementsFeed from '../components/AnnouncementsFeed';
+import { Announcement, createClubPost, deleteClubPost, listClubPosts } from '../utils/announcementsApi';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { GroupRun } from '../types/route';
 import { RunClub } from '../types/club';
@@ -27,7 +29,7 @@ import {
 import { listClubEvents } from '../utils/groupRunsApi';
 import { PaywallTrigger } from './PaywallScreen';
 
-type Tab = 'events' | 'routes' | 'members';
+type Tab = 'updates' | 'events' | 'routes' | 'members';
 
 interface Props {
   clubId: string;
@@ -66,7 +68,9 @@ export default function ClubProfileScreen({
   // the roster) — kept behind a session like GroupRunDetailScreen's
   // who's-going/comments, unlike routes which are public content already
   // browsable everywhere else. Guests land on Routes instead.
-  const [tab, setTab] = useState<Tab>(session ? 'events' : 'routes');
+  const [tab, setTab] = useState<Tab>('updates');
+  const [posts, setPosts] = useState<Announcement[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
   const [events, setEvents] = useState<GroupRun[]>([]);
   const [routes, setRoutes] = useState<ClubRouteSummary[]>([]);
   const [members, setMembers] = useState<Awaited<ReturnType<typeof listClubMembers>>>([]);
@@ -90,8 +94,21 @@ export default function ClubProfileScreen({
     refresh();
   }, [refresh]);
 
+  const refreshPosts = useCallback(() => {
+    setPostsLoading(true);
+    listClubPosts(clubId)
+      .then(setPosts)
+      .catch(() => {})
+      .finally(() => setPostsLoading(false));
+  }, [clubId]);
+
   useEffect(() => {
-    if (!club || club.myStatus === 'pending') return;
+    if (!club) return;
+    if (tab === 'updates') {
+      refreshPosts();
+      return;
+    }
+    if (club.myStatus === 'pending') return;
     if (tab === 'events') {
       listClubEvents(clubId).then(setEvents).catch(() => {});
     } else if (tab === 'routes') {
@@ -99,7 +116,7 @@ export default function ClubProfileScreen({
     } else if (tab === 'members') {
       listClubMembers(clubId).then(setMembers).catch(() => {});
     }
-  }, [tab, clubId, club]);
+  }, [tab, clubId, club, refreshPosts]);
 
   const isMember = !!club?.myRole;
   const isAdmin = club?.myRole === 'admin' || club?.myRole === 'owner';
@@ -238,14 +255,31 @@ export default function ClubProfileScreen({
         )}
 
         <View style={styles.tabRow}>
-          {(session ? (['events', 'routes', 'members'] as Tab[]) : (['routes'] as Tab[])).map((t) => (
+          {(session ? (['updates', 'events', 'routes', 'members'] as Tab[]) : (['updates', 'routes'] as Tab[])).map((t) => (
             <Pressable key={t} style={[styles.tabButton, tab === t && styles.tabButtonActive]} onPress={() => setTab(t)}>
               <Text style={[styles.tabButtonText, tab === t && styles.tabButtonTextActive]}>{t.toUpperCase()}</Text>
             </Pressable>
           ))}
         </View>
 
-        {isPending ? (
+        {tab === 'updates' ? (
+          <View style={styles.tabContent}>
+            <AnnouncementsFeed
+              posts={posts}
+              loading={postsLoading}
+              canManage={isAdmin}
+              context="club"
+              onCreate={async (body) => {
+                await createClubPost(club.id, body);
+                refreshPosts();
+              }}
+              onDelete={async (id) => {
+                await deleteClubPost(id);
+                refreshPosts();
+              }}
+            />
+          </View>
+        ) : isPending ? (
           <Text style={styles.emptyBody}>You&apos;ll see events, routes, and members once your request is approved.</Text>
         ) : tab === 'events' ? (
           <View style={styles.tabContent}>
