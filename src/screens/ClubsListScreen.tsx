@@ -54,8 +54,9 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
         <Pressable style={styles.backButton} onPress={onClose} accessibilityRole="button" accessibilityLabel="Back">
           <BackIcon />
         </Pressable>
-        <Text style={styles.title}>Run Clubs</Text>
+        <Text style={styles.title}>Clubs</Text>
       </View>
+      <Text style={styles.subtitle}>Groups for runners, riders, walkers, and hikers near you.</Text>
 
       {error && (
         <View style={styles.errorBanner}>
@@ -86,7 +87,7 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
               </View>
               <View style={styles.createTextWrap}>
                 <Text style={styles.createTitle}>Create a club</Text>
-                <Text style={styles.createBody}>Bring your whole running group onto Rootah.</Text>
+                <Text style={styles.createBody}>Bring your whole crew onto Rootah — whatever you move for.</Text>
               </View>
             </Pressable>
           }
@@ -149,6 +150,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 6,
+  },
+  subtitle: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: colors.stone,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
   },

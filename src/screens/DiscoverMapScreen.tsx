@@ -718,7 +718,7 @@ export default function DiscoverMapScreen({
               style={styles.groupRunsButton}
               onPress={onOpenClubs}
               accessibilityRole="button"
-              accessibilityLabel="Run clubs"
+              accessibilityLabel="Clubs"
             >
               <UsersIcon size={16} />
             </Pressable>
