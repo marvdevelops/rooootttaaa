@@ -14,9 +14,11 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import ActivityPicker from '../components/ActivityPicker';
 import { BackIcon, CameraIcon, TrashIcon, UserIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { ClubMember, RunClub } from '../types/club';
+import { ActivityType } from '../types/route';
 import { AvatarError, pickAndUploadClubAvatar } from '../utils/avatar';
 import {
   ClubFullError,
@@ -42,6 +44,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
   const [description, setDescription] = useState('');
   const [city, setCity] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
+  const [activities, setActivities] = useState<ActivityType[]>(['run']);
   const [saving, setSaving] = useState(false);
   const [pending, setPending] = useState<ClubMember[]>([]);
   const [members, setMembers] = useState<ClubMember[]>([]);
@@ -55,6 +58,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
     setDescription(c.description ?? '');
     setCity(c.city ?? '');
     setIsPrivate(c.isPrivate);
+    setActivities(c.activities.length > 0 ? c.activities : ['run']);
     const [pendingList, activeList] = await Promise.all([
       c.isPrivate ? listClubMembers(clubId, 'pending') : Promise.resolve([]),
       listClubMembers(clubId, 'active'),
@@ -70,7 +74,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
   const handleSaveDetails = useCallback(async () => {
     setSaving(true);
     try {
-      await updateClub(clubId, { name, description, city, isPrivate });
+      await updateClub(clubId, { name, description, city, isPrivate, activities });
       await refresh();
       Alert.alert('Saved', 'Club details updated.');
     } catch (e) {
@@ -78,7 +82,7 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
     } finally {
       setSaving(false);
     }
-  }, [clubId, name, description, city, isPrivate, refresh]);
+  }, [clubId, name, description, city, isPrivate, activities, refresh]);
 
   const handlePickLogo = useCallback(async () => {
     setUploadingLogo(true);
@@ -223,6 +227,8 @@ export default function ClubAdminScreen({ clubId, onClose, onDeleted }: Props) {
           placeholder="About your club"
           placeholderTextColor={colors.mist}
         />
+        <Text style={styles.activitiesLabel}>Activities</Text>
+        <ActivityPicker value={activities} onChange={setActivities} />
         <View style={styles.privateRow}>
           <Text style={styles.privateLabel}>Private club</Text>
           <Switch value={isPrivate} onValueChange={setIsPrivate} trackColor={{ true: colors.coral, false: '#E0DAD2' }} thumbColor={colors.white} />
@@ -430,6 +436,13 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     marginTop: 6,
     ...elevation('subtle'),
+  },
+  activitiesLabel: {
+    fontFamily: fonts.bold,
+    fontSize: 13,
+    color: colors.ink,
+    marginTop: 12,
+    marginBottom: 4,
   },
   privateRow: {
     flexDirection: 'row',

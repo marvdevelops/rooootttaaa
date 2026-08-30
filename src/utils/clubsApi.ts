@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { ClubMember, ClubMembershipStatus, ClubRole, RunClub } from '../types/club';
+import { ActivityType } from '../types/route';
 import { OFFICIAL_ACCOUNT_ID } from '../constants/officialAccount';
+
+export const CLUB_ACTIVITIES: ActivityType[] = ['run', 'trail_run', 'walk', 'hike', 'bike'];
 
 interface ClubRow {
   id: string;
@@ -14,6 +17,7 @@ interface ClubRow {
   member_count: number;
   created_by: string;
   created_at: string;
+  activities: ActivityType[] | null;
 }
 
 async function currentUserId(): Promise<string | null> {
@@ -38,6 +42,7 @@ function buildRunClub(
     memberCount: row.member_count,
     createdBy: row.created_by,
     createdAt: new Date(row.created_at).getTime(),
+    activities: row.activities && row.activities.length > 0 ? row.activities : ['run'],
     myRole,
     myStatus,
   };
@@ -125,6 +130,7 @@ export interface CreateClubInput {
   description: string;
   city: string;
   isPrivate: boolean;
+  activities: ActivityType[];
 }
 
 export class ClubFullError extends Error {}
@@ -143,6 +149,7 @@ export async function createClub(input: CreateClubInput): Promise<RunClub> {
       description: input.description.trim() || null,
       city: input.city.trim() || null,
       is_private: input.isPrivate,
+      activities: input.activities.length > 0 ? input.activities : ['run'],
       created_by: userId,
     })
     .select('*')
@@ -165,16 +172,35 @@ export async function getClub(id: string): Promise<RunClub> {
   return toRunClub(data as ClubRow, viewerId);
 }
 
-/** Open (non-private) clubs, optionally filtered by city, biggest first — for Discover. */
-export async function listNearbyClubs(city: string | null, limit = 10): Promise<RunClub[]> {
+export interface ClubFilter {
+  /** Exact-city match (used for the "near you" default). */
+  city?: string | null;
+  /** Only clubs that list this activity. */
+  activity?: ActivityType | null;
+  /** Case-insensitive substring match against club name or city. */
+  search?: string | null;
+  limit?: number;
+}
+
+/** Open (non-private) clubs, biggest first — for the Clubs list / Discover. */
+export async function listNearbyClubs(filter: string | null | ClubFilter = null, legacyLimit = 30): Promise<RunClub[]> {
+  // Back-compat: listNearbyClubs('Cebu') / listNearbyClubs(null) still work.
+  const f: ClubFilter = typeof filter === 'string' || filter === null ? { city: filter, limit: legacyLimit } : filter;
   const viewerId = await currentUserId();
+
   let query = supabase
     .from('run_clubs')
     .select('*')
     .eq('is_private', false)
     .order('member_count', { ascending: false })
-    .limit(limit);
-  if (city) query = query.eq('city', city);
+    .limit(f.limit ?? 30);
+
+  if (f.city) query = query.eq('city', f.city);
+  if (f.activity) query = query.overlaps('activities', [f.activity]);
+  if (f.search && f.search.trim()) {
+    const s = f.search.trim().replace(/[%,()]/g, '');
+    query = query.or(`name.ilike.%${s}%,city.ilike.%${s}%`);
+  }
 
   const { data, error } = await query;
   if (error) throw new Error(error.message);
@@ -294,6 +320,7 @@ export interface UpdateClubInput {
   city?: string;
   isPrivate?: boolean;
   avatarUrl?: string;
+  activities?: ActivityType[];
 }
 
 export async function updateClub(clubId: string, input: UpdateClubInput): Promise<void> {
@@ -303,6 +330,7 @@ export async function updateClub(clubId: string, input: UpdateClubInput): Promis
   if (input.city !== undefined) updates.city = input.city.trim() || null;
   if (input.isPrivate !== undefined) updates.is_private = input.isPrivate;
   if (input.avatarUrl !== undefined) updates.avatar_url = input.avatarUrl;
+  if (input.activities !== undefined && input.activities.length > 0) updates.activities = input.activities;
 
   const { error } = await supabase.from('run_clubs').update(updates).eq('id', clubId);
   if (error) throw new Error(error.message);

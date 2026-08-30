@@ -14,11 +14,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import ActivityPicker from '../components/ActivityPicker';
 import { BackIcon, CameraIcon } from '../components/icons';
 import { colors, elevation, fonts, radii, spacing } from '../theme/theme';
 import { AvatarError, PickedImageAsset, pickImageAsset, uploadClubAvatarAsset } from '../utils/avatar';
 import { createClub, updateClub } from '../utils/clubsApi';
 import { RunClub } from '../types/club';
+import { ActivityType } from '../types/route';
 
 interface Props {
   onClose: () => void;
@@ -32,6 +34,7 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
   const [description, setDescription] = useState('');
   const [city, setCity] = useState(defaultCity ?? '');
   const [isPrivate, setIsPrivate] = useState(false);
+  const [activities, setActivities] = useState<ActivityType[]>(['run']);
   const [saving, setSaving] = useState(false);
   // Storage uploads are keyed by club id, which doesn't exist yet at pick
   // time — so the picked image is staged locally and only uploaded once the
@@ -51,7 +54,7 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
     if (!name.trim()) return;
     setSaving(true);
     try {
-      const club = await createClub({ name, description, city, isPrivate });
+      const club = await createClub({ name, description, city, isPrivate, activities });
       if (pickedLogo) {
         try {
           const avatarUrl = await uploadClubAvatarAsset(club.id, pickedLogo);
@@ -68,7 +71,7 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
     } finally {
       setSaving(false);
     }
-  }, [name, description, city, isPrivate, pickedLogo, onCreated]);
+  }, [name, description, city, isPrivate, activities, pickedLogo, onCreated]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -111,6 +114,9 @@ export default function CreateClubScreen({ onClose, onCreated, defaultCity }: Pr
           onChangeText={setCity}
           maxLength={80}
         />
+
+        <Text style={styles.label}>Activities</Text>
+        <ActivityPicker value={activities} onChange={setActivities} />
 
         <Text style={styles.label}>About your club (optional)</Text>
         <TextInput

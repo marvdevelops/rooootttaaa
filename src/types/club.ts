@@ -1,3 +1,5 @@
+import { ActivityType } from './route';
+
 export type ClubRole = 'member' | 'admin' | 'owner';
 export type ClubMembershipStatus = 'active' | 'pending' | 'removed';
 
@@ -13,6 +15,8 @@ export interface RunClub {
   memberCount: number;
   createdBy: string;
   createdAt: number;
+  /** Which activities the club is for — always at least one. */
+  activities: ActivityType[];
   /** null if the current user isn't a member (or membership isn't active). */
   myRole: ClubRole | null;
   myStatus: ClubMembershipStatus | null;
