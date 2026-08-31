@@ -27,28 +27,28 @@ export default function OpenInAppButton({ userId }: Props) {
   return (
     <button
       onClick={handleClick}
-      className="brutal-btn"
-      style={
-        {
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          height: 56,
-          width: '100%',
-          borderRadius: 14,
-          background: 'var(--rust)',
-          color: 'var(--sand)',
-          fontFamily: 'var(--font-display)',
-          fontSize: 15,
-          border: '3px solid var(--ink)',
-          boxShadow: '4px 4px 0px var(--ink)',
-          cursor: 'pointer',
-          '--hover-shadow': '6px 6px 0px var(--ink)',
-          '--active-shadow': '1px 1px 0px var(--ink)',
-        } as React.CSSProperties
-      }
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        height: 54,
+        width: '100%',
+        border: 'none',
+        borderRadius: 'var(--radius-pill)',
+        background: 'var(--coral)',
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: 800,
+        letterSpacing: 0.2,
+        boxShadow: 'var(--elevation-primary-btn)',
+        cursor: 'pointer',
+      }}
     >
-      OPEN IN THE ROOTAH APP
+      Open in the Rootah app
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+        <path d="M9 6l6 6-6 6" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
     </button>
   );
 }
