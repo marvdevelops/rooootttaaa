@@ -22,3 +22,30 @@ export async function refreshFlybyAccessMode(): Promise<FlybyAccessMode> {
     return getCachedFlybyAccessMode();
   }
 }
+
+const TRIAL_DAYS_CACHE_KEY = 'rootah_app_config_paywall_trial_days';
+
+/**
+ * Display-only override for the paywall's free-trial length. RevenueCat's
+ * introPrice metadata sometimes lags Apple's real purchase sheet (e.g. sheet
+ * says "2-week free trial" while the SDK still reports 1 week). Set
+ * app_config.paywall_trial_days to '14' from SQL to force the copy; '0' (the
+ * default) means trust the store. Cached so a network hiccup never changes
+ * what the paywall says between reads.
+ */
+export async function getPaywallTrialDaysOverride(): Promise<number> {
+  try {
+    const { data } = await supabase.from('app_config').select('value').eq('key', 'paywall_trial_days').maybeSingle();
+    const n = data ? parseInt(data.value, 10) : NaN;
+    if (Number.isFinite(n) && n > 0) {
+      await AsyncStorage.setItem(TRIAL_DAYS_CACHE_KEY, String(n));
+      return n;
+    }
+    if (data) await AsyncStorage.removeItem(TRIAL_DAYS_CACHE_KEY);
+    return 0;
+  } catch {
+    const cached = await AsyncStorage.getItem(TRIAL_DAYS_CACHE_KEY);
+    const n = cached ? parseInt(cached, 10) : NaN;
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+}

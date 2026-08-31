@@ -12,6 +12,7 @@ import {
   type PaywallDiagnostics,
 } from '../lib/revenuecat';
 import { colors, elevation, fonts, radii } from '../theme/theme';
+import { getPaywallTrialDaysOverride } from '../utils/appConfigApi';
 import Purchases from 'react-native-purchases';
 
 export type PaywallTrigger =
@@ -126,10 +127,13 @@ function parseIsoPeriodDays(p: string): number | null {
   return days > 0 ? days : null;
 }
 
-/** Total days of a free intro offer, or null if the package has no free trial. */
-function introTrialDays(pkg: PurchasesPackage): number | null {
+/** Total days of a free intro offer, or null if the package has no free trial.
+ * `override` (from app_config.paywall_trial_days) wins when set, for cases
+ * where RevenueCat's introPrice metadata lags Apple's real purchase sheet. */
+function introTrialDays(pkg: PurchasesPackage, override = 0): number | null {
   const intro = pkg.product.introPrice;
   if (!intro || intro.price !== 0) return null;
+  if (override > 0) return override;
   const fromIso = intro.period ? parseIsoPeriodDays(intro.period) : null;
   const fromUnits = (intro.periodNumberOfUnits ?? 0) * (UNIT_DAYS[intro.periodUnit] ?? 0) || null;
   const perCycle = fromIso ?? fromUnits ?? 1;
@@ -150,8 +154,8 @@ function trialLength(days: number): { noun: string; adj: string } {
   return { noun: `${days} Day${days === 1 ? '' : 's'}`, adj: `${days}-day` };
 }
 
-function trialLabel(pkg: PurchasesPackage): string | null {
-  const days = introTrialDays(pkg);
+function trialLabel(pkg: PurchasesPackage, override = 0): string | null {
+  const days = introTrialDays(pkg, override);
   if (days == null) return null;
   return `${trialLength(days).adj} free trial`;
 }
@@ -171,11 +175,11 @@ function periodWord(pkg: PurchasesPackage): string {
 /** Apple 3.1.2 / Google disclosure — must state trial length, post-trial
  * price, that it renews automatically, and where to cancel. Missing or vague
  * disclosure is a standard first-submission rejection. */
-function finePrintFor(pkg: PurchasesPackage | null): string {
+function finePrintFor(pkg: PurchasesPackage | null, override = 0): string {
   if (!pkg) return '';
   const price = pkg.product.priceString;
   const per = periodWord(pkg);
-  const days = introTrialDays(pkg);
+  const days = introTrialDays(pkg, override);
   if (days != null) {
     const { adj } = trialLength(days);
     return `Your ${adj} free trial starts today. After it ends, ${price} is charged to your Apple ID unless you cancel at least 24 hours before the trial ends. The subscription then renews automatically every ${per} until you cancel. Manage or cancel anytime in your device Settings.`;
@@ -193,6 +197,12 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
   const [restoring, setRestoring] = useState(false);
   const [diagnostics, setDiagnostics] = useState<PaywallDiagnostics | null>(null);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
+  // Remote display-only override for the trial length (app_config.paywall_trial_days).
+  const [trialDaysOverride, setTrialDaysOverride] = useState(0);
+
+  useEffect(() => {
+    getPaywallTrialDaysOverride().then(setTrialDaysOverride).catch(() => {});
+  }, []);
 
   const loadOffering = useCallback(() => {
     setLoadingOffering(true);
@@ -281,7 +291,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
     );
   }
 
-  const selectedTrialDays = selectedPackage ? introTrialDays(selectedPackage) : null;
+  const selectedTrialDays = selectedPackage ? introTrialDays(selectedPackage, trialDaysOverride) : null;
   const ctaLabel = !selectedPackage
     ? 'Continue'
     : selectedTrialDays != null
@@ -343,7 +353,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
             {packages.map((pkg) => {
               const selected = pkg.identifier === selectedId;
               const savings = savingsPercent(pkg, packages);
-              const trial = trialLabel(pkg);
+              const trial = trialLabel(pkg, trialDaysOverride);
               return (
                 <Pressable
                   key={pkg.identifier}
@@ -422,7 +432,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
           {purchasing ? <ActivityIndicator color={colors.white} /> : <Text style={styles.ctaButtonText}>{ctaLabel}</Text>}
         </Pressable>
 
-        {selectedPackage && <Text style={styles.finePrint}>{finePrintFor(selectedPackage)}</Text>}
+        {selectedPackage && <Text style={styles.finePrint}>{finePrintFor(selectedPackage, trialDaysOverride)}</Text>}
 
         <View style={styles.trustRow}>
           <LockIcon size={12} color={colors.mist} />
