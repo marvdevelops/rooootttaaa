@@ -34,39 +34,42 @@ interface Props {
   onSuccess: () => void;
 }
 
-// MECLABS-style motivation copy: name the exact wall the user just hit, not
-// a generic upsell — the reader should recognize their own situation.
+// Name the exact wall the user just hit, not a generic upsell. Benefit-led,
+// no em dashes (see rootah-pro-paywall.md copy principles).
 const TRIGGER_HEADLINE: Record<NonNullable<Props['trigger']>, string> = {
-  route_limit: "You've hit the 5-route limit",
-  gpx_import: 'GPX import is a Pro feature',
-  route_customize: "Customizing someone else's route is a Pro feature",
+  route_limit: "You've outgrown the free plan",
+  gpx_import: 'Your watch is waiting',
+  route_customize: 'Make this route your own',
   group_run_limit: "You're already hosting a run",
-  group_run_join_limit: "You've joined your one free event",
-  leg_distance: 'This leg is longer than the free limit',
-  flyby_video: 'Flyby videos are a Pro feature',
-  direct: 'Get more out of every run',
+  group_run_join_limit: "You've joined your free event",
+  leg_distance: 'Bigger routes need Pro',
+  flyby_video: 'Turn your route into a flyby',
+  direct: 'Run more. Plan further. Own every route.',
 };
 
 const TRIGGER_SUBHEAD: Record<NonNullable<Props['trigger']>, string> = {
-  route_limit: 'Go Pro to save unlimited routes and keep building your collection.',
-  gpx_import: 'Go Pro to bring routes in from Strava, Garmin, and anywhere else.',
-  route_customize: 'Go Pro to remix any public route into your own.',
-  group_run_limit: 'Go Pro to host as many group runs as you want, at once.',
-  group_run_join_limit: 'Go Pro to join unlimited events, any time.',
-  leg_distance: 'Go Pro for legs up to 50km — plan bigger routes.',
-  flyby_video: 'Go Pro to create cinematic flyby videos of your routes.',
-  direct: 'Unlock unlimited routes, unlimited group runs, and room to plan bigger.',
+  route_limit: 'Rootah Pro gives you unlimited saved routes and the full builder, with no limits attached.',
+  gpx_import: 'Rootah Pro lets you bring routes in from Strava, Komoot, or your watch.',
+  route_customize: 'Rootah Pro lets you fork and remix any public route into your own.',
+  group_run_limit: 'Rootah Pro lets you host unlimited group runs with unlimited RSVPs.',
+  group_run_join_limit: 'Rootah Pro lets you join unlimited events, any time.',
+  leg_distance: 'Rootah Pro plans routes with legs up to 50 km.',
+  flyby_video: 'Rootah Pro lets you export cinematic flyby videos of your routes.',
+  direct: 'Rootah Pro gives you the full route-building experience, with no limits attached.',
 };
 
-const DEFAULT_HEADLINE = 'Get more out of every run';
-const DEFAULT_SUBHEAD = 'Unlock unlimited routes, unlimited group runs, and room to plan bigger.';
+const DEFAULT_HEADLINE = 'Run more. Plan further. Own every route.';
+const DEFAULT_SUBHEAD = 'Rootah Pro gives you the full route-building experience, with no limits attached.';
 
 const PRO_BENEFITS = [
-  'Unlimited saved routes — never hit a cap',
-  'Import GPX files from Strava, Garmin, and more',
-  'Host unlimited group runs at once',
-  'Plan longer routes — up to 50km per leg',
-  'Customize and remix any public route',
+  'Unlimited saved routes',
+  'Import routes from Strava, Komoot, or your watch',
+  'Plan longer routes, legs up to 50 km',
+  'Fork and remix any public route',
+  'Host unlimited group runs with unlimited RSVPs',
+  'Grow your run club beyond 25 members',
+  'Recurring weekly and monthly events',
+  'Export flyby videos of your routes',
 ];
 
 function periodLabel(pkg: PurchasesPackage): string {
@@ -100,19 +103,48 @@ function savingsBadge(pkg: PurchasesPackage, packages: PurchasesPackage[]): stri
   return pct > 0 ? `SAVE ${pct}%` : null;
 }
 
-function parseIsoPeriodValue(period: string): number {
-  const match = period.match(/P(\d+)[DWMY]/);
-  return match ? parseInt(match[1], 10) : 1;
-}
+const UNIT_DAYS: Record<string, number> = { DAY: 1, WEEK: 7, MONTH: 30, YEAR: 365 };
 
-const UNIT_WORDS: Record<string, string> = { DAY: 'day', WEEK: 'week', MONTH: 'month', YEAR: 'year' };
-
-function trialLabel(pkg: PurchasesPackage): string | null {
+/** Total days of a free intro offer, or null if the package has no free trial.
+ * App Store Connect represents a 7-day trial as either P1W or P7D, so we
+ * normalise to days rather than trusting the unit word. */
+function introTrialDays(pkg: PurchasesPackage): number | null {
   const intro = pkg.product.introPrice;
   if (!intro || intro.price !== 0) return null;
-  const n = parseIsoPeriodValue(intro.period) * Math.max(intro.cycles, 1);
-  const unitWord = UNIT_WORDS[intro.periodUnit] ?? 'day';
-  return `${n}-${unitWord}${n === 1 ? '' : 's'} free trial`;
+  const perCycle = (intro.periodNumberOfUnits ?? 1) * (UNIT_DAYS[intro.periodUnit] ?? 1);
+  return perCycle * Math.max(intro.cycles ?? 1, 1);
+}
+
+function trialLabel(pkg: PurchasesPackage): string | null {
+  const days = introTrialDays(pkg);
+  if (days == null) return null;
+  return `${days}-day free trial`;
+}
+
+/** e.g. "year", "month" — for the auto-renewal disclosure. */
+function periodWord(pkg: PurchasesPackage): string {
+  switch (pkg.packageType) {
+    case 'ANNUAL': return 'year';
+    case 'SIX_MONTH': return '6 months';
+    case 'THREE_MONTH': return '3 months';
+    case 'TWO_MONTH': return '2 months';
+    case 'WEEKLY': return 'week';
+    default: return 'month';
+  }
+}
+
+/** Apple 3.1.2 / Google disclosure — must state trial length, post-trial
+ * price, that it renews automatically, and where to cancel. Missing or vague
+ * disclosure is a standard first-submission rejection. */
+function finePrintFor(pkg: PurchasesPackage | null): string {
+  if (!pkg) return '';
+  const price = pkg.product.priceString;
+  const per = periodWord(pkg);
+  const days = introTrialDays(pkg);
+  if (days != null) {
+    return `Your ${days}-day free trial starts today. After it ends, ${price} is charged to your Apple ID unless you cancel at least 24 hours before the trial ends. The subscription then renews automatically every ${per} until you cancel. Manage or cancel anytime in your device Settings.`;
+  }
+  return `${price} is charged to your Apple ID at confirmation. The subscription renews automatically every ${per} until you cancel. Manage or cancel anytime in your device Settings.`;
 }
 
 export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
@@ -213,12 +245,12 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
     );
   }
 
-  const selectedTrial = selectedPackage ? trialLabel(selectedPackage) : null;
+  const selectedTrialDays = selectedPackage ? introTrialDays(selectedPackage) : null;
   const ctaLabel = !selectedPackage
-    ? 'CONTINUE'
-    : selectedTrial
-      ? `START ${selectedTrial.toUpperCase()}`
-      : `CONTINUE — ${selectedPackage.product.priceString}`;
+    ? 'Continue'
+    : selectedTrialDays != null
+      ? `Try ${selectedTrialDays} Days Free`
+      : 'Start Rootah Pro';
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
@@ -328,9 +360,11 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
           {purchasing ? <ActivityIndicator color={colors.white} /> : <Text style={styles.ctaButtonText}>{ctaLabel}</Text>}
         </Pressable>
 
+        {selectedPackage && <Text style={styles.finePrint}>{finePrintFor(selectedPackage)}</Text>}
+
         <View style={styles.trustRow}>
           <LockIcon size={12} color={colors.mist} />
-          <Text style={styles.trustText}>Secure payment · Cancel anytime</Text>
+          <Text style={styles.trustText}>Secure payment. Cancel anytime.</Text>
         </View>
 
         <Pressable style={styles.restoreButton} onPress={handleRestore} disabled={restoring || purchasing}>
@@ -588,6 +622,13 @@ const styles = StyleSheet.create({
     color: colors.white,
     lineHeight: 20,
     letterSpacing: 0.2,
+  },
+  finePrint: {
+    fontFamily: fonts.medium,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.mist,
+    textAlign: 'center',
   },
   trustRow: {
     flexDirection: 'row',

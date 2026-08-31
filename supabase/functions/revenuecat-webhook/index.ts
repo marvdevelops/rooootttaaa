@@ -37,11 +37,18 @@ function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-// Events that mean the user is actively subscribed.
+// Events that mean the user has access right now. A free-trial start also
+// arrives as INITIAL_PURCHASE (with period_type "TRIAL"), and a trial
+// converting to paid arrives as RENEWAL — so trials need no special-casing,
+// the user is 'paid' for the whole trial and stays 'paid' when it converts.
 const PAID_EVENTS = new Set(['INITIAL_PURCHASE', 'RENEWAL', 'PRODUCT_CHANGE', 'UNCANCELLATION']);
 
-// Events that mean the subscription is over.
-const FREE_EVENTS = new Set(['CANCELLATION', 'EXPIRATION', 'BILLING_ISSUE']);
+// Events that mean access has actually ended. CANCELLATION is deliberately
+// NOT here — in RevenueCat it only means auto-renew was turned off; the user
+// keeps Pro until the period runs out, which fires EXPIRATION. Downgrading on
+// CANCELLATION would wrongly revoke Pro the moment someone cancels (or the
+// moment they cancel a trial they should keep until day 7).
+const FREE_EVENTS = new Set(['EXPIRATION', 'SUBSCRIPTION_PAUSED']);
 
 serve(async (req) => {
   const authHeader = req.headers.get('Authorization') ?? '';
