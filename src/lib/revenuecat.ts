@@ -180,7 +180,15 @@ export async function getPaywallDiagnostics(): Promise<PaywallDiagnostics> {
     base.currentOfferingId = offerings.current?.identifier ?? null;
     const pkgs = offerings.current?.availablePackages ?? [];
     base.packageCount = pkgs.length;
-    base.productIds = pkgs.map((p) => p.product.identifier);
+    base.productIds = pkgs.map((p) => {
+      // Include the intro-offer shape so we can see exactly what the store is
+      // serving for the free trial (e.g. "1w" vs "2w") without guessing.
+      const i = p.product.introPrice;
+      const trial = i && i.price === 0
+        ? ` [trial ${i.period ?? '?'} · ${i.periodNumberOfUnits ?? '?'}×${i.periodUnit ?? '?'} · ${i.cycles ?? 1}c]`
+        : '';
+      return `${p.product.identifier}${trial}`;
+    });
   } catch (e) {
     base.offeringsError = errText(e);
   }

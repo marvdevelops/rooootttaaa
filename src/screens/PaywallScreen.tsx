@@ -115,13 +115,24 @@ function savingsPercent(pkg: PurchasesPackage, packages: PurchasesPackage[]): nu
 
 const UNIT_DAYS: Record<string, number> = { DAY: 1, WEEK: 7, MONTH: 30, YEAR: 365 };
 
-/** Total days of a free intro offer, or null if the package has no free trial.
- * App Store Connect represents the trial length as an ISO period (P2W, P14D,
- * P1M, …), so normalise to days rather than trusting the unit word. */
+/** "P2W" -> 14, "P14D" -> 14, "P1M" -> 30. StoreKit's `period` string is the
+ * most reliably-populated field; `periodNumberOfUnits` is missing on some SDK
+ * builds, which made a 2-week trial read as "1 week". */
+function parseIsoPeriodDays(p: string): number | null {
+  const m = p.match(/^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)W)?(?:(\d+)D)?$/);
+  if (!m) return null;
+  const n = (i: number) => (m[i] ? parseInt(m[i], 10) : 0);
+  const days = n(1) * 365 + n(2) * 30 + n(3) * 7 + n(4);
+  return days > 0 ? days : null;
+}
+
+/** Total days of a free intro offer, or null if the package has no free trial. */
 function introTrialDays(pkg: PurchasesPackage): number | null {
   const intro = pkg.product.introPrice;
   if (!intro || intro.price !== 0) return null;
-  const perCycle = (intro.periodNumberOfUnits ?? 1) * (UNIT_DAYS[intro.periodUnit] ?? 1);
+  const fromIso = intro.period ? parseIsoPeriodDays(intro.period) : null;
+  const fromUnits = (intro.periodNumberOfUnits ?? 0) * (UNIT_DAYS[intro.periodUnit] ?? 0) || null;
+  const perCycle = fromIso ?? fromUnits ?? 1;
   return perCycle * Math.max(intro.cycles ?? 1, 1);
 }
 
