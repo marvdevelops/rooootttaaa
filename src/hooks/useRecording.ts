@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { LOCATION_TASK } from '../tasks/locationTask';
 import { createSession, getActiveSession, markSessionStatus, deleteSession as dbDeleteSession, setCurrentSessionId } from '../lib/recordingDb';
 import { resetAutoPauseState, startAutoPauseTracking, stopAutoPauseTracking } from '../utils/autoPause';
+import { track } from '../lib/analytics';
 import { useRecordingStore } from '../stores/recordingStore';
 import { ActivityType } from '../types/route';
 import { RecordingSession } from '../types/recording';
@@ -44,6 +45,7 @@ export function useRecording() {
       if (bg !== 'granted') throw new LocationPermissionError('background-denied');
 
       const session = createSession(activityType, routeId ?? null);
+      track('recording_started', { activity_type: activityType, on_route: !!routeId });
       startSession(session.id);
       resetAutoPauseState();
       startAutoPauseTracking();

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { track } from '../lib/analytics';
 import { RouteCompletion, RouteCompletionActivityItem } from '../types/route';
 
 interface CompletionRow {
@@ -115,6 +116,11 @@ export async function logRouteCompletion(
     }
     throw new Error(error.message);
   }
+  track('completion_logged', {
+    route_id: routeId,
+    source: opts.source ?? 'manual',
+    has_duration: opts.durationSeconds != null,
+  });
   return toCompletion(data as CompletionRow);
 }
 

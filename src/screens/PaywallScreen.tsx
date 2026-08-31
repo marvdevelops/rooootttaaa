@@ -13,6 +13,7 @@ import {
 } from '../lib/revenuecat';
 import { colors, elevation, fonts, radii } from '../theme/theme';
 import { getPaywallTrialDaysOverride } from '../utils/appConfigApi';
+import { track } from '../lib/analytics';
 import Purchases from 'react-native-purchases';
 
 export type PaywallTrigger =
@@ -229,6 +230,10 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
     loadOffering();
   }, [loadOffering]);
 
+  useEffect(() => {
+    track('paywall_viewed', { trigger: trigger ?? 'unknown' });
+  }, [trigger]);
+
   const packages = offering?.availablePackages ?? [];
   const selectedPackage = useMemo(
     () => packages.find((p) => p.identifier === selectedId) ?? null,
@@ -241,12 +246,20 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
     try {
       const { customerInfo } = await Purchases.purchasePackage(selectedPackage);
       if (customerInfo.entitlements.active[PRO_ENTITLEMENT_ID]) {
+        track('purchase_completed', {
+          plan: selectedPackage.packageType,
+          product_id: selectedPackage.product.identifier,
+          price: selectedPackage.product.priceString,
+          trigger: trigger ?? 'unknown',
+        });
         await refreshTier();
         onSuccess();
       }
     } catch (e) {
       const cancelled = typeof e === 'object' && e !== null && 'userCancelled' in e && (e as { userCancelled?: boolean }).userCancelled;
-      if (!cancelled) {
+      if (cancelled) {
+        track('purchase_cancelled', { plan: selectedPackage.packageType });
+      } else {
         Alert.alert('Purchase failed', e instanceof Error ? e.message : 'Something went wrong. Please try again.');
       }
     } finally {
@@ -259,6 +272,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
     try {
       const customerInfo = await Purchases.restorePurchases();
       if (customerInfo.entitlements.active[PRO_ENTITLEMENT_ID]) {
+        track('purchase_restored');
         await refreshTier();
         onSuccess();
       } else {

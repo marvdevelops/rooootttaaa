@@ -4,6 +4,7 @@ import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { track } from '../lib/analytics';
 import RecordingMap from '../components/RecordingMap';
 import { BackIcon, ExportIcon, TrashIcon } from '../components/icons';
 import { deleteSession, getRecordingPhotos, getSessionPoints } from '../lib/recordingDb';
@@ -67,6 +68,14 @@ export default function RecordingSummaryScreen({ sessionId, activityType, routeI
     setSaving(true);
     try {
       const { recordedRunId } = await uploadRecording(summary, activityType, routeId, startedAt);
+      track('recording_saved', {
+        activity_type: activityType,
+        on_route: !!routeId,
+        is_race: !!raceRsvpId,
+        distance_km: Math.round((summary.distanceMeters / 1000) * 100) / 100,
+        moving_minutes: Math.round(summary.movingTimeSeconds / 60),
+        photos: photos.length,
+      });
 
       // In-run photos, uploaded after the run row exists so they can link to
       // it. Best-effort — a failed photo shouldn't undo a saved run.

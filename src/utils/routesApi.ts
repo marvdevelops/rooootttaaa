@@ -400,6 +400,7 @@ export async function setRouteSaved(routeId: string, saved: boolean): Promise<vo
   if (saved) {
     const { error } = await supabase.from('route_saves').insert({ route_id: routeId, user_id: userId });
     if (error) throw new Error(error.message);
+    track('route_saved', { route_id: routeId });
   } else {
     const { error } = await supabase
       .from('route_saves')

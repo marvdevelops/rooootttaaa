@@ -477,6 +477,7 @@ export async function setGroupRunRsvp(groupRunId: string, rsvped: boolean): Prom
       }
       throw new Error(error.message);
     }
+    track('group_run_rsvp', { group_run_id: groupRunId });
   } else {
     const { error } = await supabase
       .from('group_run_rsvps')

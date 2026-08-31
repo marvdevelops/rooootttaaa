@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { track } from '../lib/analytics';
 import { ClubMember, ClubMembershipStatus, ClubRole, RunClub } from '../types/club';
 import { ActivityType } from '../types/route';
 import { OFFICIAL_ACCOUNT_ID } from '../constants/officialAccount';
@@ -162,6 +163,7 @@ export async function createClub(input: CreateClubInput): Promise<RunClub> {
     .insert({ club_id: data.id, user_id: userId, role: 'owner', status: 'active' });
   if (membershipError) throw new Error(membershipError.message);
 
+  track('club_created', { is_private: input.isPrivate, activities: input.activities.join(',') });
   return toRunClub(data as ClubRow, userId);
 }
 
@@ -247,6 +249,7 @@ export async function joinClub(clubId: string, isPrivate: boolean): Promise<Club
     if (error.message.includes('currently full')) throw new ClubFullError('This club is currently full.');
     throw new Error(error.message);
   }
+  track('club_joined', { club_id: clubId, status });
   return status;
 }
 
