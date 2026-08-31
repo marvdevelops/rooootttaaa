@@ -103,7 +103,7 @@ export default function CompletionFollowUpSheet({
               ) : (
                 <>
                   <Text style={styles.title}>Nice work!</Text>
-                  <Text style={styles.subtitle}>Logged your run on {routeName}</Text>
+                  <Text style={styles.subtitle}>Logged your activity on {routeName}</Text>
                 </>
               )}
             </View>

@@ -99,6 +99,17 @@ const ACTIVITY_LABELS: Record<ActivityType, string> = {
   other: 'Other',
 };
 
+// Past-tense verb for the "I ___ this" completion log — Rootah routes aren't
+// just for running.
+const ACTIVITY_PAST_VERB: Record<ActivityType, string> = {
+  run: 'ran',
+  trail_run: 'ran',
+  hike: 'hiked',
+  bike: 'rode',
+  walk: 'walked',
+  other: 'did',
+};
+
 export default function RouteDetailScreen({
   route,
   onClose,
@@ -151,6 +162,11 @@ export default function RouteDetailScreen({
   const [completionsExpanded, setCompletionsExpanded] = useState(false);
   const [routeCompletions, setRouteCompletions] = useState<CompletionParticipant[]>([]);
   const [personalBestSeconds, setPersonalBestSeconds] = useState<number | null>(null);
+
+  const pastVerb = ACTIVITY_PAST_VERB[route.activityType];
+  const completionLabel = todayCompletion
+    ? `${pastVerb[0].toUpperCase()}${pastVerb.slice(1)} today`
+    : `I ${pastVerb} this`;
   const [reviewCount, setReviewCount] = useState(route.reviewCount);
   const [ratingSum, setRatingSum] = useState(route.ratingSum);
   const [reviews, setReviews] = useState<RouteReview[]>([]);
@@ -211,7 +227,7 @@ export default function RouteDetailScreen({
         .catch(() => {});
       setShowFollowUp(true);
     } catch (e) {
-      Alert.alert('Error', e instanceof Error ? e.message : 'Could not log your run. Try again.');
+      Alert.alert('Error', e instanceof Error ? e.message : 'Could not log this. Try again.');
     } finally {
       setLoggingCompletion(false);
     }
@@ -726,17 +742,13 @@ export default function RouteDetailScreen({
 
               <View style={styles.glassActionRow}>
                 <Pressable
-                  style={[styles.glassRunButton, todayCompletion && styles.glassRunButtonLogged]}
-                  onPress={() => onRequireAuth(handleLogRun, 'log_completion')}
-                  disabled={loggingCompletion}
+                  style={styles.glassRunButton}
+                  onPress={() => onRequireAuth(() => onRecordRoute(route), 'record')}
                   accessibilityRole="button"
-                  accessibilityLabel={todayCompletion ? 'Logged — ran today' : 'Log that you ran this route'}
+                  accessibilityLabel="Record an activity on this route with GPS"
                 >
-                  {loggingCompletion ? (
-                    <ActivityIndicator color={colors.white} />
-                  ) : (
-                    <Text style={styles.glassRunButtonText}>{todayCompletion ? 'Ran today' : 'I ran this'}</Text>
-                  )}
+                  <RecordIcon size={14} color={colors.white} />
+                  <Text style={styles.glassRunButtonText}>Record an activity</Text>
                 </Pressable>
                 <Pressable
                   style={[styles.glassSaveButton, isSaved && styles.glassSaveButtonActive]}
@@ -875,19 +887,29 @@ export default function RouteDetailScreen({
           />
 
           <Pressable
+            style={styles.recordRunButton}
+            onPress={() => onRequireAuth(() => onRecordRoute(route), 'record')}
+            accessibilityRole="button"
+            accessibilityLabel="Record an activity on this route with GPS"
+          >
+            <RecordIcon size={16} color={colors.white} />
+            <Text style={styles.recordRunButtonText}>Record an activity on this route</Text>
+          </Pressable>
+
+          <Pressable
             style={[styles.runThisButton, todayCompletion && styles.runThisButtonLogged]}
             onPress={handleLogRun}
             disabled={loggingCompletion}
             accessibilityRole="button"
-            accessibilityLabel={todayCompletion ? 'Logged — ran today' : 'Log that you ran this route'}
+            accessibilityLabel={todayCompletion ? `Logged — ${pastVerb} today` : `Log that you ${pastVerb} this route`}
           >
             {loggingCompletion ? (
-              <ActivityIndicator color={colors.sheetBg} />
+              <ActivityIndicator color={colors.ink} />
             ) : (
               <View style={styles.runThisButtonInner}>
-                <CheckIcon size={15} color={todayCompletion ? colors.sage : colors.sheetBg} />
+                <CheckIcon size={15} color={todayCompletion ? colors.sage : colors.stone} />
                 <Text style={[styles.runThisButtonText, todayCompletion && styles.runThisButtonTextLogged]}>
-                  {todayCompletion ? 'Ran today' : 'I ran this'}
+                  {completionLabel}
                 </Text>
               </View>
             )}
@@ -899,16 +921,6 @@ export default function RouteDetailScreen({
               <Text style={styles.pbRowText}>Your best: {formatDuration(personalBestSeconds)}</Text>
             </View>
           )}
-
-          <Pressable
-            style={styles.recordRunButton}
-            onPress={() => onRequireAuth(() => onRecordRoute(route), 'record')}
-            accessibilityRole="button"
-            accessibilityLabel="Record a run on this route with GPS"
-          >
-            <RecordIcon size={15} color={colors.coral} />
-            <Text style={styles.recordRunButtonText}>Record a run on this route</Text>
-          </Pressable>
 
           <View style={styles.actionsRow}>
             <Pressable
@@ -1323,15 +1335,14 @@ const styles = StyleSheet.create({
   },
   glassRunButton: {
     flex: 1,
+    flexDirection: 'row',
+    gap: 7,
     height: 48,
     borderRadius: radii.pill,
     backgroundColor: colors.coral,
     alignItems: 'center',
     justifyContent: 'center',
     ...elevation('primaryBtn'),
-  },
-  glassRunButtonLogged: {
-    backgroundColor: colors.sage,
   },
   glassRunButtonText: {
     fontFamily: fonts.bold,
@@ -1546,24 +1557,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.amber,
   },
   runThisButton: {
-    height: 54,
+    height: 48,
     borderRadius: radii.pill,
-    backgroundColor: colors.sage,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
-    ...elevation('primaryBtn'),
+    ...elevation('subtle'),
   },
   runThisButtonLogged: {
     backgroundColor: colors.sheetBg,
   },
   runThisButtonText: {
-    fontFamily: fonts.extraBold,
-    fontSize: 15,
-    color: colors.surface,
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.ink,
   },
   runThisButtonTextLogged: {
-    color: colors.ink,
+    color: colors.sage,
   },
   pbRow: {
     alignSelf: 'flex-start',
@@ -1586,16 +1597,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    height: 48,
+    height: 54,
     borderRadius: radii.pill,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.coral,
     marginBottom: 10,
-    ...elevation('subtle'),
+    ...elevation('primaryBtn'),
   },
   recordRunButtonText: {
-    fontFamily: fonts.bold,
-    fontSize: 14,
-    color: colors.ink,
+    fontFamily: fonts.extraBold,
+    fontSize: 15,
+    color: colors.white,
   },
   pbRowText: {
     fontFamily: fonts.bold,

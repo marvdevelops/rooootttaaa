@@ -67,7 +67,7 @@ const PRO_BENEFITS = [
   'Plan longer routes, legs up to 50 km',
   'Copy any public route and make it your own',
   'Host unlimited group runs with unlimited RSVPs',
-  'Grow your run club beyond 25 members',
+  'Grow your club beyond 25 members',
   'Recurring weekly and monthly events',
 ];
 

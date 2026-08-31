@@ -184,7 +184,7 @@ export default function RecordingScreen({
           const message =
             e.reason === 'foreground-denied'
               ? 'Rootah needs location access to record. Open Settings and set location access to “While Using the App” or “Always”.'
-              : 'To track your run with the screen off, Rootah needs “Always” location access. Open Settings, tap Location, and choose “Always”.';
+              : 'To track your activity with the screen off, Rootah needs “Always” location access. Open Settings, tap Location, and choose “Always”.';
           Alert.alert('Location access needed', message, [
             { text: 'Not now', style: 'cancel', onPress: onDiscard },
             { text: 'Open Settings', onPress: () => { Linking.openSettings().catch(() => {}); onDiscard(); } },
@@ -458,7 +458,7 @@ export default function RecordingScreen({
 
   const handleFinish = useCallback(() => {
     if (!sessionId) return;
-    Alert.alert('Finish recording?', 'This will end and save your run.', [
+    Alert.alert('Finish recording?', 'This will end and save your activity.', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Finish', style: 'default', onPress: performFinish },
     ]);
