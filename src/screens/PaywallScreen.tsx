@@ -4,7 +4,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { CheckIcon, CloseIcon, LockIcon } from '../components/icons';
 import { useAuth } from '../lib/AuthContext';
-import { getDefaultOffering, isRevenueCatAvailable } from '../lib/revenuecat';
+import {
+  getDefaultOffering,
+  getPaywallDiagnostics,
+  isRevenueCatAvailable,
+  PRO_ENTITLEMENT_ID,
+  type PaywallDiagnostics,
+} from '../lib/revenuecat';
 import { colors, elevation, fonts, radii } from '../theme/theme';
 import Purchases from 'react-native-purchases';
 
@@ -117,9 +123,12 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<PaywallDiagnostics | null>(null);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   const loadOffering = useCallback(() => {
     setLoadingOffering(true);
+    setDiagnostics(null);
     getDefaultOffering()
       .then((o) => {
         setOffering(o);
@@ -128,6 +137,11 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
         if (o && o.availablePackages.length > 0) {
           const annual = o.availablePackages.find((p) => p.packageType === 'ANNUAL');
           setSelectedId((annual ?? o.availablePackages[0]).identifier);
+        }
+        // Empty offering keeps getting us rejected in App Review — when it
+        // happens, pull a full diagnostic so the failure state says *why*.
+        if (!o || o.availablePackages.length === 0) {
+          getPaywallDiagnostics().then(setDiagnostics).catch(() => {});
         }
       })
       .finally(() => setLoadingOffering(false));
@@ -148,7 +162,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
     setPurchasing(true);
     try {
       const { customerInfo } = await Purchases.purchasePackage(selectedPackage);
-      if (customerInfo.entitlements.active['pro']) {
+      if (customerInfo.entitlements.active[PRO_ENTITLEMENT_ID]) {
         await refreshTier();
         onSuccess();
       }
@@ -166,7 +180,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
     setRestoring(true);
     try {
       const customerInfo = await Purchases.restorePurchases();
-      if (customerInfo.entitlements.active['pro']) {
+      if (customerInfo.entitlements.active[PRO_ENTITLEMENT_ID]) {
         await refreshTier();
         onSuccess();
       } else {
@@ -274,6 +288,33 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
             <Pressable style={styles.retryButton} onPress={loadOffering} accessibilityRole="button" accessibilityLabel="Try again">
               <Text style={styles.retryButtonText}>Try again</Text>
             </Pressable>
+            {diagnostics && (
+              <>
+                <Text style={styles.diagSummary}>{diagnostics.summary}</Text>
+                <Pressable onPress={() => setShowDiagnostics((v) => !v)} accessibilityRole="button">
+                  <Text style={styles.diagToggle}>{showDiagnostics ? 'Hide details' : 'Show details'}</Text>
+                </Pressable>
+                {showDiagnostics && (
+                  <Text selectable style={styles.diagBlock}>
+                    {[
+                      `platform: ${diagnostics.platform}`,
+                      `apiKey: ${diagnostics.hasApiKey ? 'present' : 'MISSING'}`,
+                      `configured: ${diagnostics.configured}`,
+                      `entitlementId: ${diagnostics.entitlementId}`,
+                      `appUserId: ${diagnostics.appUserId ?? '—'}`,
+                      `offerings(all): ${diagnostics.offeringCount}`,
+                      `currentOffering: ${diagnostics.currentOfferingId ?? '—'}`,
+                      `packages: ${diagnostics.packageCount}`,
+                      diagnostics.productIds.length ? `productIds: ${diagnostics.productIds.join(', ')}` : null,
+                      diagnostics.configureError ? `configureError: ${diagnostics.configureError}` : null,
+                      diagnostics.offeringsError ? `offeringsError: ${diagnostics.offeringsError}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join('\n')}
+                  </Text>
+                )}
+              </>
+            )}
           </View>
         )}
       </ScrollView>
@@ -401,6 +442,30 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 15,
     color: colors.white,
+  },
+  diagSummary: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: colors.stone,
+    textAlign: 'center',
+    marginTop: 4,
+    paddingHorizontal: 8,
+  },
+  diagToggle: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.mist,
+    textDecorationLine: 'underline',
+  },
+  diagBlock: {
+    fontFamily: 'Courier',
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.stone,
+    backgroundColor: colors.sheetBg,
+    borderRadius: radii.sm,
+    padding: 12,
+    marginTop: 4,
   },
   featureRow: {
     flexDirection: 'row',
