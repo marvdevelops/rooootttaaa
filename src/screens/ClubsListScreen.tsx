@@ -109,6 +109,7 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.filterBar}
         contentContainerStyle={styles.filterRow}
         keyboardShouldPersistTaps="handled"
       >
@@ -134,6 +135,7 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
         </View>
       )}
 
+      <View style={styles.listWrap}>
       {loading ? (
         <View style={styles.loadingWrap}>
           <ActivityIndicator color={colors.coral} />
@@ -221,6 +223,7 @@ export default function ClubsListScreen({ userCity, onClose, onOpenClub, onCreat
           )}
         />
       )}
+      </View>
     </View>
   );
 }
@@ -261,10 +264,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.ink,
   },
+  filterBar: {
+    flexGrow: 0,
+  },
   filterRow: {
     gap: 8,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+  },
+  listWrap: {
+    flex: 1,
   },
   filterChip: {
     paddingHorizontal: 14,
