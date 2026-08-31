@@ -116,8 +116,8 @@ function savingsPercent(pkg: PurchasesPackage, packages: PurchasesPackage[]): nu
 const UNIT_DAYS: Record<string, number> = { DAY: 1, WEEK: 7, MONTH: 30, YEAR: 365 };
 
 /** Total days of a free intro offer, or null if the package has no free trial.
- * App Store Connect represents a 7-day trial as either P1W or P7D, so we
- * normalise to days rather than trusting the unit word. */
+ * App Store Connect represents the trial length as an ISO period (P2W, P14D,
+ * P1M, …), so normalise to days rather than trusting the unit word. */
 function introTrialDays(pkg: PurchasesPackage): number | null {
   const intro = pkg.product.introPrice;
   if (!intro || intro.price !== 0) return null;
@@ -125,10 +125,24 @@ function introTrialDays(pkg: PurchasesPackage): number | null {
   return perCycle * Math.max(intro.cycles ?? 1, 1);
 }
 
+/** "2 weeks" reads better than "14 days" for whole-week trials. Returns a
+ * Title-cased noun phrase for CTAs and an adjective form for running copy. */
+function trialLength(days: number): { noun: string; adj: string } {
+  if (days >= 7 && days % 7 === 0) {
+    const w = days / 7;
+    return { noun: `${w} Week${w === 1 ? '' : 's'}`, adj: `${w}-week` };
+  }
+  if (days % 30 === 0) {
+    const m = days / 30;
+    return { noun: `${m} Month${m === 1 ? '' : 's'}`, adj: `${m}-month` };
+  }
+  return { noun: `${days} Day${days === 1 ? '' : 's'}`, adj: `${days}-day` };
+}
+
 function trialLabel(pkg: PurchasesPackage): string | null {
   const days = introTrialDays(pkg);
   if (days == null) return null;
-  return `${days}-day free trial`;
+  return `${trialLength(days).adj} free trial`;
 }
 
 /** e.g. "year", "month" — for the auto-renewal disclosure. */
@@ -152,7 +166,8 @@ function finePrintFor(pkg: PurchasesPackage | null): string {
   const per = periodWord(pkg);
   const days = introTrialDays(pkg);
   if (days != null) {
-    return `Your ${days}-day free trial starts today. After it ends, ${price} is charged to your Apple ID unless you cancel at least 24 hours before the trial ends. The subscription then renews automatically every ${per} until you cancel. Manage or cancel anytime in your device Settings.`;
+    const { adj } = trialLength(days);
+    return `Your ${adj} free trial starts today. After it ends, ${price} is charged to your Apple ID unless you cancel at least 24 hours before the trial ends. The subscription then renews automatically every ${per} until you cancel. Manage or cancel anytime in your device Settings.`;
   }
   return `${price} is charged to your Apple ID at confirmation. The subscription renews automatically every ${per} until you cancel. Manage or cancel anytime in your device Settings.`;
 }
@@ -259,7 +274,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
   const ctaLabel = !selectedPackage
     ? 'Continue'
     : selectedTrialDays != null
-      ? `Try ${selectedTrialDays} Days Free`
+      ? `Try ${trialLength(selectedTrialDays).noun} Free`
       : 'Start Rootah Pro';
 
   return (
