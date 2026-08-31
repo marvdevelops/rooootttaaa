@@ -50,7 +50,24 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
   const avatar = await inlineImage(profile?.avatarUrl ?? null);
   const bio = (profile?.bio ?? '').trim();
   const bioLine = bio.length > 86 ? `${bio.slice(0, 85)}…` : bio;
-  const hasStats = !!profile && profile.routeCount > 0;
+
+  type Chip = { value: string; label: string; accent?: boolean };
+  const chips: Chip[] = !profile
+    ? []
+    : profile.activityCount > 0
+      ? [
+          { value: `${profile.activityKm.toFixed(0)} km`, label: 'moved', accent: true },
+          { value: String(profile.activityCount), label: profile.activityCount === 1 ? 'activity' : 'activities' },
+          ...(profile.routeCount > 0
+            ? [{ value: String(profile.routeCount), label: profile.routeCount === 1 ? 'route' : 'routes' }]
+            : []),
+        ]
+      : profile.routeCount > 0
+        ? [
+            { value: String(profile.routeCount), label: profile.routeCount === 1 ? 'route' : 'routes' },
+            { value: `${profile.routeDistanceKm.toFixed(0)} km`, label: 'mapped', accent: true },
+          ]
+        : [];
 
   const stat = (value: string, label: string, accent = false) => (
     <div
@@ -194,10 +211,13 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
 
         {/* stats / cta */}
         <div style={{ display: 'flex', gap: 16 }}>
-          {hasStats ? (
+          {chips.length > 0 ? (
             <>
-              {stat(String(profile!.routeCount), profile!.routeCount === 1 ? 'route' : 'routes')}
-              {stat(`${profile!.distanceKm.toFixed(0)} km`, 'mapped', true)}
+              {chips.map((c) => (
+                <div key={c.label} style={{ display: 'flex' }}>
+                  {stat(c.value, c.label, c.accent)}
+                </div>
+              ))}
             </>
           ) : (
             <div

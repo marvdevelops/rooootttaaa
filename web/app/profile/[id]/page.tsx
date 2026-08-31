@@ -14,10 +14,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!profile) return { title: 'Profile not found — Rootah' };
 
   const title = `${profile.username} on Rootah`;
-  const stats = [profile.city, profile.routeCount > 0 ? `${profile.routeCount} routes` : null, profile.distanceKm > 0 ? `${profile.distanceKm.toFixed(0)} km logged` : null]
+  const stats = [
+    profile.city,
+    profile.activityKm > 0 ? `${profile.activityKm.toFixed(0)} km moved` : null,
+    profile.routeCount > 0 ? `${profile.routeCount} routes` : null,
+  ]
     .filter(Boolean)
     .join(' · ');
-  const description = profile.bio ? `${profile.bio}${stats ? ` (${stats})` : ''}` : stats || `${profile.username}'s running routes on Rootah.`;
+  const description = profile.bio ? `${profile.bio}${stats ? ` (${stats})` : ''}` : stats || `${profile.username}'s routes and activities on Rootah.`;
   const path = `/profile/${id}`;
 
   return {
@@ -50,10 +54,32 @@ const MarkPin = ({ size = 13, color = 'var(--stone)' }: { size?: number; color?:
   </svg>
 );
 
+interface Stat {
+  value: string;
+  label: string;
+  accent?: boolean;
+}
+
 export default async function ProfilePage({ params }: Props) {
   const { id } = await params;
   const profile = await getPublicProfile(id);
   if (!profile) notFound();
+
+  const stats: Stat[] =
+    profile.activityCount > 0
+      ? [
+          { value: `${profile.activityKm.toFixed(0)} km`, label: 'Moved', accent: true },
+          { value: String(profile.activityCount), label: profile.activityCount === 1 ? 'Activity' : 'Activities' },
+          ...(profile.routeCount > 0
+            ? [{ value: String(profile.routeCount), label: profile.routeCount === 1 ? 'Route' : 'Routes' }]
+            : []),
+        ]
+      : profile.routeCount > 0
+        ? [
+            { value: String(profile.routeCount), label: profile.routeCount === 1 ? 'Route' : 'Routes' },
+            { value: `${profile.routeDistanceKm.toFixed(0)} km`, label: 'Mapped', accent: true },
+          ]
+        : [];
 
   return (
     <main style={{ minHeight: '100vh', background: 'var(--cream)', position: 'relative', overflow: 'hidden' }}>
@@ -207,58 +233,44 @@ export default async function ProfilePage({ params }: Props) {
           <p style={{ fontSize: 15.5, lineHeight: 1.55, color: 'var(--ink)', margin: 0 }}>{profile.bio}</p>
         )}
 
-        {profile.routeCount > 0 && (
-          <div style={{ display: 'flex', gap: 12 }}>
-            <div
-              style={{
-                flex: 1,
-                background: 'var(--surface)',
-                borderRadius: 'var(--radius-md)',
-                padding: '18px 18px',
-                boxShadow: 'var(--elevation-card)',
-              }}
-            >
-              <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--ink)', margin: 0, letterSpacing: -0.5 }}>
-                {profile.routeCount}
-              </p>
-              <p
+        {stats.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+            {stats.map((s) => (
+              <div
+                key={s.label}
                 style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: 0.8,
-                  textTransform: 'uppercase',
-                  color: 'var(--stone)',
-                  margin: '4px 0 0',
+                  flex: '1 1 120px',
+                  background: s.accent ? 'var(--coral)' : 'var(--surface)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '18px 18px',
+                  boxShadow: s.accent ? 'var(--elevation-primary-btn)' : 'var(--elevation-card)',
                 }}
               >
-                {profile.routeCount === 1 ? 'Route' : 'Routes'}
-              </p>
-            </div>
-            <div
-              style={{
-                flex: 1,
-                background: 'var(--coral)',
-                borderRadius: 'var(--radius-md)',
-                padding: '18px 18px',
-                boxShadow: 'var(--elevation-primary-btn)',
-              }}
-            >
-              <p style={{ fontSize: 26, fontWeight: 800, color: '#fff', margin: 0, letterSpacing: -0.5 }}>
-                {profile.distanceKm.toFixed(0)} km
-              </p>
-              <p
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: 0.8,
-                  textTransform: 'uppercase',
-                  color: 'rgba(255,255,255,0.82)',
-                  margin: '4px 0 0',
-                }}
-              >
-                Mapped
-              </p>
-            </div>
+                <p
+                  style={{
+                    fontSize: 26,
+                    fontWeight: 800,
+                    color: s.accent ? '#fff' : 'var(--ink)',
+                    margin: 0,
+                    letterSpacing: -0.5,
+                  }}
+                >
+                  {s.value}
+                </p>
+                <p
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: 0.8,
+                    textTransform: 'uppercase',
+                    color: s.accent ? 'rgba(255,255,255,0.82)' : 'var(--stone)',
+                    margin: '4px 0 0',
+                  }}
+                >
+                  {s.label}
+                </p>
+              </div>
+            ))}
           </div>
         )}
 

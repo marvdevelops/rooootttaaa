@@ -129,6 +129,8 @@ interface AuthedAppProps {
   onConsumePendingGroupRun: () => void;
   pendingProfileId: string | null;
   onConsumePendingProfile: () => void;
+  pendingClubId: string | null;
+  onConsumePendingClub: () => void;
 }
 
 function AuthedApp({
@@ -138,6 +140,8 @@ function AuthedApp({
   onConsumePendingGroupRun,
   pendingProfileId,
   onConsumePendingProfile,
+  pendingClubId,
+  onConsumePendingClub,
 }: AuthedAppProps) {
   const { session } = useAuth();
   const tier = useUserTier();
@@ -682,6 +686,12 @@ function AuthedApp({
     onConsumePendingProfile();
   }, [pendingProfileId, onConsumePendingProfile, openProfile]);
 
+  useEffect(() => {
+    if (!pendingClubId) return;
+    openClubProfile(pendingClubId);
+    onConsumePendingClub();
+  }, [pendingClubId, onConsumePendingClub, openClubProfile]);
+
   return (
     <View style={styles.container}>
       <DiscoverMapScreen
@@ -1189,6 +1199,7 @@ function Root() {
   const [pendingRouteId, setPendingRouteId] = useState<string | null>(null);
   const [pendingGroupRunId, setPendingGroupRunId] = useState<string | null>(null);
   const [pendingProfileId, setPendingProfileId] = useState<string | null>(null);
+  const [pendingClubId, setPendingClubId] = useState<string | null>(null);
   const [passwordResetDone, setPasswordResetDone] = useState(false);
 
   // Captured here (above the auth gate) so a link tapped while signed out
@@ -1196,6 +1207,11 @@ function Root() {
   useEffect(() => {
     const handleUrl = (url: string | null) => {
       if (!url) return;
+      const clubMatch = url.match(/clubs?\/([^/?#]+)/);
+      if (clubMatch) {
+        setPendingClubId(clubMatch[1]);
+        return;
+      }
       const runMatch = url.match(/runs\/([^/?#]+)/);
       if (runMatch) {
         setPendingGroupRunId(runMatch[1]);
@@ -1241,6 +1257,11 @@ function Root() {
         setPendingGroupRunId(data.run_id);
       } else if (data.type === 'event_announcement' && typeof data.group_run_id === 'string') {
         setPendingGroupRunId(data.group_run_id);
+      } else if (
+        (data.type === 'club_announcement' || data.type === 'club_join_request') &&
+        typeof data.club_id === 'string'
+      ) {
+        setPendingClubId(data.club_id);
       }
     };
 
@@ -1282,6 +1303,8 @@ function Root() {
       onConsumePendingGroupRun={() => setPendingGroupRunId(null)}
       pendingProfileId={pendingProfileId}
       onConsumePendingProfile={() => setPendingProfileId(null)}
+      pendingClubId={pendingClubId}
+      onConsumePendingClub={() => setPendingClubId(null)}
     />
   );
 }
