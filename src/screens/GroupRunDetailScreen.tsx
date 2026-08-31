@@ -427,7 +427,8 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
 
   const handleDelete = useCallback(() => {
     if (!groupRun) return;
-    Alert.alert('Delete this event?', 'This cannot be undone — participants will no longer see it.', [
+    const noun = groupRun.category === 'race' ? 'race' : 'event';
+    Alert.alert(`Delete this ${noun}?`, `This cannot be undone. Participants will no longer see it.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -749,6 +750,19 @@ export default function GroupRunDetailScreen({ groupRunId, onClose, onOpenRoute,
                 {groupRun.isHostedByMe && raceDetails && (
                   <Pressable style={styles.addCategoryButton} onPress={() => onAddDistanceCategory(groupRun, raceDetails)}>
                     <Text style={styles.addCategoryButtonText}>+ Add another distance</Text>
+                  </Pressable>
+                )}
+
+                {groupRun.isHostedByMe && (
+                  <Pressable style={styles.deleteRaceButton} onPress={handleDelete} disabled={deleting}>
+                    {deleting ? (
+                      <ActivityIndicator size="small" color={colors.danger} />
+                    ) : (
+                      <>
+                        <TrashIcon size={15} color={colors.danger} />
+                        <Text style={styles.deleteRaceButtonText}>Delete this race</Text>
+                      </>
+                    )}
                   </Pressable>
                 )}
               </View>
@@ -1390,6 +1404,18 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: colors.coral,
     textDecorationLine: 'underline',
+  },
+  deleteRaceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 14,
+    alignSelf: 'flex-start',
+  },
+  deleteRaceButtonText: {
+    fontFamily: fonts.bold,
+    fontSize: 12.5,
+    color: colors.danger,
   },
   raceActionCard: {
     backgroundColor: colors.surface,

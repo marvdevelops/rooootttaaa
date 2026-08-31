@@ -552,8 +552,14 @@ export async function countMyActiveGroupRuns(): Promise<number> {
 }
 
 export async function cancelGroupRun(id: string): Promise<void> {
-  const { error } = await supabase.from('group_runs').delete().eq('id', id);
+  // .select() is load-bearing — a DELETE that RLS filters to zero rows returns
+  // no error and no data, so without this an unauthorised delete would look
+  // like it succeeded. Now it throws instead.
+  const { data, error } = await supabase.from('group_runs').delete().eq('id', id).select('id');
   if (error) throw new Error(error.message);
+  if (!data || data.length === 0) {
+    throw new Error('You do not have permission to delete this event.');
+  }
 }
 
 interface RsvpEmbedRow {
