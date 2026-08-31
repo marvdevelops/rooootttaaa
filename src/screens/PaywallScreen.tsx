@@ -43,18 +43,18 @@ const TRIGGER_HEADLINE: Record<NonNullable<Props['trigger']>, string> = {
   group_run_limit: "You're already hosting a run",
   group_run_join_limit: "You've joined your free event",
   leg_distance: 'Bigger routes need Pro',
-  flyby_video: 'Turn your route into a flyby',
+  flyby_video: 'Unlock the route fly-through',
   direct: 'Run more. Plan further. Own every route.',
 };
 
 const TRIGGER_SUBHEAD: Record<NonNullable<Props['trigger']>, string> = {
   route_limit: 'Rootah Pro gives you unlimited saved routes and the full builder, with no limits attached.',
   gpx_import: 'Rootah Pro lets you bring routes in from Strava, Komoot, or your watch.',
-  route_customize: 'Rootah Pro lets you fork and remix any public route into your own.',
+  route_customize: 'Rootah Pro lets you copy any public route and edit your own version.',
   group_run_limit: 'Rootah Pro lets you host unlimited group runs with unlimited RSVPs.',
   group_run_join_limit: 'Rootah Pro lets you join unlimited events, any time.',
   leg_distance: 'Rootah Pro plans routes with legs up to 50 km.',
-  flyby_video: 'Rootah Pro lets you export cinematic flyby videos of your routes.',
+  flyby_video: 'Rootah Pro unlocks the cinematic fly-through of any route.',
   direct: 'Rootah Pro gives you the full route-building experience, with no limits attached.',
 };
 
@@ -65,11 +65,10 @@ const PRO_BENEFITS = [
   'Unlimited saved routes',
   'Import routes from Strava, Komoot, or your watch',
   'Plan longer routes, legs up to 50 km',
-  'Fork and remix any public route',
+  'Copy any public route and make it your own',
   'Host unlimited group runs with unlimited RSVPs',
   'Grow your run club beyond 25 members',
   'Recurring weekly and monthly events',
-  'Export flyby videos of your routes',
 ];
 
 function periodLabel(pkg: PurchasesPackage): string {
@@ -93,14 +92,25 @@ function periodLabel(pkg: PurchasesPackage): string {
   }
 }
 
-function savingsBadge(pkg: PurchasesPackage, packages: PurchasesPackage[]): string | null {
+const MONTHS_IN_PACKAGE: Record<string, number> = {
+  ANNUAL: 12, SIX_MONTH: 6, THREE_MONTH: 3, TWO_MONTH: 2, MONTHLY: 1, WEEKLY: 0.25,
+};
+
+/** "SAVE X%" for a longer plan vs. the monthly plan. RevenueCat doesn't
+ * always populate pricePerMonth (older StoreKit), so fall back to deriving
+ * it from the raw price and how many months the package spans. */
+function savingsPercent(pkg: PurchasesPackage, packages: PurchasesPackage[]): number | null {
+  if (pkg.packageType === 'MONTHLY') return null;
   const monthly = packages.find((p) => p.packageType === 'MONTHLY');
-  if (!monthly || pkg.identifier === monthly.identifier) return null;
-  const baseline = monthly.product.pricePerMonth;
-  const thisPerMonth = pkg.product.pricePerMonth;
-  if (!baseline || !thisPerMonth || baseline <= 0) return null;
+  if (!monthly) return null;
+
+  const span = MONTHS_IN_PACKAGE[pkg.packageType] ?? 1;
+  const thisPerMonth = pkg.product.pricePerMonth || (pkg.product.price ? pkg.product.price / span : 0);
+  const baseline = monthly.product.pricePerMonth || monthly.product.price || 0;
+  if (!baseline || !thisPerMonth) return null;
+
   const pct = Math.round((1 - thisPerMonth / baseline) * 100);
-  return pct > 0 ? `SAVE ${pct}%` : null;
+  return pct > 0 ? pct : null;
 }
 
 const UNIT_DAYS: Record<string, number> = { DAY: 1, WEEK: 7, MONTH: 30, YEAR: 365 };
@@ -283,7 +293,7 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
           <View style={styles.packageList}>
             {packages.map((pkg) => {
               const selected = pkg.identifier === selectedId;
-              const badge = savingsBadge(pkg, packages);
+              const savings = savingsPercent(pkg, packages);
               const trial = trialLabel(pkg);
               return (
                 <Pressable
@@ -297,14 +307,17 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
                   <View style={styles.packageInfo}>
                     <View style={styles.packageInfoTopRow}>
                       <Text style={styles.packageTitle}>{periodLabel(pkg)}</Text>
-                      {badge && (
+                      {savings != null && (
                         <View style={styles.savingsBadge}>
-                          <Text style={styles.savingsBadgeText}>{badge}</Text>
+                          <Text style={styles.savingsBadgeText}>SAVE {savings}%</Text>
                         </View>
                       )}
                     </View>
                     {trial ? (
-                      <Text style={styles.packageTrial}>{trial}, then {pkg.product.priceString}</Text>
+                      <Text style={styles.packageTrial}>
+                        {trial}, then {pkg.product.priceString}
+                        {pkg.product.pricePerMonthString && pkg.packageType !== 'MONTHLY' ? ` (${pkg.product.pricePerMonthString}/mo)` : ''}
+                      </Text>
                     ) : pkg.product.pricePerMonthString && pkg.packageType !== 'MONTHLY' ? (
                       <Text style={styles.packageSubprice}>{pkg.product.pricePerMonthString}/mo</Text>
                     ) : null}
@@ -573,14 +586,15 @@ const styles = StyleSheet.create({
     color: colors.ink,
   },
   savingsBadge: {
-    backgroundColor: colors.amber,
+    backgroundColor: colors.coral,
     borderRadius: 6,
-    paddingHorizontal: 6,
+    paddingHorizontal: 7,
     paddingVertical: 2,
   },
   savingsBadgeText: {
     fontFamily: fonts.bold,
     fontSize: 10,
+    letterSpacing: 0.3,
     color: colors.white,
   },
   packageTrial: {
