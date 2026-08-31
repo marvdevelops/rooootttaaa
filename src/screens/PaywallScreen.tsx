@@ -180,11 +180,11 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
           const annual = o.availablePackages.find((p) => p.packageType === 'ANNUAL');
           setSelectedId((annual ?? o.availablePackages[0]).identifier);
         }
-        // Empty offering keeps getting us rejected in App Review — when it
-        // happens, pull a full diagnostic so the failure state says *why*.
-        if (!o || o.availablePackages.length === 0) {
-          getPaywallDiagnostics().then(setDiagnostics).catch(() => {});
-        }
+        // Always pull a diagnostic (offering ids, package ids, product ids,
+        // raw errors). Shown automatically when nothing loads; also reachable
+        // via a long-press on the eyebrow so we can inspect a *partial*
+        // offering (e.g. monthly present, annual missing) without a build.
+        getPaywallDiagnostics().then(setDiagnostics).catch(() => {});
       })
       .finally(() => setLoadingOffering(false));
   }, []);
@@ -272,9 +272,32 @@ export default function PaywallScreen({ trigger, onClose, onSuccess }: Props) {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.eyebrow}>ROOTAH PRO</Text>
+        <Pressable onLongPress={() => setShowDiagnostics((v) => !v)} delayLongPress={600}>
+          <Text style={styles.eyebrow}>ROOTAH PRO</Text>
+        </Pressable>
         <Text style={styles.title}>{trigger ? TRIGGER_HEADLINE[trigger] : DEFAULT_HEADLINE}</Text>
         <Text style={styles.subheadline}>{trigger ? TRIGGER_SUBHEAD[trigger] : DEFAULT_SUBHEAD}</Text>
+
+        {showDiagnostics && diagnostics && (
+          <Text selectable style={styles.diagBlock}>
+            {[
+              `summary: ${diagnostics.summary}`,
+              `platform: ${diagnostics.platform}`,
+              `apiKey: ${diagnostics.hasApiKey ? 'present' : 'MISSING'}`,
+              `configured: ${diagnostics.configured}`,
+              `entitlementId: ${diagnostics.entitlementId}`,
+              `appUserId: ${diagnostics.appUserId ?? '—'}`,
+              `offerings(all): ${diagnostics.offeringCount}`,
+              `currentOffering: ${diagnostics.currentOfferingId ?? '—'}`,
+              `packages: ${diagnostics.packageCount}`,
+              `productIds: ${diagnostics.productIds.join(', ') || '—'}`,
+              diagnostics.configureError ? `configureError: ${diagnostics.configureError}` : null,
+              diagnostics.offeringsError ? `offeringsError: ${diagnostics.offeringsError}` : null,
+            ]
+              .filter(Boolean)
+              .join('\n')}
+          </Text>
+        )}
 
         <View style={styles.featureList}>
           {PRO_BENEFITS.map((feature) => (
